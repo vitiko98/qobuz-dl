@@ -1,0 +1,5 @@
+pathvalidate==2.3.0
+requests==2.24.0
+mutagen==1.45.1
+tqdm==4.48.2
+pick==0.6.7
