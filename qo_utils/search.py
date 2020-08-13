@@ -1,6 +1,4 @@
 import time
-import sys
-from pick import pick
 
 
 class Search:
@@ -41,16 +39,3 @@ class Search:
         self.itResults(self.Albums)
         if tracks:
             self.itResults(self.Tracks)
-
-    def pickResults(self):
-        title = ('Select [space] the item(s) you want to download '
-                 '(one or more)\nPress Ctrl + c to quit\n')
-        quality = ('Select [intro] the quality (the quality will be automat'
-                   'ically\ndowngraded if the selected is not found)')
-        Qualitys = ['Lossless', 'Hi-res =< 96kHz', 'Hi-Res > 96 kHz']
-        try:
-            self.Selected = pick(self.Total, title,
-                                 multiselect=True, min_selection_count=1)
-            self.quality = pick(Qualitys, quality)
-        except KeyboardInterrupt:
-            sys.exit('Bye')

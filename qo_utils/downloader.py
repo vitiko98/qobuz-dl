@@ -36,11 +36,16 @@ def getCover(i, dirn):
 
 
 # Download and tag a file
-def downloadItem(dirn, count, parse, meta, album, url, is_track):
-    fname = '{}/{:02}.flac'.format(dirn, count)
+def downloadItem(dirn, count, parse, meta, album, url, is_track, mp3):
+    if mp3:
+        fname = '{}/{:02}.mp3'.format(dirn, count)
+        func = metadata.tag_mp3
+    else:
+        fname = '{}/{:02}.flac'.format(dirn, count)
+        func = metadata.tag_flac
     desc = getDesc(parse, meta)
     req_tqdm(url, fname, desc)
-    metadata.iterateTag(fname, dirn, meta, album, is_track)
+    func(fname, dirn, meta, album, is_track)
 
 
 # Iterate over IDs by type calling downloadItem
@@ -60,17 +65,20 @@ def iterateIDs(client, id, path, quality, album=False):
             parse = client.get_track_url(i['id'], quality)
             url = parse['url']
 
-            if 'sample' not in parse and '.mp3' not in parse:
-                downloadItem(dirn, count, parse, i, meta, url, False)
+            if 'sample' not in parse:
+                if int(quality) == 5:
+                    downloadItem(dirn, count, parse, i, meta, url, False, True)
+                else:
+                    downloadItem(dirn, count, parse, i, meta, url, False, False)
             else:
-                print('Demo or MP3. Skipping')
+                print('Demo. Skipping')
 
             count = count + 1
     else:
         parse = client.get_track_url(id, quality)
         url = parse['url']
 
-        if 'sample' not in parse and '.mp3' not in parse:
+        if 'sample' not in parse:
             meta = client.get_track_meta(id)
             print('\nDownloading: {}\n'.format(meta['title']))
             dirT = (meta['album']['artist']['name'],
@@ -79,8 +87,11 @@ def iterateIDs(client, id, path, quality, album=False):
             dirn = path + '{} - {} [{}]'.format(*dirT)
             mkDir(dirn)
             getCover(meta['album']['image']['large'], dirn)
-            downloadItem(dirn, count, parse, meta, meta, url, True)
+            if int(quality) == 5:
+                downloadItem(dirn, count, parse, i, meta, url, False, True)
+            else:
+                downloadItem(dirn, count, parse, i, meta, url, False, False)
         else:
-            print('Demo or MP3. Skipping')
+            print('Demo. Skipping')
 
     print('\nCompleted\n')
