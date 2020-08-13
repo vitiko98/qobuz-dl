@@ -51,7 +51,7 @@ optional arguments:
   -h, --help  show this help message and exit
   -a          enable albums-only search
   -i          run Qo-Dl-curses on URL input mode
-  -q int      FLAC quality (5, 6, 7, 27) (default: 6) [320, LOSSLESS, 24B <96KHZ, 24B >96KHZ]
+  -q int      quality (5, 6, 7, 27) (default: 6) [320, LOSSLESS, 24B <96KHZ, 24B >96KHZ]
   -l int      limit of search results by type (default: 10)
   -d PATH     custom directory for downloads
 ```

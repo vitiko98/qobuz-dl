@@ -17,7 +17,7 @@ def getArgs():
     parser.add_argument("-i", action="store_true",
                         help="run Qo-Dl-curses on URL input mode")
     parser.add_argument("-q", metavar="int", default=6,
-                        help="audioquality (5, 6, 7, 27) (default: 6)")
+                        help="quality (5, 6, 7, 27) (default: 6)")
     parser.add_argument("-l", metavar="int", default=10,
                         help="limit of search results by type (default: 10)")
     parser.add_argument("-d", metavar="PATH", default='Qobuz Downloads',
