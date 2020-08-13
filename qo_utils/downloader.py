@@ -88,9 +88,9 @@ def iterateIDs(client, id, path, quality, album=False):
             mkDir(dirn)
             getCover(meta['album']['image']['large'], dirn)
             if int(quality) == 5:
-                downloadItem(dirn, count, parse, i, meta, url, False, True)
+                downloadItem(dirn, count, parse, meta, meta, url, True, True)
             else:
-                downloadItem(dirn, count, parse, i, meta, url, False, False)
+                downloadItem(dirn, count, parse, meta, meta, url, True, False)
         else:
             print('Demo. Skipping')
 

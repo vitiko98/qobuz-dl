@@ -49,11 +49,11 @@ def searchSelected(Qz, path, albums, ids, types, quality):
     q = ['5', '6', '7', '27']
     quality = q[quality[1]]
     for alb, id_, type_ in zip(albums, ids, types):
-        for i in alb:
-            if type_[i[1]]:
-                downloader.iterateIDs(Qz, id_[i[1]], path, quality, True)
+        for al in alb:
+            if type_[al[1]]:
+                downloader.iterateIDs(Qz, id_[al[1]], path, quality, True)
             else:
-                downloader.iterateIDs(Qz, id_[i[1]], path, quality, False)
+                downloader.iterateIDs(Qz, id_[al[1]], path, quality, False)
 
 
 def fromUrl(Qz, path, link, quality):
