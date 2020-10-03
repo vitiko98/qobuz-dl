@@ -35,6 +35,11 @@ class Client:
         elif epoint == "album/get?":
             params={
                 "album_id": kwargs['id']}
+        elif epoint == "playlist/get?":
+            params={
+                "playlist_id": kwargs['id'],
+                "extra": "tracks",
+                "limit": 1000}
         elif epoint == "track/search?":
             params={
                 "query": kwargs['query'],
@@ -91,6 +96,9 @@ class Client:
 
     def get_album_meta(self, id):
         return self.api_call('album/get?', id=id)
+
+    def get_playlist_meta(self, id):
+        return self.api_call('playlist/get?', id=id)
 
     def get_track_meta(self, id):
         return self.api_call('track/get?', id=id)

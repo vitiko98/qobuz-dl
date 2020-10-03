@@ -31,12 +31,13 @@ def getDesc(u, mt):
     return '{} [{}/{}]'.format(mt['title'], u['bit_depth'], u['sampling_rate'])
 
 
-def getCover(i, dirn):
+def getCover(i, dirn, id):
+    # req_tqdm(i, dirn + f'/{id}.jpg', 'Downloading cover art')
     req_tqdm(i, dirn + '/cover.jpg', 'Downloading cover art')
 
 
 # Download and tag a file
-def downloadItem(dirn, count, parse, meta, album, url, is_track, mp3):
+def downloadItem(dirn, count, parse, meta, album, url, type, mp3, *arg):
     if mp3:
         fname = '{}/{:02}.mp3'.format(dirn, count)
         func = metadata.tag_mp3
@@ -45,14 +46,14 @@ def downloadItem(dirn, count, parse, meta, album, url, is_track, mp3):
         func = metadata.tag_flac
     desc = getDesc(parse, meta)
     req_tqdm(url, fname, desc)
-    func(fname, dirn, meta, album, is_track)
+    func(fname, dirn, meta, album, type, arg[0])
 
 
 # Iterate over IDs by type calling downloadItem
-def iterateIDs(client, id, path, quality, album=False):
+def iterateIDs(client, id, path, quality, type='track'):
     count = 0
 
-    if album:
+    if type=='album':
         meta = client.get_album_meta(id)
         print('\nDownloading: {}\n'.format(meta['title']))
         dirT = (meta['artist']['name'],
@@ -60,21 +61,42 @@ def iterateIDs(client, id, path, quality, album=False):
                 meta['release_date_original'].split('-')[0])
         dirn = path + '{} - {} [{}]'.format(*dirT)
         mkDir(dirn)
-        getCover(meta['image']['large'], dirn)
+        
         for i in meta['tracks']['items']:
             parse = client.get_track_url(i['id'], quality)
             url = parse['url']
 
             if 'sample' not in parse:
                 if int(quality) == 5:
-                    downloadItem(dirn, count, parse, i, meta, url, False, True)
+                    downloadItem(dirn, count, parse, i, meta, url, "album", True)
                 else:
-                    downloadItem(dirn, count, parse, i, meta, url, False, False)
+                    downloadItem(dirn, count, parse, i, meta, url, "album", False)
             else:
                 print('Demo. Skipping')
 
             count = count + 1
-    else:
+    
+    elif type=='playlist':
+        meta = client.get_playlist_meta(id)
+        print('\nDownloading: {}\n'.format(meta['name']))
+        dirn = path + '{}'.format(meta['name'])
+        mkDir(dirn)
+        for i in meta['tracks']['items']:
+            getCover(i['album']['image']['large'], dirn, i['album']['id'])
+            parse = client.get_track_url(i['id'], quality,)
+            url = parse['url']
+
+            if 'sample' not in parse:
+                if int(quality) == 5:
+                    downloadItem(dirn, count, parse, i, meta, url, "playlist", True, count)
+                else:
+                    downloadItem(dirn, count, parse, i, meta, url, "playlist", False, count)
+            else:
+                print('Demo. Skipping')
+
+            count = count + 1
+
+    elif type=='track':
         parse = client.get_track_url(id, quality)
         url = parse['url']
 
@@ -86,11 +108,11 @@ def iterateIDs(client, id, path, quality, album=False):
                     meta['album']['release_date_original'].split('-')[0])
             dirn = path + '{} - {} [{}]'.format(*dirT)
             mkDir(dirn)
-            getCover(meta['album']['image']['large'], dirn)
+            getCover(meta['album']['image']['large'], dirn, meta['id'])
             if int(quality) == 5:
-                downloadItem(dirn, count, parse, meta, meta, url, True, True)
+                downloadItem(dirn, count, parse, meta, meta, url, "track", True)
             else:
-                downloadItem(dirn, count, parse, meta, meta, url, True, False)
+                downloadItem(dirn, count, parse, meta, meta, url, "track", False)
         else:
             print('Demo. Skipping')
 
