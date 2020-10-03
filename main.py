@@ -16,8 +16,8 @@ def getArgs():
                         help="enable albums-only search")
     parser.add_argument("-i", action="store_true",
                         help="run Qo-Dl-curses on URL input mode")
-    parser.add_argument("-q", metavar="int", default=6,
-                        help="quality (5, 6, 7, 27) (default: 6)")
+    parser.add_argument("-q", metavar="int", default=27,
+                        help="quality (5, 6, 7, 27) (default: 27)")
     parser.add_argument("-l", metavar="int", default=10,
                         help="limit of search results by type (default: 10)")
     parser.add_argument("-d", metavar="PATH", default='Qobuz Downloads',
@@ -41,13 +41,13 @@ def musicDir(dir):
 
 def get_id(url):
     return re.match(r'https?://(?:w{0,3}|play|open)\.qobuz\.com/(?:(?'
-                    ':album|track)/|[a-z]{2}-[a-z]{2}/album/-?\w+(?:-\w+)'
+                    ':album|track|playlist)/|[a-z]{2}-[a-z]{2}/album/-?\w+(?:-\w+)'
                     '*-?/|user/library/favorites/)(\w+)', url).group(1)
 
 
 def searchSelected(Qz, path, albums, ids, types, quality):
     q = ['5', '6', '7', '27']
-    quality = q[quality[1]]
+    quality = q[quality[3]]
     for alb, id_, type_ in zip(albums, ids, types):
         for al in alb:
             if type_[al[1]]:
@@ -59,10 +59,13 @@ def searchSelected(Qz, path, albums, ids, types, quality):
 def fromUrl(Qz, path, link, quality):
     if '/track/' in link:
         id = get_id(link)
-        downloader.iterateIDs(Qz, id, path, quality, False)
+        downloader.iterateIDs(Qz, id, path, quality, 'track')
+    elif '/playlist/' in link:
+        id = get_id(link)
+        downloader.iterateIDs(Qz, id, path, quality, 'playlist')
     else:
         id = get_id(link)
-        downloader.iterateIDs(Qz, id, path, quality, True)
+        downloader.iterateIDs(Qz, id, path, quality, 'album')
 
 
 def interactive(Qz, path, limit, tracks=True):
@@ -102,7 +105,7 @@ def interactive(Qz, path, limit, tracks=True):
 def inputMode(Qz, path, quality):
     while True:
         try:
-            link = input("\nAlbum/track URL: [Ctrl + c to quit]\n- ")
+            link = input("\nAlbum/track/playlist URL: [Ctrl + c to quit]\n- ")
             fromUrl(Qz, path, link, quality)
         except KeyboardInterrupt:
             sys.exit('\nBye')
