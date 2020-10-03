@@ -67,7 +67,7 @@ def tag_flac(file, path, d, album, type, *arg):
     audio.save()
     title = sanitize_filename(d['title'])
     if type=="playlist":
-        os.rename(file, '{}/{:02}. {}.flac'.format(path, arg[0], title))
+        os.rename(file, '{}/{:02}. {}.flac'.format(path, arg[0]+1, title))
     else:
         os.rename(file, '{}/{:02}. {}.flac'.format(path, d['track_number'], title))
     os.remove('{}/cover.png'.format(path))
