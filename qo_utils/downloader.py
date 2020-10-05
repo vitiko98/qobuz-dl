@@ -1,6 +1,7 @@
 import os
 import requests
 from qo_utils import metadata
+from pathvalidate import sanitize_filename
 from tqdm import tqdm
 
 
@@ -58,7 +59,8 @@ def iterateIDs(client, id, path, quality, album=False):
         dirT = (meta['artist']['name'],
                 meta['title'],
                 meta['release_date_original'].split('-')[0])
-        dirn = path + '{} - {} [{}]'.format(*dirT)
+        sanitized_title = sanitize_filename('{} - {} [{}]'.format(*dirT))
+        dirn = path + sanitized_title
         mkDir(dirn)
         getCover(meta['image']['large'], dirn)
         for i in meta['tracks']['items']:
@@ -84,7 +86,8 @@ def iterateIDs(client, id, path, quality, album=False):
             dirT = (meta['album']['artist']['name'],
                     meta['title'],
                     meta['album']['release_date_original'].split('-')[0])
-            dirn = path + '{} - {} [{}]'.format(*dirT)
+            sanitized_title = sanitize_filename('{} - {} [{}]'.format(*dirT))
+            dirn = path + sanitized_title
             mkDir(dirn)
             getCover(meta['album']['image']['large'], dirn)
             if int(quality) == 5:
