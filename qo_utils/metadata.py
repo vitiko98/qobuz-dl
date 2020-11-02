@@ -38,7 +38,10 @@ def tag_flac(file, path, d, album, istrack=True):
 
     audio.save()
     title = sanitize_filename(d["title"])
-    os.rename(file, "{}/{:02}. {}.flac".format(path, d["track_number"], title))
+    try:
+        os.rename(file, "{}/{:02}. {}.flac".format(path, d["track_number"], title))
+    except FileExistsError:
+        print("File already exists. Skipping...")
 
 
 def tag_mp3(file, path, d, album, istrack=True):
@@ -71,4 +74,7 @@ def tag_mp3(file, path, d, album, istrack=True):
 
     audio.save()
     title = sanitize_filename(d["title"])
-    os.rename(file, "{}/{:02}. {}.mp3".format(path, d["track_number"], title))
+    try:
+        os.rename(file, "{}/{:02}. {}.mp3".format(path, d["track_number"], title))
+    except FileExistsError:
+        print("File already exists. Skipping...")
