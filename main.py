@@ -1,14 +1,12 @@
 import argparse
-import itertools
-import json
 import os
 import re
 import sys
 
 from pick import pick
 
-from qo_utils import qopy
-from qo_utils import downloader
+import config
+from qo_utils import downloader, qopy
 from qo_utils.search import Search
 
 
@@ -16,31 +14,31 @@ def getArgs():
     parser = argparse.ArgumentParser(prog="python3 main.py")
     parser.add_argument("-a", action="store_true", help="enable albums-only search")
     parser.add_argument(
-        "-i", action="store_true", help="run Qo-Dl-curses on URL input mode"
+        "-i",
+        metavar="Album/track URL",
+        help="run Qobuz-Dl on URL input mode (download by url)",
     )
     parser.add_argument(
-        "-q", metavar="int", default=6, help="quality (5, 6, 7, 27) (default: 6)"
+        "-q",
+        metavar="int",
+        default=config.default_quality,
+        help="quality for url input mode (5, 6, 7, 27) (default: 6)",
     )
     parser.add_argument(
         "-l",
         metavar="int",
-        default=10,
+        default=config.default_limit,
         help="limit of search results by type (default: 10)",
     )
     parser.add_argument(
         "-d",
         metavar="PATH",
-        default="Qobuz Downloads",
-        help="custom directory for downloads",
+        default=config.default_folder,
+        help="custom directory for downloads (default: '{}')".format(
+            config.default_folder
+        ),
     )
     return parser.parse_args()
-
-
-def getSession():
-    print("Logging...")
-    with open("config.json") as f:
-        config = json.load(f)
-    return qopy.Client(config["email"], config["password"])
 
 
 def musicDir(dir):
@@ -64,19 +62,16 @@ def searchSelected(Qz, path, albums, ids, types, quality):
     quality = q[quality[1]]
     for alb, id_, type_ in zip(albums, ids, types):
         for al in alb:
-            if type_[al[1]]:
-                downloader.iterateIDs(Qz, id_[al[1]], path, quality, True)
-            else:
-                downloader.iterateIDs(Qz, id_[al[1]], path, quality, False)
+            downloader.iterateIDs(
+                Qz, id_[al[1]], path, quality, True if type_[al[1]] else False
+            )
 
 
 def fromUrl(Qz, path, link, quality):
-    if "/track/" in link:
-        id = get_id(link)
-        downloader.iterateIDs(Qz, id, path, quality, False)
-    else:
-        id = get_id(link)
-        downloader.iterateIDs(Qz, id, path, quality, True)
+    id = get_id(link)
+    downloader.iterateIDs(
+        Qz, id, path, str(quality), False if "/track/" in link else True
+    )
 
 
 def interactive(Qz, path, limit, tracks=True):
@@ -118,23 +113,14 @@ def interactive(Qz, path, limit, tracks=True):
             sys.exit("\nBye")
 
 
-def inputMode(Qz, path, quality):
-    while True:
-        try:
-            link = input("\nAlbum/track URL: [Ctrl + c to quit]\n- ")
-            fromUrl(Qz, path, link, quality)
-        except KeyboardInterrupt:
-            sys.exit("\nBye")
-
-
 def main():
     arguments = getArgs()
     directory = musicDir(arguments.d) + "/"
-    Qz = getSession()
+    Qz = qopy.Client(config.email, config.password)
     if not arguments.i:
         interactive(Qz, directory, arguments.l, not arguments.a)
     else:
-        inputMode(Qz, directory, arguments.q)
+        fromUrl(Qz, directory, arguments.i, arguments.q)
 
 
 if __name__ == "__main__":

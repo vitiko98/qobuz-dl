@@ -27,12 +27,10 @@ pip3 install -r requirements.txt --user
 pip3 install windows-curses
 pip3 install -r requirements.txt
 ```
-#### Add your credentials to `config.json`
-```json
-{
-	"email": "",
-	"password": ""
-}
+#### Add your credentials to `config.py`
+```python
+email = "your@email.com"
+password = "your_password"
 ```
 #### Run Qobuz-DL
 ##### Linux / MAC OS
@@ -53,7 +51,7 @@ optional arguments:
   -i          run Qo-Dl-curses on URL input mode
   -q int      quality (5, 6, 7, 27) (default: 6) [320, LOSSLESS, 24B <96KHZ, 24B >96KHZ]
   -l int      limit of search results by type (default: 10)
-  -d PATH     custom directory for downloads
+  -d PATH     custom directory for downloads (default: 'Qobuz Downloads')
 ```
 ## A note about Qo-DL
 `Qobuz-DL` is inspired in the discontinued Qo-DL-Reborn. This program uses two modules from Qo-DL: `qopy` and `spoofer`, both written by Sorrow446 and DashLt.

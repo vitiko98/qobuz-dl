@@ -8,12 +8,8 @@ import time
 import requests
 
 from qo_utils import spoofbuz
-from qo_utils.exceptions import (
-    AuthenticationError,
-    IneligibleError,
-    InvalidAppIdError,
-    InvalidAppSecretError,
-)
+from qo_utils.exceptions import (AuthenticationError, IneligibleError,
+                                 InvalidAppIdError, InvalidAppSecretError)
 
 
 class Client:
