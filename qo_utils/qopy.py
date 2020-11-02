@@ -8,7 +8,7 @@ import time
 import requests
 
 from qo_utils import spoofbuz
-from qopy.exceptions import (
+from qo_utils.exceptions import (
     AuthenticationError,
     IneligibleError,
     InvalidAppIdError,

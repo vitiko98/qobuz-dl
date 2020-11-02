@@ -7,7 +7,7 @@ import sys
 
 from pick import pick
 
-import qopy
+from qo_utils import qopy
 from qo_utils import downloader
 from qo_utils.search import Search
 
