@@ -9,7 +9,7 @@ Seach and download Lossless and Hi-Res music from [Qobuz](https://www.qobuz.com/
 * Download FLAC and MP3 files from Qobuz
 * Search and download music directly from your terminal with interactive mode
 * Queue support
-* Input url mode with download support for albums, tracks, artists, playlists and labels
+* URL input mode with download support for albums, tracks, artists, playlists and labels
 
 ## Getting started
 
