@@ -8,8 +8,12 @@ import time
 import requests
 
 from qo_utils import spoofbuz
-from qo_utils.exceptions import (AuthenticationError, IneligibleError,
-                                 InvalidAppIdError, InvalidAppSecretError)
+from qo_utils.exceptions import (
+    AuthenticationError,
+    IneligibleError,
+    InvalidAppIdError,
+    InvalidAppSecretError,
+)
 
 
 class Client:
@@ -43,6 +47,28 @@ class Client:
             params = {"query": kwargs["query"], "limit": kwargs["limit"]}
         elif epoint == "album/search?":
             params = {"query": kwargs["query"], "limit": kwargs["limit"]}
+        elif epoint == "playlist/get?":
+            params = {
+                "extra": "tracks",
+                "playlist_id": kwargs["id"],
+                "limit": 500,
+                "offset": kwargs["offset"],
+            }
+        elif epoint == "artist/get?":
+            params = {
+                "app_id": self.id,
+                "artist_id": kwargs["id"],
+                "limit": 500,
+                "offset": kwargs["offset"],
+                "extra": "albums",
+            }
+        elif epoint == "label/get?":
+            params = {
+                "label_id": kwargs["id"],
+                "limit": 500,
+                "offset": kwargs["offset"],
+                "extra": "albums",
+            }
         elif epoint == "userLibrary/getAlbumsList?":
             unix = time.time()
             r_sig = "userLibrarygetAlbumsList" + str(unix) + kwargs["sec"]
@@ -92,6 +118,22 @@ class Client:
         self.label = usr_info["user"]["credential"]["parameters"]["short_label"]
         print("Membership: {}".format(self.label))
 
+    def multi_meta(self, epoint, key, id, type):
+        total = 1
+        offset = 0
+        while total > 0:
+            if type in ["tracks", "albums"]:
+                j = self.api_call(epoint, id=id, offset=offset, type=type)[type]
+            else:
+                j = self.api_call(epoint, id=id, offset=offset, type=type)
+            if offset == 0:
+                yield j
+                total = j[key] - 500
+            else:
+                yield j
+                total -= 500
+            offset += 500
+
     def get_album_meta(self, id):
         return self.api_call("album/get?", id=id)
 
@@ -100,6 +142,15 @@ class Client:
 
     def get_track_url(self, id, fmt_id):
         return self.api_call("track/getFileUrl?", id=id, fmt_id=fmt_id)
+
+    def get_artist_meta(self, id):
+        return self.multi_meta("artist/get?", "albums_count", id, None)
+
+    def get_plist_meta(self, id):
+        return self.multi_meta("playlist/get?", "tracks_count", id, None)
+
+    def get_label_meta(self, id):
+        return self.multi_meta("label/get?", "albums_count", id, None)
 
     def search_albums(self, query, limit):
         return self.api_call("album/search?", query=query, limit=limit)

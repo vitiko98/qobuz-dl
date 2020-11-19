@@ -50,9 +50,8 @@ def musicDir(dir):
 
 def get_id(url):
     return re.match(
-        r"https?://(?:w{0,3}|play|open)\.qobuz\.com/(?:(?"
-        ":album|track)/|[a-z]{2}-[a-z]{2}/album/-?\w+(?:-\w+)"
-        "*-?/|user/library/favorites/)(\w+)",
+        r"https?://(?:w{0,3}|play|open)\.qobuz\.com/(?:(?:album|track|artist"
+        "|playlist|label)/|[a-z]{2}-[a-z]{2}/album/-?\w+(?:-\w+)*-?/|user/library/favorites/)(\w+)",
         url,
     ).group(1)
 
@@ -67,11 +66,41 @@ def searchSelected(Qz, path, albums, ids, types, quality):
             )
 
 
-def fromUrl(Qz, path, link, quality):
-    id = get_id(link)
-    downloader.iterateIDs(
-        Qz, id, path, str(quality), False if "/track/" in link else True
-    )
+def fromUrl(Qz, id, path, quality, album=True):
+    downloader.iterateIDs(Qz, id, path, str(quality), album)
+
+
+def handle_urls(url, client, path, quality):
+    possibles = {
+        "playlist": {"func": client.get_plist_meta, "iterable_key": "tracks"},
+        "artist": {"func": client.get_artist_meta, "iterable_key": "albums"},
+        "label": {"func": client.get_label_meta, "iterable_key": "albums"},
+        "album": {"album": True, "func": None, "iterable_key": None},
+        "track": {"album": False, "func": None, "iterable_key": None},
+    }
+    try:
+        url_type = url.split("/")[3]
+        type_dict = possibles[url_type]
+        item_id = get_id(url)
+        print("Downloading {}...".format(url_type))
+    except KeyError:
+        print("Invalid url. Use urls from https://play.qobuz.com!")
+        return
+    if type_dict["func"]:
+        items = [
+            item[type_dict["iterable_key"]]["items"]
+            for item in type_dict["func"](item_id)
+        ][0]
+        for item in items:
+            fromUrl(
+                client,
+                item["id"],
+                path,
+                quality,
+                True if type_dict["iterable_key"] == "albums" else False,
+            )
+    else:
+        fromUrl(client, item_id, path, quality, type_dict["album"])
 
 
 def interactive(Qz, path, limit, tracks=True):
@@ -120,7 +149,7 @@ def main():
     if not arguments.i:
         interactive(Qz, directory, arguments.l, not arguments.a)
     else:
-        fromUrl(Qz, directory, arguments.i, arguments.q)
+        handle_urls(arguments.i, Qz, directory, arguments.q)
 
 
 if __name__ == "__main__":

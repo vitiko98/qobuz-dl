@@ -69,7 +69,11 @@ def iterateIDs(client, id, path, quality, album=False):
         getCover(meta["image"]["large"], dirn)
         for i in meta["tracks"]["items"]:
             parse = client.get_track_url(i["id"], quality)
-            url = parse["url"]
+            try:
+                url = parse["url"]
+            except KeyError:
+                print("Track is not available for download")
+                return
             if "sample" not in parse:
                 is_mp3 = True if int(quality) == 5 else False
                 downloadItem(dirn, count, parse, i, meta, url, False, is_mp3)
