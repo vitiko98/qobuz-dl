@@ -7,8 +7,9 @@ from pathvalidate import sanitize_filename
 
 def tag_flac(file, path, d, album, istrack=True):
     audio = FLAC(file)
+    print(d) #aa
 
-    audio["TITLE"] = d["title"]  # TRACK TITLE
+    audio["TITLE"] = d["title"] + ' ' + '(' + d["version"] + ')'# TRACK TITLE
     audio["TRACKNUMBER"] = str(d["track_number"])  # TRACK NUMBER
     try:
         audio["COMPOSER"] = d["composer"]["name"]  # COMPOSER
@@ -27,7 +28,7 @@ def tag_flac(file, path, d, album, istrack=True):
         audio["GENRE"] = ", ".join(d["album"]["genres_list"])  # GENRE
         audio["ALBUMARTIST"] = d["album"]["artist"]["name"]  # ALBUM ARTIST
         audio["TRACKTOTAL"] = str(d["album"]["tracks_count"])  # TRACK TOTAL
-        audio["ALBUM"] = d["album"]["title"]  # ALBUM TITLE
+        audio["ALBUM"] = d["album"]["title"] + ' ' + '(' + d["album"]["version"] + ')'  # ALBUM TITLE
         audio["YEAR"] = d["album"]["release_date_original"].split("-")[0]
     else:
         audio["GENRE"] = ", ".join(album["genres_list"])  # GENRE

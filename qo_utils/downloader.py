@@ -57,13 +57,15 @@ def iterateIDs(client, id, path, quality, album=False):
 
     if album:
         meta = client.get_album_meta(id)
+        print(meta) #aa
         print("\nDownloading: {}\n".format(meta["title"]))
         dirT = (
             meta["artist"]["name"],
             meta["title"],
+            meta["version"],
             meta["release_date_original"].split("-")[0],
-        )
-        sanitized_title = sanitize_filename("{} - {} [{}]".format(*dirT))
+        ) #aa-meta["version"]
+        sanitized_title = sanitize_filename("{} - {} {} [{}]".format(*dirT)) #aa-{}
         dirn = path + sanitized_title
         mkDir(dirn)
         getCover(meta["image"]["large"], dirn)
