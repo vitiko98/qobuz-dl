@@ -107,7 +107,7 @@ class Client:
             if r.status_code == 400:
                 raise InvalidAppSecretError("Invalid app secret.")
         r.raise_for_status()
-        aaa = r.text #aa
+#        aaa = r.text #aa
 #        print(aaa) #aa
         return r.json()
 

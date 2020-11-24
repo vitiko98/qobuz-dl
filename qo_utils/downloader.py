@@ -57,7 +57,7 @@ def iterateIDs(client, id, path, quality, album=False):
 
     if album:
         meta = client.get_album_meta(id)
-        print(meta) #aa
+       # print(meta) #aa
         print("\nDownloading: {}\n".format(meta["title"]))
         dirT = (
             meta["artist"]["name"],
