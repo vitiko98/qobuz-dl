@@ -56,7 +56,7 @@ def get_id(url):
     ).group(1)
 
 
-def searchSelected(Qz, path, albums, ids, types, quality):
+def processSelected(Qz, path, albums, ids, types, quality):
     q = ["5", "6", "7", "27"]
     quality = q[quality[1]]
     for alb, id_, type_ in zip(albums, ids, types):
@@ -110,8 +110,12 @@ def interactive(Qz, path, limit, tracks=True):
             while True:
                 query = input("\nEnter your search: [Ctrl + c to quit]\n- ")
                 print("Searching...")
+                if len(query.strip())==0:
+                    break
                 start = Search(Qz, query, limit)
                 start.getResults(tracks)
+                if len(start.Total)==0:
+                     break
                 Types.append(start.Types)
                 IDs.append(start.IDs)
 
@@ -134,13 +138,14 @@ def interactive(Qz, path, limit, tracks=True):
                 else:
                     break
 
-            desc = (
-                "Select [intro] the quality (the quality will be automat"
-                "ically\ndowngraded if the selected is not found)"
-            )
-            Qualits = ["320", "Lossless", "Hi-res =< 96kHz", "Hi-Res > 96 kHz"]
-            quality = pick(Qualits, desc)
-            searchSelected(Qz, path, Albums, IDs, Types, quality)
+                if len(Albums)>0:
+                    desc = (
+                        "Select [intro] the quality (the quality will be automat"
+                        "ically\ndowngraded if the selected is not found)"
+                    )
+                    Qualits = ["320", "Lossless", "Hi-res =< 96kHz", "Hi-Res > 96 kHz"]
+                    quality = pick(Qualits, desc, default_index=1)
+                    processSelected(Qz, path, Albums, IDs, Types, quality)
         except KeyboardInterrupt:
             sys.exit("\nBye")
 
