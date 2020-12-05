@@ -43,10 +43,6 @@ class Client:
             params = {"track_id": kwargs["id"]}
         elif epoint == "album/get":
             params = {"album_id": kwargs["id"]}
-        elif epoint == "track/search":
-            params = {"query": kwargs["query"], "limit": kwargs["limit"]}
-        elif epoint == "album/search":
-            params = {"query": kwargs["query"], "limit": kwargs["limit"]}
         elif epoint == "playlist/get":
             params = {
                 "extra": "tracks",
@@ -94,6 +90,8 @@ class Client:
                 "format_id": fmt_id,
                 "intent": "stream",
             }
+        else:
+            params=kwargs
         r = self.session.get(self.base + epoint, params=params)
         # Do ref header.
         if epoint == "user/login":
