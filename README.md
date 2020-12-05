@@ -27,11 +27,21 @@ pip3 install -r requirements.txt --user
 pip3 install windows-curses
 pip3 install -r requirements.txt
 ```
-#### Add your credentials to `config.py`
-```python
-email = "your@email.com"
-password = "your_password"
+#### Add your credentials to a `.env` file
+```none
+QOBUZ_EMAIL=your@email.com
+QOBUZ_PW=your_password
 ```
+
+NB: The .env file should be in the root folder, where main.py and config.py are located.
+
+In addition to your credentials, you can also use the `.env` file to 
+change other default values by means of the following environment variables:
+
+ - `QOBUZ_FOLDER` (location of the download folder)
+ - `QOBUZ_LIMIT` (results limit)
+ - `QOBUZ_QUALITY` (default quality for url input mode)
+
 #### Run qobuz-dl
 ##### Linux / MAC OS
 ```
