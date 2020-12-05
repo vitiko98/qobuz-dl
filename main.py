@@ -117,18 +117,21 @@ def interactive(Qz, path, limit, tracks=True):
 
                 title = (
                     "Select [space] the item(s) you want to download "
-                    "(one or more)\nPress Ctrl + c to quit\n"
+                    "(zero or more)\nPress Ctrl + c to quit\n"
                 )
                 Selected = pick(
-                    start.Total, title, multiselect=True, min_selection_count=1
+                    start.Total, title, multiselect=True, min_selection_count=0
                 )
-                Albums.append(Selected)
+                if len(Selected) > 0:
+                    Albums.append(Selected)
 
-                y_n = pick(
-                    ["Yes", "No"],
-                    "Items were added to queue to be downloaded. Keep searching?",
-                )
-                if y_n[0][0] == "N":
+                    y_n = pick(
+                        ["Yes", "No"],
+                        "Items were added to queue to be downloaded. Keep searching?",
+                    )
+                    if y_n[0][0] == "N":
+                        break
+                else:
                     break
 
             desc = (
