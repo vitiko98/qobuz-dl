@@ -33,6 +33,8 @@ def mkDir(dirn):
 def getDesc(u, mt):
     return "{} [{}/{}]".format(mt["title"], u["bit_depth"], u["sampling_rate"])
 
+def getBooklet(i, dirn):
+     req_tqdm(i, dirn + "/booklet.pdf", "Downloading booklet")
 
 def getCover(i, dirn):
     req_tqdm(i, dirn + "/cover.jpg", "Downloading cover art")
@@ -67,6 +69,8 @@ def iterateIDs(client, id, path, quality, album=False):
         dirn = path + sanitized_title
         mkDir(dirn)
         getCover(meta["image"]["large"], dirn)
+        if "goodies" in meta:
+            getBooklet(meta["goodies"][0]["url"], dirn)
         for i in meta["tracks"]["items"]:
             parse = client.get_track_url(i["id"], quality)
             try:
