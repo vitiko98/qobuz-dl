@@ -31,10 +31,17 @@ def mkDir(dirn):
 
 
 def getDesc(u, mt):
-    return "{}{} [{}/{}]".format(mt["title"],' (' + mt["version"] + ')' if mt["version"] is not None else '', u["bit_depth"], u["sampling_rate"])
+    return "{}{} [{}/{}]".format(
+        mt["title"],
+        " (" + mt["version"] + ")" if mt["version"] is not None else "",
+        u["bit_depth"],
+        u["sampling_rate"],
+    )
+
 
 def getBooklet(i, dirn):
-     req_tqdm(i, dirn + "/booklet.pdf", "Downloading booklet")
+    req_tqdm(i, dirn + "/booklet.pdf", "Downloading booklet")
+
 
 def getCover(i, dirn):
     req_tqdm(i, dirn + "/cover.jpg", "Downloading cover art")
@@ -60,14 +67,19 @@ def iterateIDs(client, id, path, quality, album=False):
     if album:
         meta = client.get_album_meta(id)
 
-        print("\nDownloading: {0} {1}\n".format(meta["title"], '(' + meta["version"] + ')' if meta["version"] is not None else ' '))
+        print(
+            "\nDownloading: {0} {1}\n".format(
+                meta["title"],
+                "(" + meta["version"] + ")" if meta["version"] is not None else " ",
+            )
+        )
         dirT = (
             meta["artist"]["name"],
             meta["title"],
-            ' ' + meta["version"] if meta["version"] is not None else '',
+            " " + meta["version"] if meta["version"] is not None else "",
             meta["release_date_original"].split("-")[0],
         )
-        sanitized_title = sanitize_filename("{} - {}{} [{}]".format(*dirT)) #aa-{}
+        sanitized_title = sanitize_filename("{} - {}{} [{}]".format(*dirT))  # aa-{}
         dirn = path + sanitized_title
         mkDir(dirn)
         getCover(meta["image"]["large"], dirn)
@@ -92,11 +104,18 @@ def iterateIDs(client, id, path, quality, album=False):
 
         if "sample" not in parse:
             meta = client.get_track_meta(id)
-            print("\nDownloading: {0} {1}\n".format(meta["title"], '(' + meta["version"] + ')' if meta["version"] is not None else ' '))
+            print(
+                "\nDownloading: {0} {1}\n".format(
+                    meta["title"],
+                    "(" + meta["version"] + ")" if meta["version"] is not None else " ",
+                )
+            )
             dirT = (
                 meta["album"]["artist"]["name"],
                 meta["album"]["title"],
-                ' ' + meta["album"]["version"] if meta["album"]["version"] is not None else '',
+                " " + meta["album"]["version"]
+                if meta["album"]["version"] is not None
+                else "",
                 meta["album"]["release_date_original"].split("-")[0],
             )
             sanitized_title = sanitize_filename("{} - {}{} [{}]".format(*dirT))

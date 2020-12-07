@@ -91,7 +91,7 @@ class Client:
                 "intent": "stream",
             }
         else:
-            params=kwargs
+            params = kwargs
         r = self.session.get(self.base + epoint, params=params)
         # Do ref header.
         if epoint == "user/login":
@@ -157,13 +157,19 @@ class Client:
         return self.api_call("track/search", query=query, limit=limit)
 
     def get_favorite_albums(self, offset, limit):
-        return self.api_call("favorite/getUserFavorites", type="albums", offset=offset, limit=limit)
-    
+        return self.api_call(
+            "favorite/getUserFavorites", type="albums", offset=offset, limit=limit
+        )
+
     def get_favorite_tracks(self, offset, limit):
-        return self.api_call("favorite/getUserFavorites", type="tracks", offset=offset, limit=limit)
-    
+        return self.api_call(
+            "favorite/getUserFavorites", type="tracks", offset=offset, limit=limit
+        )
+
     def get_favorite_artists(self, offset, limit):
-        return self.api_call("favorite/getUserFavorites", type="artists", offset=offset, limit=limit)
+        return self.api_call(
+            "favorite/getUserFavorites", type="artists", offset=offset, limit=limit
+        )
 
     def get_user_playlists(self, limit):
         return self.api_call("playlist/getUserPlaylists", limit=limit)

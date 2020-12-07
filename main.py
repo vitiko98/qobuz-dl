@@ -110,12 +110,12 @@ def interactive(Qz, path, limit, tracks=True):
             while True:
                 query = input("\nEnter your search: [Ctrl + c to quit]\n- ")
                 print("Searching...")
-                if len(query.strip())==0:
+                if len(query.strip()) == 0:
                     break
                 start = Search(Qz, query, limit)
                 start.getResults(tracks)
-                if len(start.Total)==0:
-                     break
+                if len(start.Total) == 0:
+                    break
                 Types.append(start.Types)
                 IDs.append(start.IDs)
 
@@ -138,7 +138,7 @@ def interactive(Qz, path, limit, tracks=True):
                 else:
                     break
 
-                if len(Albums)>0:
+                if len(Albums) > 0:
                     desc = (
                         "Select [intro] the quality (the quality will be automat"
                         "ically\ndowngraded if the selected is not found)"
