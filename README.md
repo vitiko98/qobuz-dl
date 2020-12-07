@@ -9,7 +9,7 @@ Seach and download Lossless and Hi-Res music from [Qobuz](https://www.qobuz.com/
 * Download FLAC and MP3 files from Qobuz
 * Search and download music directly from your terminal with interactive mode
 * Queue support
-* URL input mode with download support for albums, tracks, artists, playlists and labels
+* Input url mode with download support for albums, tracks, artists, playlists and labels
 
 ## Getting started
 
@@ -17,45 +17,30 @@ Seach and download Lossless and Hi-Res music from [Qobuz](https://www.qobuz.com/
 
 > Note 2: You'll need an **active subscription**
 
-#### Install requirements with pip
+#### Install qobuz-dl with pip
+##### Linux / MAC OS / Windows
+```
+pip3 install qobuz-dl --user
+```
+#### Run qobuz-dl and enter your credentials
 ##### Linux / MAC OS
 ```
-pip3 install -r requirements.txt --user
+qobuz-dl
 ```
-##### Windows 10
+or
 ```
-pip3 install windows-curses
-pip3 install -r requirements.txt
-```
-#### Add your credentials to `config.py` file
-```python
-email = "your@email.com"
-password = "your_password"
+qdl
 ```
 
-In addition to your credentials, you can also use the `config.py` file to 
-change other default values:
-```python
-default_folder = "Qobuz Downloads"
-default_limit = 10
-default_quality = 6
-```
+> If something fails, run `qobuz-dl -r` to reset your config file.
 
-#### Run qobuz-dl
-##### Linux / MAC OS
-```
-python3 main.py
-```
-##### Windows 10
-```
-python.exe main.py
-```
 ## Usage
 ```
-usage: python3 main.py [-h] [-a] [-i] [-q int] [-l int] [-d PATH]
+usage: qobuz-dl [-h] [-a] [-r] [-i Album/track URL] [-q int] [-l int] [-d PATH]
 
 optional arguments:
   -h, --help          show this help message and exit
+  -r                  create/reset config file
   -a                  enable albums-only search
   -i album/track/artist/label/playlist URL  run qobuz-dl on URL input mode (download by url)
   -q int              quality (5, 6, 7, 27) (default: 6) [320, LOSSLESS, 24B <96KHZ, 24B >96KHZ]

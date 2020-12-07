@@ -28,23 +28,14 @@ class Search:
                 self.Total.append("[RELEASE] {} - {} - {} [{}]".format(*items))
                 self.appendInfo(i, True)
             except KeyError:
-                try:
-                    items = (
-                        i["performer"]["name"],
-                        i["title"],
-                        self.seconds(i["duration"]),
-                        "HI-RES" if i["hires"] else "Lossless",
-                    )
-                    self.Total.append("[TRACK] {} - {} - {} [{}]".format(*items))
-                    self.appendInfo(i, False)
-                except KeyError:
-                    items = (
-                        i["title"],
-                        self.seconds(i["duration"]),
-                        "HI-RES" if i["hires"] else "Lossless",
-                    )
-                    self.Total.append("[TRACK] {} [{}]".format(*items))
-                    self.appendInfo(i, False)
+                items = (
+                    i["performer"]["name"],
+                    i["title"],
+                    self.seconds(i["duration"]),
+                    "HI-RES" if i["hires"] else "Lossless",
+                )
+                self.Total.append("[TRACK] {} - {} - {} [{}]".format(*items))
+                self.appendInfo(i, False)
 
     def getResults(self, tracks=False):
         self.itResults(self.Albums)

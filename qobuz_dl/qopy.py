@@ -7,20 +7,21 @@ import time
 
 import requests
 
-from qo_utils import spoofbuz
-from qo_utils.exceptions import (
+from qobuz_dl.exceptions import (
     AuthenticationError,
     IneligibleError,
     InvalidAppIdError,
     InvalidAppSecretError,
 )
 
+RESET = "Reset your credentials with 'qobuz-dl -r'"
+
 
 class Client:
-    def __init__(self, email, pwd):
-        print("Getting tokens...")
-        self.spoofer = spoofbuz.Spoofer()
-        self.id = self.spoofer.getAppId()
+    def __init__(self, email, pwd, app_id, secrets):
+        print("Logging...")
+        self.secrets = secrets
+        self.id = app_id
         self.session = requests.Session()
         self.session.headers.update(
             {
@@ -96,14 +97,14 @@ class Client:
         # Do ref header.
         if epoint == "user/login":
             if r.status_code == 401:
-                raise AuthenticationError("Invalid credentials.")
+                raise AuthenticationError("Invalid credentials.\n" + RESET)
             elif r.status_code == 400:
-                raise InvalidAppIdError("Invalid app id.")
+                raise InvalidAppIdError("Invalid app id.\n" + RESET)
             else:
                 print("Logged: OK")
         elif epoint in ["track/getFileUrl", "userLibrary/getAlbumsList"]:
             if r.status_code == 400:
-                raise InvalidAppSecretError("Invalid app secret.")
+                raise InvalidAppSecretError("Invalid app secret.\n" + RESET)
         r.raise_for_status()
         return r.json()
 
@@ -182,7 +183,7 @@ class Client:
             return False
 
     def cfg_setup(self):
-        for secret in self.spoofer.getSecrets().values():
+        for secret in self.secrets:
             if self.test_secret(secret):
                 self.sec = secret
                 break

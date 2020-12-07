@@ -4,7 +4,7 @@ import requests
 from pathvalidate import sanitize_filename
 from tqdm import tqdm
 
-from qo_utils import metadata
+import qobuz_dl.metadata as metadata
 
 
 def req_tqdm(url, fname, track_name):
@@ -31,12 +31,7 @@ def mkDir(dirn):
 
 
 def getDesc(u, mt):
-    return "{}{} [{}/{}]".format(
-        mt["title"],
-        (" (" + mt["version"] + ")") if mt["version"] else "",
-        u["bit_depth"],
-        u["sampling_rate"],
-    )
+    return "{} [{}/{}]".format(mt["title"], u["bit_depth"], u["sampling_rate"])
 
 
 def getBooklet(i, dirn):
@@ -66,25 +61,26 @@ def iterateIDs(client, id, path, quality, album=False):
 
     if album:
         meta = client.get_album_meta(id)
-
-        print(
-            "\nDownloading: {0} {1}\n".format(
-                meta["title"],
-                ("(" + meta["version"] + ")") if meta["version"] else " ",
-            )
+        album_title = (
+            "{} ({})".format(meta["title"], meta["version"])
+            if meta["version"]
+            else meta["title"]
         )
+        print("\nDownloading: {}\n".format(album_title))
         dirT = (
             meta["artist"]["name"],
-            meta["title"],
-            (" " + meta["version"]) if meta["version"] else "",
+            album_title,
             meta["release_date_original"].split("-")[0],
         )
-        sanitized_title = sanitize_filename("{} - {}{} [{}]".format(*dirT))  # aa-{}
+        sanitized_title = sanitize_filename("{} - {} [{}]".format(*dirT))
         dirn = path + sanitized_title
         mkDir(dirn)
         getCover(meta["image"]["large"], dirn)
         if "goodies" in meta:
-            getBooklet(meta["goodies"][0]["url"], dirn)
+            try:
+                getBooklet(meta["goodies"][0]["url"], dirn)
+            except Exception as e:
+                print("Error: " + e)
         for i in meta["tracks"]["items"]:
             parse = client.get_track_url(i["id"], quality)
             try:
@@ -104,19 +100,18 @@ def iterateIDs(client, id, path, quality, album=False):
 
         if "sample" not in parse:
             meta = client.get_track_meta(id)
-            print(
-                "\nDownloading: {0} {1}\n".format(
-                    meta["title"],
-                    ("(" + meta["version"] + ")") if meta["version"] else " ",
-                )
+            track_title = (
+                "{} ({})".format(meta["title"], meta["version"])
+                if meta["version"]
+                else meta["title"]
             )
+            print("\nDownloading: {}\n".format(track_title))
             dirT = (
                 meta["album"]["artist"]["name"],
-                meta["album"]["title"],
-                (" " + meta["album"]["version"]) if meta["album"]["version"] else "",
+                track_title,
                 meta["album"]["release_date_original"].split("-")[0],
             )
-            sanitized_title = sanitize_filename("{} - {}{} [{}]".format(*dirT))
+            sanitized_title = sanitize_filename("{} - {} [{}]".format(*dirT))
             dirn = path + sanitized_title
             mkDir(dirn)
             getCover(meta["album"]["image"]["large"], dirn)

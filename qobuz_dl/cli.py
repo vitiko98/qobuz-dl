@@ -6,9 +6,9 @@ import sys
 
 from pick import pick
 
-import qo_utils.spoofbuz as spoofbuz
-from qo_utils import downloader, qopy
-from qo_utils.search import Search
+import qobuz_dl.spoofbuz as spoofbuz
+from qobuz_dl import downloader, qopy
+from qobuz_dl.search import Search
 
 OS_CONFIG = os.path.join(os.environ["HOME"], ".config") or os.environ.get("APPDATA")
 CONFIG_PATH = os.path.join(OS_CONFIG, "qobuz-dl")
@@ -43,7 +43,7 @@ def reset_config(config_file):
 
 
 def getArgs(default_quality=6, default_limit=10, default_folder="Qobuz Downloads"):
-    parser = argparse.ArgumentParser(prog="python3 main.py")
+    parser = argparse.ArgumentParser(prog="qobuz-dl")
     parser.add_argument("-a", action="store_true", help="enable albums-only search")
     parser.add_argument("-r", action="store_true", help="create/reset config file")
     parser.add_argument(
