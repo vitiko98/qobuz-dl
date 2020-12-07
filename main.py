@@ -138,14 +138,14 @@ def interactive(Qz, path, limit, tracks=True):
                 else:
                     break
 
-                if len(Albums) > 0:
-                    desc = (
-                        "Select [intro] the quality (the quality will be automat"
-                        "ically\ndowngraded if the selected is not found)"
-                    )
-                    Qualits = ["320", "Lossless", "Hi-res =< 96kHz", "Hi-Res > 96 kHz"]
-                    quality = pick(Qualits, desc, default_index=1)
-                    processSelected(Qz, path, Albums, IDs, Types, quality)
+            if len(Albums) > 0:
+                desc = (
+                    "Select [intro] the quality (the quality will be automat"
+                    "ically\ndowngraded if the selected is not found)"
+                )
+                Qualits = ["320", "Lossless", "Hi-res =< 96kHz", "Hi-Res > 96 kHz"]
+                quality = pick(Qualits, desc, default_index=1)
+                processSelected(Qz, path, Albums, IDs, Types, quality)
         except KeyboardInterrupt:
             sys.exit("\nBye")
 

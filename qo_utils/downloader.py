@@ -33,7 +33,7 @@ def mkDir(dirn):
 def getDesc(u, mt):
     return "{}{} [{}/{}]".format(
         mt["title"],
-        " (" + mt["version"] + ")" if mt["version"] is not None else "",
+        (" (" + mt["version"] + ")") if mt["version"] else "",
         u["bit_depth"],
         u["sampling_rate"],
     )
@@ -70,13 +70,13 @@ def iterateIDs(client, id, path, quality, album=False):
         print(
             "\nDownloading: {0} {1}\n".format(
                 meta["title"],
-                "(" + meta["version"] + ")" if meta["version"] is not None else " ",
+                ("(" + meta["version"] + ")") if meta["version"] else " ",
             )
         )
         dirT = (
             meta["artist"]["name"],
             meta["title"],
-            " " + meta["version"] if meta["version"] is not None else "",
+            (" " + meta["version"]) if meta["version"] else "",
             meta["release_date_original"].split("-")[0],
         )
         sanitized_title = sanitize_filename("{} - {}{} [{}]".format(*dirT))  # aa-{}
@@ -107,15 +107,13 @@ def iterateIDs(client, id, path, quality, album=False):
             print(
                 "\nDownloading: {0} {1}\n".format(
                     meta["title"],
-                    "(" + meta["version"] + ")" if meta["version"] is not None else " ",
+                    ("(" + meta["version"] + ")") if meta["version"] else " ",
                 )
             )
             dirT = (
                 meta["album"]["artist"]["name"],
                 meta["album"]["title"],
-                " " + meta["album"]["version"]
-                if meta["album"]["version"] is not None
-                else "",
+                (" " + meta["album"]["version"]) if meta["album"]["version"] else "",
                 meta["album"]["release_date_original"].split("-")[0],
             )
             sanitized_title = sanitize_filename("{} - {}{} [{}]".format(*dirT))
