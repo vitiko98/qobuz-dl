@@ -1,9 +1,6 @@
 # qobuz-dl
 Seach and download Lossless and Hi-Res music from [Qobuz](https://www.qobuz.com/)
 
-![Demostration](demo.gif)
-> This is a GIF from the first release. After the first release, some new features like **queue** and **MP3** support were added.
-
 ## Features
 
 * Download FLAC and MP3 files from Qobuz
@@ -23,7 +20,6 @@ Seach and download Lossless and Hi-Res music from [Qobuz](https://www.qobuz.com/
 pip3 install qobuz-dl --user
 ```
 #### Run qobuz-dl and enter your credentials
-##### Linux / MAC OS
 ```
 qobuz-dl
 ```
