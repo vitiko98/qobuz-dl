@@ -10,7 +10,11 @@ import qobuz_dl.spoofbuz as spoofbuz
 from qobuz_dl import downloader, qopy
 from qobuz_dl.search import Search
 
-OS_CONFIG = os.path.join(os.environ["HOME"], ".config") or os.environ.get("APPDATA")
+if os.name == "nt":
+    OS_CONFIG = os.environ.get("APPDATA")
+else:
+    OS_CONFIG = os.path.join(os.environ["HOME"], ".config")
+
 CONFIG_PATH = os.path.join(OS_CONFIG, "qobuz-dl")
 CONFIG_FILE = os.path.join(CONFIG_PATH, "config.ini")
 

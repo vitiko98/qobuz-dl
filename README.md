@@ -17,15 +17,16 @@ Seach and download Lossless and Hi-Res music from [Qobuz](https://www.qobuz.com/
 #### Install qobuz-dl with pip
 ##### Linux / MAC OS / Windows
 ```
-pip3 install qobuz-dl --user
+pip3 install --upgrade qobuz-dl
 ```
 #### Run qobuz-dl and enter your credentials
+##### Linux / MAC OS
 ```
 qobuz-dl
 ```
-or
+##### Windows
 ```
-qdl
+qobuz-dl.exe
 ```
 
 > If something fails, run `qobuz-dl -r` to reset your config file.
