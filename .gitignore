@@ -1,2 +1,3 @@
-'Qobuz Downloads'
+Qobuz Downloads
 *__pycache*
+.env

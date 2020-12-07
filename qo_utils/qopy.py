@@ -24,7 +24,7 @@ class Client:
         self.session = requests.Session()
         self.session.headers.update(
             {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:67.0) Gecko/20100101 Firefox/67.0",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:83.0) Gecko/20100101 Firefox/83.0",
                 "X-App-Id": self.id,
             }
         )
@@ -33,28 +33,24 @@ class Client:
         self.cfg_setup()
 
     def api_call(self, epoint, **kwargs):
-        if epoint == "user/login?":
+        if epoint == "user/login":
             params = {
                 "email": kwargs["email"],
                 "password": kwargs["pwd"],
                 "app_id": self.id,
             }
-        elif epoint == "track/get?":
+        elif epoint == "track/get":
             params = {"track_id": kwargs["id"]}
-        elif epoint == "album/get?":
+        elif epoint == "album/get":
             params = {"album_id": kwargs["id"]}
-        elif epoint == "track/search?":
-            params = {"query": kwargs["query"], "limit": kwargs["limit"]}
-        elif epoint == "album/search?":
-            params = {"query": kwargs["query"], "limit": kwargs["limit"]}
-        elif epoint == "playlist/get?":
+        elif epoint == "playlist/get":
             params = {
                 "extra": "tracks",
                 "playlist_id": kwargs["id"],
                 "limit": 500,
                 "offset": kwargs["offset"],
             }
-        elif epoint == "artist/get?":
+        elif epoint == "artist/get":
             params = {
                 "app_id": self.id,
                 "artist_id": kwargs["id"],
@@ -62,14 +58,14 @@ class Client:
                 "offset": kwargs["offset"],
                 "extra": "albums",
             }
-        elif epoint == "label/get?":
+        elif epoint == "label/get":
             params = {
                 "label_id": kwargs["id"],
                 "limit": 500,
                 "offset": kwargs["offset"],
                 "extra": "albums",
             }
-        elif epoint == "userLibrary/getAlbumsList?":
+        elif epoint == "userLibrary/getAlbumsList":
             unix = time.time()
             r_sig = "userLibrarygetAlbumsList" + str(unix) + kwargs["sec"]
             r_sig_hashed = hashlib.md5(r_sig.encode("utf-8")).hexdigest()
@@ -79,7 +75,7 @@ class Client:
                 "request_ts": unix,
                 "request_sig": r_sig_hashed,
             }
-        elif epoint == "track/getFileUrl?":
+        elif epoint == "track/getFileUrl":
             unix = time.time()
             track_id = kwargs["id"]
             fmt_id = kwargs["fmt_id"]
@@ -94,23 +90,25 @@ class Client:
                 "format_id": fmt_id,
                 "intent": "stream",
             }
+        else:
+            params=kwargs
         r = self.session.get(self.base + epoint, params=params)
         # Do ref header.
-        if epoint == "user/login?":
+        if epoint == "user/login":
             if r.status_code == 401:
                 raise AuthenticationError("Invalid credentials.")
             elif r.status_code == 400:
                 raise InvalidAppIdError("Invalid app id.")
             else:
                 print("Logged: OK")
-        elif epoint in ["track/getFileUrl?", "userLibrary/getAlbumsList?"]:
+        elif epoint in ["track/getFileUrl", "userLibrary/getAlbumsList"]:
             if r.status_code == 400:
                 raise InvalidAppSecretError("Invalid app secret.")
         r.raise_for_status()
         return r.json()
 
     def auth(self, email, pwd):
-        usr_info = self.api_call("user/login?", email=email, pwd=pwd)
+        usr_info = self.api_call("user/login", email=email, pwd=pwd)
         if not usr_info["user"]["credential"]["parameters"]:
             raise IneligibleError("Free accounts are not eligible to download tracks.")
         self.uat = usr_info["user_auth_token"]
@@ -135,32 +133,44 @@ class Client:
             offset += 500
 
     def get_album_meta(self, id):
-        return self.api_call("album/get?", id=id)
+        return self.api_call("album/get", id=id)
 
     def get_track_meta(self, id):
-        return self.api_call("track/get?", id=id)
+        return self.api_call("track/get", id=id)
 
     def get_track_url(self, id, fmt_id):
-        return self.api_call("track/getFileUrl?", id=id, fmt_id=fmt_id)
+        return self.api_call("track/getFileUrl", id=id, fmt_id=fmt_id)
 
     def get_artist_meta(self, id):
-        return self.multi_meta("artist/get?", "albums_count", id, None)
+        return self.multi_meta("artist/get", "albums_count", id, None)
 
     def get_plist_meta(self, id):
-        return self.multi_meta("playlist/get?", "tracks_count", id, None)
+        return self.multi_meta("playlist/get", "tracks_count", id, None)
 
     def get_label_meta(self, id):
-        return self.multi_meta("label/get?", "albums_count", id, None)
+        return self.multi_meta("label/get", "albums_count", id, None)
 
     def search_albums(self, query, limit):
-        return self.api_call("album/search?", query=query, limit=limit)
+        return self.api_call("album/search", query=query, limit=limit)
 
     def search_tracks(self, query, limit):
-        return self.api_call("track/search?", query=query, limit=limit)
+        return self.api_call("track/search", query=query, limit=limit)
+
+    def get_favorite_albums(self, offset, limit):
+        return self.api_call("favorite/getUserFavorites", type="albums", offset=offset, limit=limit)
+    
+    def get_favorite_tracks(self, offset, limit):
+        return self.api_call("favorite/getUserFavorites", type="tracks", offset=offset, limit=limit)
+    
+    def get_favorite_artists(self, offset, limit):
+        return self.api_call("favorite/getUserFavorites", type="artists", offset=offset, limit=limit)
+
+    def get_user_playlists(self, limit):
+        return self.api_call("playlist/getUserPlaylists", limit=limit)
 
     def test_secret(self, sec):
         try:
-            r = self.api_call("userLibrary/getAlbumsList?", sec=sec)
+            r = self.api_call("userLibrary/getAlbumsList", sec=sec)
             return True
         except InvalidAppSecretError:
             return False
