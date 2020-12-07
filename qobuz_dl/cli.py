@@ -52,8 +52,8 @@ def getArgs(default_quality=6, default_limit=10, default_folder="Qobuz Downloads
     parser.add_argument("-r", action="store_true", help="create/reset config file")
     parser.add_argument(
         "-i",
-        metavar="Album/track URL",
-        help="run Qobuz-Dl on URL input mode (download by url)",
+        metavar="album/track/artist/label/playlist URL",
+        help="run qobuz-dl on URL input mode (download by url)",
     )
     parser.add_argument(
         "-q",

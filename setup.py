@@ -15,7 +15,7 @@ if os.name == "nt":
 
 setup(
     name=pkg_name,
-    version="0.4",
+    version="0.4.2",
     author="Vitiko",
     author_email="vhnz98@gmail.com",
     description="The complete Lossless and Hi-Res music downloader for Qobuz",
