@@ -1,5 +1,7 @@
 # qobuz-dl
-Seach and download Lossless and Hi-Res music from [Qobuz](https://www.qobuz.com/)
+Seach and download Lossless and Hi-Res music from [Qobuz](https://www.qobuz.com/).
+
+If you need help or want to report a problem, join [qobuz-dl's discord server](https://discord.gg/eEZbgPpD).
 
 ## Features
 
@@ -10,9 +12,10 @@ Seach and download Lossless and Hi-Res music from [Qobuz](https://www.qobuz.com/
 
 ## Getting started
 
-> Note: `qobuz-dl` requires Python >3.6
 
-> Note 2: You'll need an **active subscription**
+> `qobuz-dl` requires Python >3.6
+
+> You'll need an **active subscription**
 
 #### Install qobuz-dl with pip
 ##### Linux / MAC OS / Windows
@@ -48,4 +51,4 @@ optional arguments:
 `qobuz-dl` is inspired in the discontinued Qo-DL-Reborn. This program uses two modules from Qo-DL: `qopy` and `spoofer`, both written by Sorrow446 and DashLt.
 ## Disclaimer
 This tool was written for educational purposes. I will not be responsible if you use this program in bad faith.
-Also, you are accepting this: https://static.qobuz.com/apps/api/QobuzAPI-TermsofUse.pdf
+Also, you are accepting this: [Qobuz API Terms of Use](https://static.qobuz.com/apps/api/QobuzAPI-TermsofUse.pdf).
