@@ -15,7 +15,7 @@ if os.name == "nt":
 
 setup(
     name=pkg_name,
-    version="0.4.2",
+    version="0.5",
     author="Vitiko",
     author_email="vhnz98@gmail.com",
     description="The complete Lossless and Hi-Res music downloader for Qobuz",
@@ -38,5 +38,6 @@ setup(
     python_requires=">=3.6",
 )
 
-# python setup.py sdist
+# python3 setup.py sdist bdist_wheel
+# rm -f dist/*
 # twine upload dist/*

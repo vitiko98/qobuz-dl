@@ -115,7 +115,7 @@ class Client:
         self.uat = usr_info["user_auth_token"]
         self.session.headers.update({"X-User-Auth-Token": self.uat})
         self.label = usr_info["user"]["credential"]["parameters"]["short_label"]
-        print("Membership: {}".format(self.label))
+        print("Membership: {}\n".format(self.label))
 
     def multi_meta(self, epoint, key, id, type):
         total = 1
@@ -153,6 +153,12 @@ class Client:
 
     def search_albums(self, query, limit):
         return self.api_call("album/search", query=query, limit=limit)
+
+    def search_artists(self, query, limit):
+        return self.api_call("artist/search", query=query, limit=limit)
+
+    def search_playlists(self, query, limit):
+        return self.api_call("playlist/search", query=query, limit=limit)
 
     def search_tracks(self, query, limit):
         return self.api_call("track/search", query=query, limit=limit)

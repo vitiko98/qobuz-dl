@@ -12,6 +12,7 @@ subtitle_search.py
 *.json
 *.txt
 *.db
+*.sh
 
 *.txt
 

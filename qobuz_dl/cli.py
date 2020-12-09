@@ -5,10 +5,12 @@ import re
 import sys
 
 from pick import pick
+from pathvalidate import sanitize_filename
 
 import qobuz_dl.spoofbuz as spoofbuz
 from qobuz_dl import downloader, qopy
 from qobuz_dl.search import Search
+from qobuz_dl.commands import qobuz_dl_args
 
 if os.name == "nt":
     OS_CONFIG = os.environ.get("APPDATA")
@@ -17,6 +19,8 @@ else:
 
 CONFIG_PATH = os.path.join(OS_CONFIG, "qobuz-dl")
 CONFIG_FILE = os.path.join(CONFIG_PATH, "config.ini")
+
+QUALITIES = {5: "320", 6: "LOSSLESS", 7: "24B <96KHZ", 27: "24B <196KHZ"}
 
 
 def reset_config(config_file):
@@ -46,40 +50,11 @@ def reset_config(config_file):
     print("Config file updated.")
 
 
-def getArgs(default_quality=6, default_limit=10, default_folder="Qobuz Downloads"):
-    parser = argparse.ArgumentParser(prog="qobuz-dl")
-    parser.add_argument("-a", action="store_true", help="enable albums-only search")
-    parser.add_argument("-r", action="store_true", help="create/reset config file")
-    parser.add_argument(
-        "-i",
-        metavar="album/track/artist/label/playlist URL",
-        help="run qobuz-dl on URL input mode (download by url)",
-    )
-    parser.add_argument(
-        "-q",
-        metavar="int",
-        default=default_quality,
-        help="quality for url input mode (5, 6, 7, 27) (default: 6)",
-    )
-    parser.add_argument(
-        "-l",
-        metavar="int",
-        default=default_limit,
-        help="limit of search results by type (default: 10)",
-    )
-    parser.add_argument(
-        "-d",
-        metavar="PATH",
-        default=default_folder,
-        help="custom directory for downloads (default: '{}')".format(default_folder),
-    )
-    return parser.parse_args()
-
-
-def musicDir(dir):
-    fix = os.path.normpath(dir)
+def musicDir(directory):
+    fix = os.path.normpath(directory)
     if not os.path.isdir(fix):
-        os.mkdir(fix)
+        print("New directory created: " + fix)
+        os.makedirs(fix, exist_ok=True)
     return fix
 
 
@@ -91,21 +66,25 @@ def get_id(url):
     ).group(1)
 
 
-def processSelected(Qz, path, albums, ids, types, quality):
-    q = ["5", "6", "7", "27"]
-    quality = q[quality[1]]
+def processSelected(Qz, path, albums, ids, types, quality, embed_art=False):
+    quality = [i for i in QUALITIES.keys()][quality[1]]
     for alb, id_, type_ in zip(albums, ids, types):
         for al in alb:
-            downloader.iterateIDs(
-                Qz, id_[al[1]], path, quality, True if type_[al[1]] else False
+            downloader.download_id_by_type(
+                Qz,
+                id_[al[1]],
+                path,
+                quality,
+                True if type_[al[1]] else False,
+                embed_art,
             )
 
 
-def fromUrl(Qz, id, path, quality, album=True):
-    downloader.iterateIDs(Qz, id, path, str(quality), album)
+def fromUrl(Qz, id, path, quality, album=True, embed_art=False):
+    downloader.download_id_by_type(Qz, id, path, str(quality), album, embed_art)
 
 
-def handle_urls(url, client, path, quality):
+def handle_urls(url, client, path, quality, embed_art=False):
     possibles = {
         "playlist": {"func": client.get_plist_meta, "iterable_key": "tracks"},
         "artist": {"func": client.get_artist_meta, "iterable_key": "albums"},
@@ -117,28 +96,31 @@ def handle_urls(url, client, path, quality):
         url_type = url.split("/")[3]
         type_dict = possibles[url_type]
         item_id = get_id(url)
-        print("Downloading {}...".format(url_type))
-    except KeyError:
-        print("Invalid url. Use urls from https://play.qobuz.com!")
+    except (KeyError, IndexError):
+        print('Invalid url: "{}". Use urls from https://play.qobuz.com!'.format(url))
         return
     if type_dict["func"]:
-        items = [
-            item[type_dict["iterable_key"]]["items"]
-            for item in type_dict["func"](item_id)
-        ][0]
+        content = [item for item in type_dict["func"](item_id)]
+        content_name = content[0]["name"]
+        print(
+            "\nDownloading all the music from {} ({})!".format(content_name, url_type)
+        )
+        new_path = musicDir(os.path.join(path, sanitize_filename(content_name)))
+        items = [item[type_dict["iterable_key"]]["items"] for item in content][0]
         for item in items:
             fromUrl(
                 client,
                 item["id"],
-                path,
+                new_path,
                 quality,
                 True if type_dict["iterable_key"] == "albums" else False,
+                embed_art,
             )
     else:
-        fromUrl(client, item_id, path, quality, type_dict["album"])
+        fromUrl(client, item_id, path, quality, type_dict["album"], embed_art)
 
 
-def interactive(Qz, path, limit, tracks=True):
+def interactive(Qz, path, limit, tracks=True, embed_art=False):
     while True:
         Albums, Types, IDs = [], [], []
         try:
@@ -180,18 +162,85 @@ def interactive(Qz, path, limit, tracks=True):
                 )
                 Qualits = ["320", "Lossless", "Hi-res =< 96kHz", "Hi-Res > 96 kHz"]
                 quality = pick(Qualits, desc, default_index=1)
-                processSelected(Qz, path, Albums, IDs, Types, quality)
+                processSelected(Qz, path, Albums, IDs, Types, quality, embed_art)
         except KeyboardInterrupt:
             sys.exit("\nBye")
+
+
+def download_by_txt_file(Qz, txt_file, path, quality, embed_art=False):
+    with open(txt_file, "r") as txt:
+        try:
+            urls = txt.read().strip().split()
+        except Exception as e:
+            print("Invalid text file: " + str(e))
+            return
+        print(
+            'qobuz-dl will download {} urls from file: "{}"\n'.format(
+                len(urls), txt_file
+            )
+        )
+        for url in urls:
+            handle_urls(url, Qz, path, quality, embed_art)
+
+
+def download_lucky_mode(Qz, mode, query, limit, path, quality, embed_art=False):
+    if len(query) < 3:
+        sys.exit("Your search query is too short or invalid!")
+
+    print(
+        'Searching {}s for "{}".\n'
+        "qobuz-dl will attempt to download the first {} results.".format(
+            mode, query, limit
+        )
+    )
+
+    WEB_URL = "https://play.qobuz.com/"
+    possibles = {
+        "album": {
+            "func": Qz.search_albums,
+            "album": True,
+            "key": "albums",
+        },
+        "artist": {
+            "func": Qz.search_artists,
+            "album": True,
+            "key": "artists",
+        },
+        "track": {
+            "func": Qz.search_tracks,
+            "album": False,
+            "key": "tracks",
+        },
+        "playlist": {
+            "func": Qz.search_playlists,
+            "album": False,
+            "key": "playlists",
+        },
+    }
+
+    try:
+        mode_dict = possibles[mode]
+        results = mode_dict["func"](query, limit)
+        iterable = results[mode_dict["key"]]["items"]
+        # Use handle_urls as everything is already handled there :p
+        urls = ["{}{}/{}".format(WEB_URL, mode, i["id"]) for i in iterable]
+        print("Found {} results!".format(len(urls)))
+        for url in urls:
+            handle_urls(url, Qz, path, quality, embed_art)
+    except (KeyError, IndexError):
+        sys.exit("Invalid mode: " + str(mode))
 
 
 def main():
     if not os.path.isdir(CONFIG_PATH) or not os.path.isfile(CONFIG_FILE):
         try:
-            os.mkdir(CONFIG_PATH)
+            os.makedirs(CONFIG_PATH, exist_ok=True)
         except FileExistsError:
             pass
         reset_config(CONFIG_FILE)
+
+    if len(sys.argv) < 2:
+        sys.exit(qobuz_dl_args().print_help())
 
     email = None
     password = None
@@ -211,21 +260,54 @@ def main():
         secrets = [
             secret for secret in config["DEFAULT"]["secrets"].split(",") if secret
         ]
-        arguments = getArgs(default_quality, default_limit, default_folder)
+        arguments = qobuz_dl_args(
+            default_quality, default_limit, default_folder
+        ).parse_args()
     except KeyError:
-        print("Your config file is corrupted! Run 'qobuz-dl -r' to fix this\n")
-        arguments = getArgs()
-
-    if arguments.r:
+        arguments = qobuz_dl_args().parse_args()
+        if not arguments.reset:
+            print("Your config file is corrupted! Run 'qobuz-dl -r' to fix this\n")
+    if arguments.reset:
         sys.exit(reset_config(CONFIG_FILE))
 
-    directory = musicDir(arguments.d) + "/"
+    directory = musicDir(arguments.directory)
+
     Qz = qopy.Client(email, password, app_id, secrets)
 
-    if not arguments.i:
-        interactive(Qz, directory, arguments.l, not arguments.a)
+    try:
+        quality_str = QUALITIES[int(arguments.quality)]
+        print("Quality set: " + quality_str)
+    except KeyError:
+        sys.exit("Invalid quality!")
+
+    if arguments.command == "fun":
+        sys.exit(
+            interactive(
+                Qz,
+                directory,
+                arguments.limit,
+                not arguments.albums_only,
+                arguments.embed_art,
+            )
+        )
+    if arguments.command == "dl":
+        for url in arguments.SOURCE:
+            if os.path.isfile(url):
+                download_by_txt_file(
+                    Qz, url, directory, arguments.quality, arguments.embed_art
+                )
+            else:
+                handle_urls(url, Qz, directory, arguments.quality, arguments.embed_art)
     else:
-        handle_urls(arguments.i, Qz, directory, arguments.q)
+        download_lucky_mode(
+            Qz,
+            arguments.type,
+            " ".join(arguments.QUERY),
+            arguments.number,
+            directory,
+            arguments.quality,
+            arguments.embed_art,
+        )
 
 
 if __name__ == "__main__":

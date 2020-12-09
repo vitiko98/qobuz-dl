@@ -8,6 +8,7 @@ class Search:
         self.Types = []
         self.Tracks = Qz.search_tracks(query, limit)["tracks"]["items"]
         self.Albums = Qz.search_albums(query, limit)["albums"]["items"]
+        self.Artists = Qz.search_artists(query, limit)
 
     def seconds(self, duration):
         return time.strftime("%H:%M:%S", time.gmtime(duration))

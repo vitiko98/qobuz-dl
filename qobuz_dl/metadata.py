@@ -1,12 +1,22 @@
 import os
 
-from mutagen.flac import FLAC
+from mutagen.flac import FLAC, Picture
 from mutagen.mp3 import EasyMP3
-from pathvalidate import sanitize_filename
 
 
-def tag_flac(file, path, d, album, istrack=True):
-    audio = FLAC(file)
+def tag_flac(filename, root_dir, final_name, d, album, istrack=True, em_image=False):
+    """
+    Tag a FLAC file
+
+    :param str filename: FLAC file path
+    :param str root_dir: Root dir used to get the cover art
+    :param str final_name: Final name of the FLAC file (complete path)
+    :param dict d: Track dictionary from Qobuz_client
+    :param dict album: Album dictionary from Qobuz_client
+    :param bool istrack
+    :param bool em_image: Embed cover art into file
+    """
+    audio = FLAC(filename)
 
     audio["TITLE"] = (
         "{} ({})".format(d["title"], d["version"]) if d["version"] else d["title"]
@@ -38,16 +48,37 @@ def tag_flac(file, path, d, album, istrack=True):
         audio["ALBUM"] = album["title"]  # ALBUM TITLE
         audio["YEAR"] = album["release_date_original"].split("-")[0]  # YEAR
 
+    emb_image = os.path.join(root_dir, "cover.jpg")
+    if os.path.isfile(emb_image) and em_image:
+        try:
+            image = Picture()
+            image.type = 3
+            image.mime = "image/jpeg"
+            image.desc = "cover"
+            with open(emb_image, "rb") as img:
+                image.data = img.read()
+            audio.add_picture(image)
+        except Exception as e:
+            print("Error embedding image: " + str(e))
+
     audio.save()
-    title = sanitize_filename(d["title"])
-    try:
-        os.rename(file, "{}/{:02}. {}.flac".format(path, d["track_number"], title))
-    except FileExistsError:
-        print("File already exists. Skipping...")
+    os.rename(filename, final_name)
 
 
-def tag_mp3(file, path, d, album, istrack=True):
-    audio = EasyMP3(file)
+def tag_mp3(filename, root_dir, final_name, d, album, istrack=True, em_image=False):
+    """
+    Tag a mp3 file
+
+    :param str filename: mp3 file path
+    :param str root_dir: Root dir used to get the cover art
+    :param str final_name: Final name of the mp3 file (complete path)
+    :param dict d: Track dictionary from Qobuz_client
+    :param dict album: Album dictionary from Qobuz_client
+    :param bool istrack
+    :param bool em_image: Embed cover art into file
+    """
+    # TODO: add embedded cover art support for mp3
+    audio = EasyMP3(filename)
 
     audio["title"] = (
         "{} ({})".format(d["title"], d["version"]) if d["version"] else d["title"]
@@ -77,8 +108,4 @@ def tag_mp3(file, path, d, album, istrack=True):
         audio["date"] = album["release_date_original"].split("-")[0]  # YEAR
 
     audio.save()
-    title = sanitize_filename(d["title"])
-    try:
-        os.rename(file, "{}/{:02}. {}.mp3".format(path, d["track_number"], title))
-    except FileExistsError:
-        print("File already exists. Skipping...")
+    os.rename(filename, final_name)
