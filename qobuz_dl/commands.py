@@ -38,14 +38,10 @@ def qobuz_dl_args(
             "--quality",
             metavar="int",
             default=default_quality,
-            choices=[5, 6, 7, 27],
             help=(
                 'audio "quality" (5, 6, 7, 27)\n'
                 "[320, LOSSLESS, 24B <96KHZ, 24B >96KHZ] (default: 6)"
             ),
-        )
-        custom_parser.add_argument(
-            "-z", "--zip", action="store_true", help="zip the downloaded item(s)"
         )
 
     interactive = subparsers.add_parser(
