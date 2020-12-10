@@ -38,24 +38,6 @@ qobuz-dl.exe
 > If something fails, run `qobuz-dl -r` to reset your config file.
 
 ## Examples
-### Interactive mode
-Run interactive mode with a limit of 10 results
-```
-qobuz-dl fun -l 10
-```
-Now you can search albums and tracks:
-```
-Logging...
-Logged: OK
-Membership: Studio
-
-
-Enter your search: [Ctrl + c to quit]
-- fka twigs magdalene
-```
-Everything else is interactive. Enjoy.
-
-Run `qobuz-dl fun --help` for more info.
 
 ### Download mode
 Download URL in 24B<96khz quality
@@ -80,6 +62,25 @@ qobuz-dl dl https://play.qobuz.com/playlist/5388296 -q 27
 ```
 
 Run `qobuz-dl dl --help` for more info.
+
+### Interactive mode
+Run interactive mode with a limit of 10 results
+```
+qobuz-dl fun -l 10
+```
+Type your search query
+```
+Logging...
+Logged: OK
+Membership: Studio
+
+
+Enter your search: [Ctrl + c to quit]
+- fka twigs magdalene
+```
+Now choose whatever releases you want to download. Everything else is interactive. Enjoy.
+
+Run `qobuz-dl fun --help` for more info.
 
 ### Lucky mode
 Download the first album result

@@ -1,4 +1,5 @@
 import argparse
+import base64
 import configparser
 import os
 import re
@@ -27,7 +28,9 @@ def reset_config(config_file):
     print("Creating config file: " + config_file)
     config = configparser.ConfigParser()
     config["DEFAULT"]["email"] = input("\nEnter your email:\n- ")
-    config["DEFAULT"]["password"] = input("\nEnter your password\n- ")
+    config["DEFAULT"]["password"] = base64.b64encode(
+        input("\nEnter your password\n- ").encode()
+    ).decode()
     config["DEFAULT"]["default_folder"] = (
         input("\nFolder for downloads (leave empy for default 'Qobuz Downloads')\n- ")
         or "Qobuz Downloads"
@@ -252,7 +255,7 @@ def main():
 
     try:
         email = config["DEFAULT"]["email"]
-        password = config["DEFAULT"]["password"]
+        password = base64.b64decode(config["DEFAULT"]["password"]).decode()
         default_folder = config["DEFAULT"]["default_folder"]
         default_limit = config["DEFAULT"]["default_limit"]
         default_quality = config["DEFAULT"]["default_quality"]
@@ -263,7 +266,7 @@ def main():
         arguments = qobuz_dl_args(
             default_quality, default_limit, default_folder
         ).parse_args()
-    except KeyError:
+    except (KeyError, UnicodeDecodeError):
         arguments = qobuz_dl_args().parse_args()
         if not arguments.reset:
             print("Your config file is corrupted! Run 'qobuz-dl -r' to fix this\n")
