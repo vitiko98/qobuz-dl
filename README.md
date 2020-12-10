@@ -16,8 +16,13 @@ Seach and download Lossless and Hi-Res music from [Qobuz](https://www.qobuz.com/
 > You'll need an **active subscription**
 
 #### Install qobuz-dl with pip
-##### Linux / MAC OS / Windows
+##### Linux / MAC OS
 ```
+pip3 install --upgrade qobuz-dl
+```
+##### Windows
+```
+pip3 install windows-curses
 pip3 install --upgrade qobuz-dl
 ```
 #### Run qobuz-dl and enter your credentials
