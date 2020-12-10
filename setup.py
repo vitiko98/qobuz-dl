@@ -1,4 +1,5 @@
 from setuptools import setup, find_packages
+import sys
 import os
 
 pkg_name = "qobuz-dl"
@@ -10,12 +11,12 @@ def read_file(fname):
 
 
 requirements = read_file("requirements.txt").strip().split()
-if os.name == "nt":
+if os.name == "nt" or "win" in sys.platform:
     requirements.append("windows-curses")
 
 setup(
     name=pkg_name,
-    version="0.5.2",
+    version="0.5.3",
     author="Vitiko",
     author_email="vhnz98@gmail.com",
     description="The complete Lossless and Hi-Res music downloader for Qobuz",
