@@ -73,7 +73,7 @@ Membership: Studio
 Enter your search: [Ctrl + c to quit]
 - fka twigs magdalene
 ```
-`qobuz-dl` will bring up a nice list of release. Now choose whatever releases you want to download. Everything else is interactive. Enjoy!
+`qobuz-dl` will bring up a nice list of releases. Now choose whatever releases you want to download; everything else is interactive. Enjoy!
 
 Run `qobuz-dl fun --help` for more info.
 
