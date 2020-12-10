@@ -1,8 +1,6 @@
 # qobuz-dl
 Seach and download Lossless and Hi-Res music from [Qobuz](https://www.qobuz.com/).
 
-If you need help or want to report a problem, join [qobuz-dl's discord server](https://discord.gg/eEZbgPpD).
-
 ## Features
 
 * Download FLAC and MP3 files from Qobuz
@@ -14,9 +12,6 @@ If you need help or want to report a problem, join [qobuz-dl's discord server](h
 * And more
 
 ## Getting started
-
-
-> `qobuz-dl` requires Python >3.6
 
 > You'll need an **active subscription**
 
@@ -78,7 +73,7 @@ Membership: Studio
 Enter your search: [Ctrl + c to quit]
 - fka twigs magdalene
 ```
-Now choose whatever releases you want to download. Everything else is interactive. Enjoy.
+`qobuz-dl` will bring up a nice list of release. Now choose whatever releases you want to download. Everything else is interactive. Enjoy!
 
 Run `qobuz-dl fun --help` for more info.
 
