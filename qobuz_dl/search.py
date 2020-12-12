@@ -29,8 +29,13 @@ class Search:
                 self.Total.append("[RELEASE] {} - {} - {} [{}]".format(*items))
                 self.appendInfo(i, True)
             except KeyError:
+                try:
+                    artist_field = i["performer"]["name"]
+                except KeyError:
+                    print("Download: " + i["title"])
+                    artist_field = i["composer"]["name"]
                 items = (
-                    i["performer"]["name"],
+                    artist_field,
                     i["title"],
                     self.seconds(i["duration"]),
                     "HI-RES" if i["hires"] else "Lossless",

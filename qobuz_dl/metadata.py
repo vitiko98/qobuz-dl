@@ -18,10 +18,18 @@ def tag_flac(filename, root_dir, final_name, d, album, istrack=True, em_image=Fa
     """
     audio = FLAC(filename)
 
-    audio["TITLE"] = (
-        "{} ({})".format(d["title"], d["version"]) if d["version"] else d["title"]
-    )  # TRACK TITLE
+    try:
+        audio["TITLE"] = "{} ({})".format(d["title"], d["version"])
+    except KeyError:
+        audio["TITLE"] = d["title"]
+
     audio["TRACKNUMBER"] = str(d["track_number"])  # TRACK NUMBER
+
+    try:
+        audio["WORK"] = d["work"]
+    except KeyError:
+        pass
+
     try:
         audio["COMPOSER"] = d["composer"]["name"]  # COMPOSER
     except KeyError:
@@ -73,17 +81,23 @@ def tag_mp3(filename, root_dir, final_name, d, album, istrack=True, em_image=Fal
     :param str root_dir: Root dir used to get the cover art
     :param str final_name: Final name of the mp3 file (complete path)
     :param dict d: Track dictionary from Qobuz_client
-    :param dict album: Album dictionary from Qobuz_client
-    :param bool istrack
+    :param bool istrack: Embed cover art into file
     :param bool em_image: Embed cover art into file
     """
     # TODO: add embedded cover art support for mp3
     audio = EasyMP3(filename)
 
-    audio["title"] = (
-        "{} ({})".format(d["title"], d["version"]) if d["version"] else d["title"]
-    )  # TRACK TITLE
+    try:
+        audio["title"] = "{} ({})".format(d["title"], d["version"])
+    except KeyError:
+        audio["title"] = d["title"]
+
     audio["tracknumber"] = str(d["track_number"])
+
+    try:
+        audio["discsubtitle"] = d["work"]
+    except KeyError:
+        pass
     try:
         audio["composer"] = d["composer"]["name"]
     except KeyError:

@@ -38,15 +38,23 @@ def getDesc(u, mt, multiple=None):
     )
 
 
-def get_format(album_dict, quality):
+def get_format(client, item_dict, quality, is_track_id=False):
+    if int(quality) == 5:
+        return "MP3"
+    track_dict = item_dict
+    if not is_track_id:
+        track_dict = [i for i in item_dict["tracks"]["items"]][0]
+
     try:
-        if int(quality) == 5:
-            return "MP3"
-        if album_dict["maximum_bit_depth"] == 16 and int(quality) < 7:
+        new_track_dict = client.get_track_url(track_dict["id"], quality)
+        if (
+            new_track_dict["bit_depth"] == 16
+            and new_track_dict["sampling_rate"] == 44.1
+        ):
             return "FLAC"
+        return "Hi-Res"
     except KeyError:
         return "Unknown"
-    return "Hi-Res"
 
 
 def get_extra(i, dirn, extra="cover.jpg"):
@@ -134,17 +142,16 @@ def download_id_by_type(client, item_id, path, quality, album=False, embed_art=F
 
     if album:
         meta = client.get_album_meta(item_id)
-        album_title = (
-            "{} ({})".format(meta["title"], meta["version"])
-            if meta["version"]
-            else meta["title"]
-        )
+        try:
+            album_title = "{} ({})".format(meta["title"], meta["version"])
+        except KeyError:
+            album_title = meta["title"]
         print("\nDownloading: {}\n".format(album_title))
         dirT = (
             meta["artist"]["name"],
             album_title,
             meta["release_date_original"].split("-")[0],
-            get_format(meta, quality),
+            get_format(client, meta, quality),
         )
         sanitized_title = sanitize_filename("{} - {} [{}] [{}]".format(*dirT))
         dirn = os.path.join(path, sanitized_title)
@@ -180,17 +187,16 @@ def download_id_by_type(client, item_id, path, quality, album=False, embed_art=F
 
         if "sample" not in parse and parse["sampling_rate"]:
             meta = client.get_track_meta(item_id)
-            track_title = (
-                "{} ({})".format(meta["title"], meta["version"])
-                if meta["version"]
-                else meta["title"]
-            )
+            try:
+                track_title = "{} ({})".format(meta["title"], meta["version"])
+            except KeyError:
+                track_title = meta["title"]
             print("\nDownloading: {}\n".format(track_title))
             dirT = (
                 meta["album"]["artist"]["name"],
                 track_title,
                 meta["album"]["release_date_original"].split("-")[0],
-                get_format(meta, quality),
+                get_format(client, meta, quality, True),
             )
             sanitized_title = sanitize_filename("{} - {} [{}] [{}]".format(*dirT))
             dirn = os.path.join(path, sanitized_title)
