@@ -143,7 +143,11 @@ def download_id_by_type(client, item_id, path, quality, album=False, embed_art=F
     if album:
         meta = client.get_album_meta(item_id)
         try:
-            album_title = "{} ({})".format(meta["title"], meta["version"])
+            album_title = (
+                ("{} ({})".format(meta["title"], meta["version"]))
+                if meta["version"]
+                else meta["title"]
+            )
         except KeyError:
             album_title = meta["title"]
         print("\nDownloading: {}\n".format(album_title))
@@ -188,7 +192,11 @@ def download_id_by_type(client, item_id, path, quality, album=False, embed_art=F
         if "sample" not in parse and parse["sampling_rate"]:
             meta = client.get_track_meta(item_id)
             try:
-                track_title = "{} ({})".format(meta["title"], meta["version"])
+                track_title = (
+                    ("{} ({})".format(meta["title"], meta["version"]))
+                    if meta["version"]
+                    else meta["title"]
+                )
             except KeyError:
                 track_title = meta["title"]
             print("\nDownloading: {}\n".format(track_title))

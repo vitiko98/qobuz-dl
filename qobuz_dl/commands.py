@@ -92,7 +92,7 @@ def qobuz_dl_args(
         "-n",
         "--number",
         metavar="int",
-        default=default_limit,
+        default=1,
         help="number of results to download (default: 1)",
     )
     add_common_arg(lucky)
