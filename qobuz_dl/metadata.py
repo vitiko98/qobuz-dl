@@ -26,8 +26,9 @@ def tag_flac(filename, root_dir, final_name, d, album, istrack=True, em_image=Fa
     audio["TRACKNUMBER"] = str(d["track_number"])  # TRACK NUMBER
 
     try:
-        audio["WORK"] = d["work"]
-    except KeyError:
+        if d["work"]: # not none
+            audio["WORK"] = d["work"]
+    except (KeyError, ValueError):
         pass
 
     try:
@@ -95,8 +96,9 @@ def tag_mp3(filename, root_dir, final_name, d, album, istrack=True, em_image=Fal
     audio["tracknumber"] = str(d["track_number"])
 
     try:
-        audio["discsubtitle"] = d["work"]
-    except KeyError:
+        if d["work"]: # not none
+            audio["discsubtitle"] = d["work"]
+    except (KeyError, ValueError):
         pass
     try:
         audio["composer"] = d["composer"]["name"]
