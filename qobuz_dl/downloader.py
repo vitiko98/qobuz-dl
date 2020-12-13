@@ -57,6 +57,27 @@ def get_format(client, item_dict, quality, is_track_id=False):
         return "Unknown"
 
 
+def get_title(item_dict):
+    try:
+        album_title = (
+            ("{} ({})".format(item_dict["title"], item_dict["version"]))
+            if item_dict["version"]
+            and item_dict["version"].lower() not in item_dict["title"].lower()
+            else item_dict["title"]
+        )
+    except KeyError:
+        album_title = item_dict["title"]
+    try:
+        final_title = (
+            (album_title + " (Explicit)")
+            if item_dict["parental_warning"] and "explicit" not in album_title.lower()
+            else album_title
+        )
+    except KeyError:
+        final_title = album_title
+    return final_title
+
+
 def get_extra(i, dirn, extra="cover.jpg"):
     tqdm_download(i, os.path.join(dirn, extra), "Downloading " + extra.split(".")[0])
 
@@ -142,14 +163,7 @@ def download_id_by_type(client, item_id, path, quality, album=False, embed_art=F
 
     if album:
         meta = client.get_album_meta(item_id)
-        try:
-            album_title = (
-                ("{} ({})".format(meta["title"], meta["version"]))
-                if meta["version"]
-                else meta["title"]
-            )
-        except KeyError:
-            album_title = meta["title"]
+        album_title = get_title(meta)
         print("\nDownloading: {}\n".format(album_title))
         dirT = (
             meta["artist"]["name"],
@@ -191,14 +205,7 @@ def download_id_by_type(client, item_id, path, quality, album=False, embed_art=F
 
         if "sample" not in parse and parse["sampling_rate"]:
             meta = client.get_track_meta(item_id)
-            try:
-                track_title = (
-                    ("{} ({})".format(meta["title"], meta["version"]))
-                    if meta["version"]
-                    else meta["title"]
-                )
-            except KeyError:
-                track_title = meta["title"]
+            track_title = get_title(meta)
             print("\nDownloading: {}\n".format(track_title))
             dirT = (
                 meta["album"]["artist"]["name"],
