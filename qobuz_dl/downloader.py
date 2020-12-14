@@ -79,7 +79,11 @@ def get_title(item_dict):
 
 
 def get_extra(i, dirn, extra="cover.jpg"):
-    tqdm_download(i, os.path.join(dirn, extra), "Downloading " + extra.split(".")[0])
+    tqdm_download(
+        i.replace("_600.", "_org."),
+        os.path.join(dirn, extra),
+        "Downloading " + extra.split(".")[0],
+    )
 
 
 # Download and tag a file
@@ -149,7 +153,9 @@ def download_and_tag(
         os.remove(filename)
 
 
-def download_id_by_type(client, item_id, path, quality, album=False, embed_art=False):
+def download_id_by_type(
+    client, item_id, path, quality, album=False, embed_art=False, albums_only=False
+):
     """
     Download and get metadata by ID and type (album or track)
 
@@ -157,12 +163,22 @@ def download_id_by_type(client, item_id, path, quality, album=False, embed_art=F
     :param int item_id: Qobuz item id
     :param str path: The root directory where the item will be downloaded
     :param int quality: Audio quality (5, 6, 7, 27)
-    :param bool album
+    :param bool album: album type or not
+    :param embed_art album: Embed cover art into files
+    :param bool albums_only: Ignore Singles, EPs and VA releases
     """
     count = 0
 
     if album:
         meta = client.get_album_meta(item_id)
+
+        if albums_only and (
+            meta.get("release_type") != "album"
+            or meta.get("artist").get("name") == "Various Artists"
+        ):
+            print("Ignoring Single/EP/VA: " + meta.get("title", ""))
+            return
+
         album_title = get_title(meta)
         print("\nDownloading: {}\n".format(album_title))
         dirT = (

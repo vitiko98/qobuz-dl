@@ -1,14 +1,15 @@
 # qobuz-dl
-Seach and download Lossless and Hi-Res music from [Qobuz](https://www.qobuz.com/).
+Search, discover and download Lossless and Hi-Res music from [Qobuz](https://www.qobuz.com/).
 
 ## Features
 
 * Download FLAC and MP3 files from Qobuz
-* Search and download music directly from your terminal with **interactive** or **lucky** mode
+* Explore and download music directly from your terminal with **interactive** or **lucky** mode
 * Download albums, tracks, artists, playlists and labels with **download** mode
+* Download music from last.fm playlists (Spotify, Apple Music and Youtube playlists are also supported through this method)
 * Queue support on **interactive** mode
 * Support for albums with multiple discs
-* Read URLs from text file
+* Downloads URLs from text file
 * And more
 
 ## Getting started
@@ -56,9 +57,21 @@ Download albums from a label and also embed cover art images into the downloaded
 ```
 qobuz-dl dl https://play.qobuz.com/label/7526 --embed-art
 ```
-Download a playlist in maximum quality
+Download a Qobuz playlist in maximum quality
 ```
 qobuz-dl dl https://play.qobuz.com/playlist/5388296 -q 27
+```
+Download all the music from an artist except singles, EPs and VA releases
+```
+qobuz-dl dl https://play.qobuz.com/artist/2528676 --albums-only
+```
+
+#### Last.fm playlists
+Last.fm has a new feature for creating playlists: you can create your own based on the music you listen or you can import one from popular streaming services like Spotify, Apple Music and Youtube. Visit: `https://www.last.fm/user/<your profile>/playlists` (e.g. https://www.last.fm/user/vitiko98/playlists) to get started.
+
+Download a last.fm playlist in the maximum quality
+```
+qobuz-dl dl https://www.last.fm/user/vitiko98/playlists/11887574 -q 27
 ```
 
 Run `qobuz-dl dl --help` for more info.
@@ -124,7 +137,27 @@ commands:
     dl            input mode
     lucky         lucky mode
 ```
+
+## Module usage 
+Using `qobuz-dl` as a module is really easy. Basically, the only thing you need is to initialize `QobuzDL` from `core`.
+
+```python
+from qobuz_dl.core import QobuzDL
+
+email = "your@email.com"
+password = "your_password"
+
+qobuz = QobuzDL()
+qobuz.get_tokens() # get 'app_id' and 'secrets' attrs
+qobuz.initialize_client(email, password, qobuz.app_id, qobuz.secrets)
+
+qobuz.handle_url("https://play.qobuz.com/album/va4j3hdlwaubc")
+```
+
+Attributes, methods and parameters have been named as self-explanatory as possible.
+
 ## A note about Qo-DL
 `qobuz-dl` is inspired in the discontinued Qo-DL-Reborn. This program uses two modules from Qo-DL: `qopy` and `spoofer`, both written by Sorrow446 and DashLt.
 ## Disclaimer
-This tool was written for educational purposes. I will not be responsible if you use this program in bad faith. By using it, you are accepting the [Qobuz API Terms of Use](https://static.qobuz.com/apps/api/QobuzAPI-TermsofUse.pdf).
+* This tool was written for educational purposes. I will not be responsible if you use this program in bad faith. By using it, you are accepting the [Qobuz API Terms of Use](https://static.qobuz.com/apps/api/QobuzAPI-TermsofUse.pdf).
+* `qobuz-dl` is not affiliated with Qobuz
