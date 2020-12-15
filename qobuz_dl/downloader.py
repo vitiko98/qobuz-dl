@@ -23,14 +23,7 @@ def tqdm_download(url, fname, track_name):
             bar.update(size)
 
 
-def mkDir(dirn):
-    try:
-        os.makedirs(dirn, exist_ok=True)
-    except FileExistsError:
-        pass
-
-
-def getDesc(u, mt, multiple=None):
+def get_description(u, mt, multiple=None):
     return "{} [{}/{}]".format(
         ("[Disc {}] {}".format(multiple, mt["title"])) if multiple else mt["title"],
         u["bit_depth"],
@@ -126,7 +119,7 @@ def download_and_tag(
 
     if multiple:
         root_dir = os.path.join(root_dir, "Disc " + str(multiple))
-        mkDir(root_dir)
+        os.makedirs(root_dir, exist_ok=True)
 
     filename = os.path.join(root_dir, ".{:02}".format(tmp_count) + extension)
 
@@ -139,7 +132,7 @@ def download_and_tag(
         print(track_metadata["title"] + " was already downloaded. Skipping...")
         return
 
-    desc = getDesc(track_url_dict, track_metadata, multiple)
+    desc = get_description(track_url_dict, track_metadata, multiple)
     tqdm_download(url, filename, desc)
     tag_function = metadata.tag_mp3 if is_mp3 else metadata.tag_flac
     try:
@@ -193,7 +186,7 @@ def download_id_by_type(
         )
         sanitized_title = sanitize_filename("{} - {} [{}] [{}]".format(*dirT))
         dirn = os.path.join(path, sanitized_title)
-        mkDir(dirn)
+        os.makedirs(dirn, exist_ok=True)
         get_extra(meta["image"]["large"], dirn)
         if "goodies" in meta:
             try:
@@ -235,7 +228,7 @@ def download_id_by_type(
             )
             sanitized_title = sanitize_filename("{} - {} [{}] [{}]".format(*dirT))
             dirn = os.path.join(path, sanitized_title)
-            mkDir(dirn)
+            os.makedirs(dirn, exist_ok=True)
             get_extra(meta["album"]["image"]["large"], dirn)
             is_mp3 = True if int(quality) == 5 else False
             download_and_tag(dirn, count, parse, meta, meta, True, is_mp3, embed_art)
