@@ -4,7 +4,9 @@ Qobuz Downloads
 __pycache__/
 *.py[cod]
 *$py.class
-subtitle_search.py
+
+/*.py
+!/setup.py
 
 # C extensions
 *.so
