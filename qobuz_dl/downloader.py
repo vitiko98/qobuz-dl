@@ -79,9 +79,13 @@ def get_title(item_dict):
 
 
 def get_extra(i, dirn, extra="cover.jpg"):
+    extra_file = os.path.join(dirn, extra)
+    if os.path.isfile(extra_file):
+        print(extra.split(".")[0].title() + " already downloaded")
+        return
     tqdm_download(
         i.replace("_600.", "_org."),
-        os.path.join(dirn, extra),
+        extra_file,
         "Downloading " + extra.split(".")[0],
     )
 
