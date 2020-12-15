@@ -81,6 +81,11 @@ def add_common_arg(custom_parser, default_folder, default_quality):
         action="store_true",
         help=("don't download singles, EPs and VA releases"),
     )
+    custom_parser.add_argument(
+        "--no-m3u",
+        action="store_true",
+        help="don't create .m3u files when downloading playlists",
+    )
 
 
 def qobuz_dl_args(

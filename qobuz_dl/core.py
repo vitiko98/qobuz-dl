@@ -11,9 +11,13 @@ from pathvalidate import sanitize_filename
 import qobuz_dl.spoofbuz as spoofbuz
 from qobuz_dl import downloader, qopy
 
+from mutagen.flac import FLAC
+from mutagen.mp3 import EasyMP3
+
 WEB_URL = "https://play.qobuz.com/"
 ARTISTS_SELECTOR = "td.chartlist-artist > a"
 TITLE_SELECTOR = "td.chartlist-name > a"
+EXTENSIONS = (".mp3", ".flac")
 
 
 class PartialFormatter(string.Formatter):
@@ -48,6 +52,7 @@ class QobuzDL:
         lucky_type="album",
         interactive_limit=20,
         ignore_singles_eps=False,
+        no_m3u_for_playlists=False,
     ):
         self.directory = self.create_dir(directory)
         self.quality = quality
@@ -56,6 +61,7 @@ class QobuzDL:
         self.lucky_type = lucky_type
         self.interactive_limit = interactive_limit
         self.ignore_singles_eps = ignore_singles_eps
+        self.no_m3u_for_playlists = no_m3u_for_playlists
 
     def initialize_client(self, email, pwd, app_id, secrets):
         self.client = qopy.Client(email, pwd, app_id, secrets)
@@ -136,6 +142,8 @@ class QobuzDL:
                     True if type_dict["iterable_key"] == "albums" else False,
                     new_path,
                 )
+            if url_type == "playlist":
+                self.make_m3u(new_path)
         else:
             self.download_from_id(item_id, type_dict["album"])
 
@@ -344,9 +352,43 @@ class QobuzDL:
             return
 
         pl_title = sanitize_filename(soup.select_one("h1").text)
+        pl_directory = os.path.join(self.directory, pl_title)
         print("Downloading playlist: " + pl_title)
-        self.directory = os.path.join(self.directory, pl_title)
+
         for i in track_list:
-            track_url = self.search_by_type(i, "track", 1, lucky=True)[0]
-            if track_url:
-                self.handle_url(track_url)
+            track_id = self.get_id(self.search_by_type(i, "track", 1, lucky=True)[0])
+            if track_id:
+                self.download_from_id(track_id, False, pl_directory)
+
+        self.make_m3u(pl_directory)
+
+    def make_m3u(self, pl_directory):
+        if self.no_m3u_for_playlists:
+            return
+        track_list = ["#EXTM3U"]
+        pl_name = os.path.basename(os.path.normpath(pl_directory)) + ".m3u"
+        for local, dirs, files in os.walk(pl_directory):
+            dirs.sort()
+            audio_files = [
+                os.path.abspath(os.path.join(local, file_))
+                for file_ in files
+                if os.path.splitext(file_)[-1] in EXTENSIONS
+            ]
+            if not audio_files:
+                continue
+            for audio in audio_files:
+                try:
+                    pl_item = EasyMP3(audio) if ".mp3" in audio else FLAC(audio)
+                    title = pl_item["TITLE"][0]
+                    artist = pl_item["ARTIST"][0]
+                    length = int(pl_item.info.length)
+                    index = "#EXTINF:{}, {} - {}\n{}".format(
+                        length, artist, title, audio
+                    )
+                except:  # noqa
+                    continue
+                track_list.append(index)
+
+        if len(track_list) > 1:
+            with open(os.path.join(self.directory, pl_name), "w") as pl:
+                pl.write("\n\n".join(track_list))
