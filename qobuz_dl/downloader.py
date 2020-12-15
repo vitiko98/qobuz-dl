@@ -43,7 +43,7 @@ def get_format(client, item_dict, quality, is_track_id=False):
         return "MP3"
     track_dict = item_dict
     if not is_track_id:
-        track_dict = [i for i in item_dict["tracks"]["items"]][0]
+        track_dict = item_dict["tracks"]["items"][0]
 
     try:
         new_track_dict = client.get_track_url(track_dict["id"], quality)
