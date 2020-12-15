@@ -67,7 +67,7 @@ qobuz-dl dl https://play.qobuz.com/artist/2528676 --albums-only
 ```
 
 #### Last.fm playlists
-Last.fm has a new feature for creating playlists: you can create your own based on the music you listen or you can import one from popular streaming services like Spotify, Apple Music and Youtube. Visit: `https://www.last.fm/user/<your profile>/playlists` (e.g. https://www.last.fm/user/vitiko98/playlists) to get started.
+Last.fm has a new feature for creating playlists: you can create your own based on the music you listen to or you can import one from popular streaming services like Spotify, Apple Music and Youtube. Visit: `https://www.last.fm/user/<your profile>/playlists` (e.g. https://www.last.fm/user/vitiko98/playlists) to get started.
 
 Download a last.fm playlist in the maximum quality
 ```
@@ -139,7 +139,7 @@ commands:
 ```
 
 ## Module usage 
-Using `qobuz-dl` as a module is really easy. Basically, the only thing you need is to initialize `QobuzDL` from `core`.
+Using `qobuz-dl` as a module is really easy. Basically, the only thing you need is `QobuzDL` from `core`.
 
 ```python
 from qobuz_dl.core import QobuzDL

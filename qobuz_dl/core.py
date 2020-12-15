@@ -146,6 +146,8 @@ class QobuzDL:
         for url in urls:
             if "last.fm" in url:
                 self.download_lastfm_pl(url)
+            elif os.path.isfile(url):
+                self.download_from_txt_file(url)
             else:
                 self.handle_url(url)
 
