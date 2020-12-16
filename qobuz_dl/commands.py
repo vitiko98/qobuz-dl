@@ -57,9 +57,6 @@ def dl_args(subparsers):
 
 def add_common_arg(custom_parser, default_folder, default_quality):
     custom_parser.add_argument(
-        "-e", "--embed-art", action="store_true", help="embed cover art into files"
-    )
-    custom_parser.add_argument(
         "-d",
         "--directory",
         metavar="PATH",
@@ -85,6 +82,14 @@ def add_common_arg(custom_parser, default_folder, default_quality):
         "--no-m3u",
         action="store_true",
         help="don't create .m3u files when downloading playlists",
+    )
+    custom_parser.add_argument(
+        "--no-fallback",
+        action="store_true",
+        help="disable quality fallback (skip releases not available in set quality)",
+    )
+    custom_parser.add_argument(
+        "-e", "--embed-art", action="store_true", help="embed cover art into files"
     )
 
 

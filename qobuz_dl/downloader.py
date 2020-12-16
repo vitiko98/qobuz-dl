@@ -6,6 +6,8 @@ from tqdm import tqdm
 
 import qobuz_dl.metadata as metadata
 
+QL_DOWNGRADE = "FormatRestrictedByFormatAvailability"
+
 
 def tqdm_download(url, fname, track_name):
     r = requests.get(url, allow_redirects=True, stream=True)
@@ -31,23 +33,34 @@ def get_description(u, mt, multiple=None):
     )
 
 
-def get_format(client, item_dict, quality, is_track_id=False):
+def get_format(client, item_dict, quality, is_track_id=False, track_url_dict=None):
+    quality_met = True
     if int(quality) == 5:
-        return "MP3"
+        return "MP3", quality_met
     track_dict = item_dict
     if not is_track_id:
         track_dict = item_dict["tracks"]["items"][0]
 
     try:
-        new_track_dict = client.get_track_url(track_dict["id"], quality)
+        new_track_dict = (
+            client.get_track_url(track_dict["id"], quality)
+            if not track_url_dict
+            else track_url_dict
+        )
+        restrictions = new_track_dict.get("restrictions")
+        if isinstance(restrictions, list):
+            if any(
+                restriction.get("code") == QL_DOWNGRADE for restriction in restrictions
+            ):
+                quality_met = False
         if (
             new_track_dict["bit_depth"] == 16
             and new_track_dict["sampling_rate"] == 44.1
         ):
-            return "FLAC"
-        return "Hi-Res"
+            return "FLAC", quality_met
+        return "Hi-Res", quality_met
     except (KeyError, requests.exceptions.HTTPError):
-        return "Unknown"
+        return "Unknown", quality_met
 
 
 def get_title(item_dict):
@@ -151,7 +164,14 @@ def download_and_tag(
 
 
 def download_id_by_type(
-    client, item_id, path, quality, album=False, embed_art=False, albums_only=False
+    client,
+    item_id,
+    path,
+    quality,
+    album=False,
+    embed_art=False,
+    albums_only=False,
+    downgrade_quality=True,
 ):
     """
     Download and get metadata by ID and type (album or track)
@@ -163,6 +183,7 @@ def download_id_by_type(
     :param bool album: album type or not
     :param embed_art album: Embed cover art into files
     :param bool albums_only: Ignore Singles, EPs and VA releases
+    :param bool downgrade: Skip releases not available in set quality
     """
     count = 0
 
@@ -177,12 +198,17 @@ def download_id_by_type(
             return
 
         album_title = get_title(meta)
+        album_format, quality_met = get_format(client, meta, quality)
+        if not downgrade_quality and not quality_met:
+            print("Skipping release as doesn't met quality requirement")
+            return
+
         print("\nDownloading: {}\n".format(album_title))
         dirT = (
             meta["artist"]["name"],
             album_title,
             meta["release_date_original"].split("-")[0],
-            get_format(client, meta, quality),
+            album_format,
         )
         sanitized_title = sanitize_filename("{} - {} [{}] [{}]".format(*dirT))
         dirn = os.path.join(path, sanitized_title)
@@ -191,8 +217,8 @@ def download_id_by_type(
         if "goodies" in meta:
             try:
                 get_extra(meta["goodies"][0]["url"], dirn, "booklet.pdf")
-            except Exception as e:
-                print("Error: " + e)
+            except:  # noqa
+                pass
         media_numbers = [track["media_number"] for track in meta["tracks"]["items"]]
         is_multiple = True if len([*{*media_numbers}]) > 1 else False
         for i in meta["tracks"]["items"]:
@@ -228,11 +254,15 @@ def download_id_by_type(
             meta = client.get_track_meta(item_id)
             track_title = get_title(meta)
             print("\nDownloading: {}\n".format(track_title))
+            track_format, quality_met = get_format(client, meta, quality, True, parse)
+            if not downgrade_quality and not quality_met:
+                print("Skipping track as doesn't met quality requirement")
+                return
             dirT = (
                 meta["album"]["artist"]["name"],
                 track_title,
                 meta["album"]["release_date_original"].split("-")[0],
-                get_format(client, meta, quality, True),
+                track_format,
             )
             sanitized_title = sanitize_filename("{} - {} [{}] [{}]".format(*dirT))
             dirn = os.path.join(path, sanitized_title)

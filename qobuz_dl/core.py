@@ -53,7 +53,7 @@ class QobuzDL:
         interactive_limit=20,
         ignore_singles_eps=False,
         no_m3u_for_playlists=False,
-        raise_request_exceptions=False,
+        quality_fallback=True,
     ):
         self.directory = self.create_dir(directory)
         self.quality = quality
@@ -63,6 +63,7 @@ class QobuzDL:
         self.interactive_limit = interactive_limit
         self.ignore_singles_eps = ignore_singles_eps
         self.no_m3u_for_playlists = no_m3u_for_playlists
+        self.quality_fallback = quality_fallback
 
     def initialize_client(self, email, pwd, app_id, secrets):
         self.client = qopy.Client(email, pwd, app_id, secrets)
@@ -96,6 +97,7 @@ class QobuzDL:
             album,
             self.embed_art,
             self.ignore_singles_eps,
+            self.quality_fallback,
         )
 
     def handle_url(self, url):
