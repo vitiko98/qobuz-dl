@@ -65,14 +65,20 @@ def tag_flac(filename, root_dir, final_name, d, album, istrack=True, em_image=Fa
         audio["ALBUM"] = album["title"]  # ALBUM TITLE
         audio["YEAR"] = album["release_date_original"].split("-")[0]  # YEAR
 
-    emb_image = os.path.join(root_dir, "cover.jpg")
-    if os.path.isfile(emb_image) and em_image:
+    if em_image:
+        emb_image = os.path.join(root_dir, "cover.jpg")
+        multi_emb_image = os.path.join(
+            os.path.abspath(os.path.join(root_dir, os.pardir)), "cover.jpg"
+        )
+        print(emb_image)
+        print(multi_emb_image)
+        cover_image = emb_image if os.path.isfile(emb_image) else multi_emb_image
         try:
             image = Picture()
             image.type = 3
             image.mime = "image/jpeg"
             image.desc = "cover"
-            with open(emb_image, "rb") as img:
+            with open(cover_image, "rb") as img:
                 image.data = img.read()
             audio.add_picture(image)
         except Exception as e:
