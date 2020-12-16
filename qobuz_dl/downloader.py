@@ -46,7 +46,7 @@ def get_format(client, item_dict, quality, is_track_id=False):
         ):
             return "FLAC"
         return "Hi-Res"
-    except KeyError:
+    except (KeyError, requests.exceptions.HTTPError):
         return "Unknown"
 
 
@@ -196,7 +196,11 @@ def download_id_by_type(
         media_numbers = [track["media_number"] for track in meta["tracks"]["items"]]
         is_multiple = True if len([*{*media_numbers}]) > 1 else False
         for i in meta["tracks"]["items"]:
-            parse = client.get_track_url(i["id"], quality)
+            try:
+                parse = client.get_track_url(i["id"], quality)
+            except requests.exceptions.HTTPError:
+                print("Nothing found")
+                continue
             if "sample" not in parse and parse["sampling_rate"]:
                 is_mp3 = True if int(quality) == 5 else False
                 download_and_tag(
@@ -214,7 +218,11 @@ def download_id_by_type(
                 print("Demo. Skipping")
             count = count + 1
     else:
-        parse = client.get_track_url(item_id, quality)
+        try:
+            parse = client.get_track_url(item_id, quality)
+        except requests.exceptions.HTTPError:
+            print("Nothing found")
+            return
 
         if "sample" not in parse and parse["sampling_rate"]:
             meta = client.get_track_meta(item_id)

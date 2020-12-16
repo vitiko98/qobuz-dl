@@ -9,6 +9,7 @@ Search, discover and download Lossless and Hi-Res music from [Qobuz](https://www
 * Download music from last.fm playlists (Spotify, Apple Music and Youtube playlists are also supported through this method)
 * Queue support on **interactive** mode
 * Support for albums with multiple discs
+* Support for M3U playlists
 * Downloads URLs from text file
 * And more
 
@@ -67,7 +68,7 @@ qobuz-dl dl https://play.qobuz.com/artist/2528676 --albums-only
 ```
 
 #### Last.fm playlists
-Last.fm has a new feature for creating playlists: you can create your own based on the music you listen to or you can import one from popular streaming services like Spotify, Apple Music and Youtube. Visit: `https://www.last.fm/user/<your profile>/playlists` (e.g. https://www.last.fm/user/vitiko98/playlists) to get started.
+> Last.fm has a new feature for creating playlists: you can create your own based on the music you listen to or you can import one from popular streaming services like Spotify, Apple Music and Youtube. Visit: `https://www.last.fm/user/<your profile>/playlists` (e.g. https://www.last.fm/user/vitiko98/playlists) to get started.
 
 Download a last.fm playlist in the maximum quality
 ```
@@ -157,7 +158,7 @@ qobuz.handle_url("https://play.qobuz.com/album/va4j3hdlwaubc")
 Attributes, methods and parameters have been named as self-explanatory as possible.
 
 ## A note about Qo-DL
-`qobuz-dl` is inspired in the discontinued Qo-DL-Reborn. This program uses two modules from Qo-DL: `qopy` and `spoofer`, both written by Sorrow446 and DashLt.
+`qobuz-dl` is inspired in the discontinued Qo-DL-Reborn. This tool uses two modules from Qo-DL: `qopy` and `spoofer`, both written by Sorrow446 and DashLt.
 ## Disclaimer
 * This tool was written for educational purposes. I will not be responsible if you use this program in bad faith. By using it, you are accepting the [Qobuz API Terms of Use](https://static.qobuz.com/apps/api/QobuzAPI-TermsofUse.pdf).
 * `qobuz-dl` is not affiliated with Qobuz

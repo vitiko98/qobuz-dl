@@ -53,6 +53,7 @@ class QobuzDL:
         interactive_limit=20,
         ignore_singles_eps=False,
         no_m3u_for_playlists=False,
+        raise_request_exceptions=False,
     ):
         self.directory = self.create_dir(directory)
         self.quality = quality
@@ -353,7 +354,7 @@ class QobuzDL:
 
         pl_title = sanitize_filename(soup.select_one("h1").text)
         pl_directory = os.path.join(self.directory, pl_title)
-        print("Downloading playlist: " + pl_title)
+        print("Downloading playlist: {} ({} tracks)".format(pl_title, len(track_list)))
 
         for i in track_list:
             track_id = self.get_id(self.search_by_type(i, "track", 1, lucky=True)[0])
@@ -365,30 +366,44 @@ class QobuzDL:
     def make_m3u(self, pl_directory):
         if self.no_m3u_for_playlists:
             return
+
         track_list = ["#EXTM3U"]
-        pl_name = os.path.basename(os.path.normpath(pl_directory)) + ".m3u"
+        rel_folder = os.path.basename(os.path.normpath(pl_directory))
+        pl_name = rel_folder + ".m3u"
         for local, dirs, files in os.walk(pl_directory):
             dirs.sort()
+            audio_rel_files = [
+                # os.path.abspath(os.path.join(local, file_))
+                # os.path.join(rel_folder, os.path.basename(os.path.normpath(local)), file_)
+                os.path.join(os.path.basename(os.path.normpath(local)), file_)
+                for file_ in files
+                if os.path.splitext(file_)[-1] in EXTENSIONS
+            ]
             audio_files = [
                 os.path.abspath(os.path.join(local, file_))
                 for file_ in files
                 if os.path.splitext(file_)[-1] in EXTENSIONS
             ]
-            if not audio_files:
+            if not audio_files or len(audio_files) != len(audio_rel_files):
                 continue
-            for audio in audio_files:
+
+            for audio_rel_file, audio_file in zip(audio_rel_files, audio_files):
                 try:
-                    pl_item = EasyMP3(audio) if ".mp3" in audio else FLAC(audio)
+                    pl_item = (
+                        EasyMP3(audio_file)
+                        if ".mp3" in audio_file
+                        else FLAC(audio_file)
+                    )
                     title = pl_item["TITLE"][0]
                     artist = pl_item["ARTIST"][0]
                     length = int(pl_item.info.length)
                     index = "#EXTINF:{}, {} - {}\n{}".format(
-                        length, artist, title, audio
+                        length, artist, title, audio_rel_file
                     )
                 except:  # noqa
                     continue
                 track_list.append(index)
 
         if len(track_list) > 1:
-            with open(os.path.join(self.directory, pl_name), "w") as pl:
+            with open(os.path.join(pl_directory, pl_name), "w") as pl:
                 pl.write("\n\n".join(track_list))
