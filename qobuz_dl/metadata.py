@@ -70,8 +70,6 @@ def tag_flac(filename, root_dir, final_name, d, album, istrack=True, em_image=Fa
         multi_emb_image = os.path.join(
             os.path.abspath(os.path.join(root_dir, os.pardir)), "cover.jpg"
         )
-        print(emb_image)
-        print(multi_emb_image)
         cover_image = emb_image if os.path.isfile(emb_image) else multi_emb_image
         try:
             image = Picture()
