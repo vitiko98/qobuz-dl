@@ -87,13 +87,13 @@ def get_title(item_dict):
     return final_title
 
 
-def get_extra(i, dirn, extra="cover.jpg"):
+def get_extra(i, dirn, extra="cover.jpg", og_quality=False):
     extra_file = os.path.join(dirn, extra)
     if os.path.isfile(extra_file):
         logger.info(f"{OFF}{extra} was already downloaded")
         return
     tqdm_download(
-        i.replace("_600.", "_org."),
+        i.replace("_600.", "_org.") if og_quality else i,
         extra_file,
         extra,
     )
@@ -174,6 +174,7 @@ def download_id_by_type(
     embed_art=False,
     albums_only=False,
     downgrade_quality=True,
+    cover_og_quality=False,
 ):
     """
     Download and get metadata by ID and type (album or track)
@@ -186,6 +187,7 @@ def download_id_by_type(
     :param embed_art album: Embed cover art into files
     :param bool albums_only: Ignore Singles, EPs and VA releases
     :param bool downgrade: Skip releases not available in set quality
+    :param bool cover_og_quality: Download cover in its original quality
     """
     count = 0
 
@@ -217,7 +219,7 @@ def download_id_by_type(
         sanitized_title = sanitize_filename("{} - {} [{}] [{}]".format(*dirT))
         dirn = os.path.join(path, sanitized_title)
         os.makedirs(dirn, exist_ok=True)
-        get_extra(meta["image"]["large"], dirn)
+        get_extra(meta["image"]["large"], dirn, og_quality=cover_og_quality)
         if "goodies" in meta:
             try:
                 get_extra(meta["goodies"][0]["url"], dirn, "booklet.pdf")
@@ -273,7 +275,7 @@ def download_id_by_type(
             sanitized_title = sanitize_filename("{} - {} [{}] [{}]".format(*dirT))
             dirn = os.path.join(path, sanitized_title)
             os.makedirs(dirn, exist_ok=True)
-            get_extra(meta["album"]["image"]["large"], dirn)
+            get_extra(meta["album"]["image"]["large"], dirn, og_quality=cover_og_quality)
             is_mp3 = True if int(quality) == 5 else False
             download_and_tag(dirn, count, parse, meta, meta, True, is_mp3, embed_art)
         else:

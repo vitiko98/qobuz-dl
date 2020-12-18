@@ -91,6 +91,9 @@ def add_common_arg(custom_parser, default_folder, default_quality):
     custom_parser.add_argument(
         "-e", "--embed-art", action="store_true", help="embed cover art into files"
     )
+    custom_parser.add_argument(
+        "--og-cover", action="store_true", help="download cover art in its original quality (bigger file)"
+    )
 
 
 def qobuz_dl_args(

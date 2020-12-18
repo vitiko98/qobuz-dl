@@ -99,6 +99,7 @@ def main():
         ignore_singles_eps=arguments.albums_only,
         no_m3u_for_playlists=arguments.no_m3u,
         quality_fallback=not arguments.no_fallback,
+        cover_og_quality=arguments.og_cover,
     )
     qobuz.initialize_client(email, password, app_id, secrets)
 

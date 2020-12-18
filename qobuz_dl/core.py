@@ -13,7 +13,7 @@ from pathvalidate import sanitize_filename
 
 import qobuz_dl.spoofbuz as spoofbuz
 from qobuz_dl import downloader, qopy
-from qobuz_dl.color import MAGENTA, OFF, RED, YELLOW, DF
+from qobuz_dl.color import MAGENTA, OFF, RED, YELLOW, DF, RESET
 
 WEB_URL = "https://play.qobuz.com/"
 ARTISTS_SELECTOR = "td.chartlist-artist > a"
@@ -58,6 +58,7 @@ class QobuzDL:
         ignore_singles_eps=False,
         no_m3u_for_playlists=False,
         quality_fallback=True,
+        cover_og_quality=False,
     ):
         self.directory = self.create_dir(directory)
         self.quality = quality
@@ -68,10 +69,11 @@ class QobuzDL:
         self.ignore_singles_eps = ignore_singles_eps
         self.no_m3u_for_playlists = no_m3u_for_playlists
         self.quality_fallback = quality_fallback
+        self.cover_og_quality = cover_og_quality
 
     def initialize_client(self, email, pwd, app_id, secrets):
         self.client = qopy.Client(email, pwd, app_id, secrets)
-        logger.info(f"{YELLOW}Set quality: {QUALITIES[int(self.quality)]}")
+        logger.info(f"{YELLOW}Set quality: {QUALITIES[int(self.quality)]}\n")
 
     def get_tokens(self):
         spoofer = spoofbuz.Spoofer()
@@ -103,6 +105,7 @@ class QobuzDL:
             self.embed_art,
             self.ignore_singles_eps,
             self.quality_fallback,
+            self.cover_og_quality,
         )
 
     def handle_url(self, url):
@@ -283,16 +286,16 @@ class QobuzDL:
             selected_type = pick(item_types, "I'll search for:\n[press Intro]")[0][
                 :-1
             ].lower()
-            logger.info(f"{YELLOW}Ok, we'll search for {selected_type}s")
+            logger.info(f"{YELLOW}Ok, we'll search for {selected_type}s{RESET}")
             final_url_list = []
             while True:
                 query = input(f"{MAGENTA}Enter your search: [Ctrl + c to quit]\n-{DF} ")
-                logger.info(f"{YELLOW}Searching...")
+                logger.info(f"{YELLOW}Searching...{RESET}")
                 options = self.search_by_type(
                     query, selected_type, self.interactive_limit
                 )
                 if not options:
-                    logger.info(f"{OFF}Nothing found")
+                    logger.info(f"{OFF}Nothing found{RESET}")
                     continue
                 title = (
                     f'*** RESULTS FOR "{query.title()}" ***\n\n'
@@ -316,7 +319,7 @@ class QobuzDL:
                     if y_n[0][0] == "N":
                         break
                 else:
-                    logger.info(f"{YELLOW}Ok, try again...")
+                    logger.info(f"{YELLOW}Ok, try again...{RESET}")
                     continue
             if final_url_list:
                 desc = (

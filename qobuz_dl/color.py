@@ -4,6 +4,7 @@ init(autoreset=True)
 
 DF = Style.NORMAL
 BG = Style.BRIGHT
+RESET = Style.RESET_ALL
 OFF = Style.DIM
 RED = Fore.RED
 BLUE = Fore.BLUE
