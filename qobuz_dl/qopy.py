@@ -199,3 +199,5 @@ class Client:
             if self.test_secret(secret):
                 self.sec = secret
                 break
+        if not hasattr(self, "sec"):
+            raise InvalidAppSecretError("Invalid app secret.\n" + RESET)
