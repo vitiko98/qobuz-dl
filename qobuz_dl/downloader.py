@@ -221,8 +221,13 @@ def download_id_by_type(
         sanitized_title = sanitize_filename("{} - {} [{}] [{}]".format(*dirT))
         dirn = os.path.join(path, sanitized_title)
         os.makedirs(dirn, exist_ok=True)
-        if not no_cover:
+
+        if no_cover:
+            logger.info(f"{OFF}Skipping cover")
+        else:
             get_extra(meta["image"]["large"], dirn, og_quality=cover_og_quality)
+
+
         if "goodies" in meta:
             try:
                 get_extra(meta["goodies"][0]["url"], dirn, "booklet.pdf")
@@ -278,7 +283,9 @@ def download_id_by_type(
             sanitized_title = sanitize_filename("{} - {} [{}] [{}]".format(*dirT))
             dirn = os.path.join(path, sanitized_title)
             os.makedirs(dirn, exist_ok=True)
-            if not no_cover:
+            if no_cover:
+                logger.info(f"{OFF}Skipping cover")
+            else:
                 get_extra(
                     meta["album"]["image"]["large"], dirn, og_quality=cover_og_quality
                 )

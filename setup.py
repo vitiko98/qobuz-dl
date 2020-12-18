@@ -13,7 +13,7 @@ requirements = read_file("requirements.txt").strip().split()
 
 setup(
     name=pkg_name,
-    version="0.8.0",
+    version="0.8.1",
     author="Vitiko",
     author_email="vhnz98@gmail.com",
     description="The complete Lossless and Hi-Res music downloader for Qobuz",

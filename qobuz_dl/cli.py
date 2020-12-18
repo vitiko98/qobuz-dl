@@ -81,12 +81,12 @@ def main():
         default_folder = config["DEFAULT"]["default_folder"]
         default_limit = config["DEFAULT"]["default_limit"]
         default_quality = config["DEFAULT"]["default_quality"]
-        no_m3u = config["DEFAULT"]["no_m3u"]
-        albums_only = config["DEFAULT"]["albums_only"]
-        no_fallback = config["DEFAULT"]["no_fallback"]
-        og_cover = config["DEFAULT"]["og_cover"]
-        embed_art = config["DEFAULT"]["embed_art"]
-        no_cover = config["DEFAULT"]["no_cover"]
+        no_m3u = config.getboolean("DEFAULT", "no_m3u")
+        albums_only = config.getboolean("DEFAULT", "albums_only")
+        no_fallback = config.getboolean("DEFAULT", "no_fallback")
+        og_cover = config.getboolean("DEFAULT", "og_cover")
+        embed_art = config.getboolean("DEFAULT", "embed_art")
+        no_cover = config.getboolean("DEFAULT", "no_cover")
         app_id = config["DEFAULT"]["app_id"]
         secrets = [
             secret for secret in config["DEFAULT"]["secrets"].split(",") if secret
