@@ -96,17 +96,20 @@ class QobuzDL:
         ).group(1)
 
     def download_from_id(self, item_id, album=True, alt_path=None):
-        downloader.download_id_by_type(
-            self.client,
-            item_id,
-            self.directory if not alt_path else alt_path,
-            str(self.quality),
-            album,
-            self.embed_art,
-            self.ignore_singles_eps,
-            self.quality_fallback,
-            self.cover_og_quality,
-        )
+        try:
+            downloader.download_id_by_type(
+                self.client,
+                item_id,
+                self.directory if not alt_path else alt_path,
+                str(self.quality),
+                album,
+                self.embed_art,
+                self.ignore_singles_eps,
+                self.quality_fallback,
+                self.cover_og_quality,
+            )
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Error getting release: {e}")
 
     def handle_url(self, url):
         possibles = {
