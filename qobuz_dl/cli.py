@@ -5,7 +5,7 @@ import os
 import sys
 
 import qobuz_dl.spoofbuz as spoofbuz
-from qobuz_dl.color import DF, GREEN, MAGENTA, RED, YELLOW
+from qobuz_dl.color import DF, GREEN, CYAN, RED, YELLOW
 from qobuz_dl.commands import qobuz_dl_args
 from qobuz_dl.core import QobuzDL
 
@@ -26,19 +26,19 @@ CONFIG_FILE = os.path.join(CONFIG_PATH, "config.ini")
 def reset_config(config_file):
     logging.info(f"{YELLOW}Creating config file: {config_file}")
     config = configparser.ConfigParser()
-    config["DEFAULT"]["email"] = input(f"{MAGENTA}Enter your email:\n-{DF} ")
+    config["DEFAULT"]["email"] = input(f"{CYAN}Enter your email:\n-{DF} ")
     config["DEFAULT"]["password"] = base64.b64encode(
-        input(f"{MAGENTA}Enter your password\n-{DF} ").encode()
+        input(f"{CYAN}Enter your password\n-{DF} ").encode()
     ).decode()
     config["DEFAULT"]["default_folder"] = (
         input(
-            f"{MAGENTA}Folder for downloads (leave empy for default 'Qobuz Downloads')\n-{DF} "
+            f"{CYAN}Folder for downloads (leave empy for default 'Qobuz Downloads')\n-{DF} "
         )
         or "Qobuz Downloads"
     )
     config["DEFAULT"]["default_quality"] = (
         input(
-            f"{MAGENTA}Download quality (5, 6, 7, 27) "
+            f"{CYAN}Download quality (5, 6, 7, 27) "
             "[320, LOSSLESS, 24B <96KHZ, 24B >96KHZ]"
             f"\n(leave empy for default '6')\n-{DF} "
         )
@@ -116,7 +116,7 @@ def main():
             qobuz.interactive()
     except KeyboardInterrupt:
         logging.info(
-            f"{RED}Interrupted by user\n{MAGENTA}Already downloaded items will "
+            f"{RED}Interrupted by user\n{YELLOW}Already downloaded items will "
             "be skipped if you try to download the same releases again"
         )
 

@@ -13,7 +13,7 @@ from pathvalidate import sanitize_filename
 
 import qobuz_dl.spoofbuz as spoofbuz
 from qobuz_dl import downloader, qopy
-from qobuz_dl.color import MAGENTA, OFF, RED, YELLOW, DF, RESET
+from qobuz_dl.color import CYAN, OFF, RED, YELLOW, DF, RESET
 
 WEB_URL = "https://play.qobuz.com/"
 ARTISTS_SELECTOR = "td.chartlist-artist > a"
@@ -289,7 +289,7 @@ class QobuzDL:
             logger.info(f"{YELLOW}Ok, we'll search for {selected_type}s{RESET}")
             final_url_list = []
             while True:
-                query = input(f"{MAGENTA}Enter your search: [Ctrl + c to quit]\n-{DF} ")
+                query = input(f"{CYAN}Enter your search: [Ctrl + c to quit]\n-{DF} ")
                 logger.info(f"{YELLOW}Searching...{RESET}")
                 options = self.search_by_type(
                     query, selected_type, self.interactive_limit
