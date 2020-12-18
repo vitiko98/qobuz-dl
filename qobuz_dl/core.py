@@ -59,6 +59,7 @@ class QobuzDL:
         no_m3u_for_playlists=False,
         quality_fallback=True,
         cover_og_quality=False,
+        no_cover=False
     ):
         self.directory = self.create_dir(directory)
         self.quality = quality
@@ -70,6 +71,7 @@ class QobuzDL:
         self.no_m3u_for_playlists = no_m3u_for_playlists
         self.quality_fallback = quality_fallback
         self.cover_og_quality = cover_og_quality
+        self.no_cover = no_cover
 
     def initialize_client(self, email, pwd, app_id, secrets):
         self.client = qopy.Client(email, pwd, app_id, secrets)
@@ -107,6 +109,7 @@ class QobuzDL:
                 self.ignore_singles_eps,
                 self.quality_fallback,
                 self.cover_og_quality,
+                self.no_cover,
             )
         except requests.exceptions.RequestException as e:
             logger.error(f"Error getting release: {e}")

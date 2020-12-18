@@ -61,7 +61,7 @@ def add_common_arg(custom_parser, default_folder, default_quality):
         "--directory",
         metavar="PATH",
         default=default_folder,
-        help='directory for downloads (default: "{}")'.format(default_folder),
+        help=f'directory for downloads (default: "{default_folder}")'
     )
     custom_parser.add_argument(
         "-q",
@@ -70,7 +70,7 @@ def add_common_arg(custom_parser, default_folder, default_quality):
         default=default_quality,
         help=(
             'audio "quality" (5, 6, 7, 27)\n'
-            "[320, LOSSLESS, 24B <96KHZ, 24B >96KHZ] (default: 6)"
+            f"[320, LOSSLESS, 24B<=96KHZ, 24B>96KHZ] (default: {default_quality})"
         ),
     )
     custom_parser.add_argument(
@@ -93,6 +93,9 @@ def add_common_arg(custom_parser, default_folder, default_quality):
     )
     custom_parser.add_argument(
         "--og-cover", action="store_true", help="download cover art in its original quality (bigger file)"
+    )
+    custom_parser.add_argument(
+        "--no-cover", action="store_true", help="don't download cover art"
     )
 
 

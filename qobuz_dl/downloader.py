@@ -175,6 +175,7 @@ def download_id_by_type(
     albums_only=False,
     downgrade_quality=True,
     cover_og_quality=False,
+    no_cover=False,
 ):
     """
     Download and get metadata by ID and type (album or track)
@@ -188,6 +189,7 @@ def download_id_by_type(
     :param bool albums_only: Ignore Singles, EPs and VA releases
     :param bool downgrade: Skip releases not available in set quality
     :param bool cover_og_quality: Download cover in its original quality
+    :param bool no_cover: Don't download cover art
     """
     count = 0
 
@@ -219,7 +221,8 @@ def download_id_by_type(
         sanitized_title = sanitize_filename("{} - {} [{}] [{}]".format(*dirT))
         dirn = os.path.join(path, sanitized_title)
         os.makedirs(dirn, exist_ok=True)
-        get_extra(meta["image"]["large"], dirn, og_quality=cover_og_quality)
+        if not no_cover:
+            get_extra(meta["image"]["large"], dirn, og_quality=cover_og_quality)
         if "goodies" in meta:
             try:
                 get_extra(meta["goodies"][0]["url"], dirn, "booklet.pdf")
@@ -275,7 +278,10 @@ def download_id_by_type(
             sanitized_title = sanitize_filename("{} - {} [{}] [{}]".format(*dirT))
             dirn = os.path.join(path, sanitized_title)
             os.makedirs(dirn, exist_ok=True)
-            get_extra(meta["album"]["image"]["large"], dirn, og_quality=cover_og_quality)
+            if not no_cover:
+                get_extra(
+                    meta["album"]["image"]["large"], dirn, og_quality=cover_og_quality
+                )
             is_mp3 = True if int(quality) == 5 else False
             download_and_tag(dirn, count, parse, meta, meta, True, is_mp3, embed_art)
         else:

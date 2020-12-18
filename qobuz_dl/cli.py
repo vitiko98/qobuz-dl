@@ -5,7 +5,7 @@ import os
 import sys
 
 import qobuz_dl.spoofbuz as spoofbuz
-from qobuz_dl.color import DF, GREEN, CYAN, RED, YELLOW
+from qobuz_dl.color import CYAN, DF, GREEN, RED, YELLOW
 from qobuz_dl.commands import qobuz_dl_args
 from qobuz_dl.core import QobuzDL
 
@@ -45,13 +45,23 @@ def reset_config(config_file):
         or "6"
     )
     config["DEFAULT"]["default_limit"] = "20"
+    config["DEFAULT"]["no_m3u"] = "false"
+    config["DEFAULT"]["albums_only"] = "false"
+    config["DEFAULT"]["no_fallback"] = "false"
+    config["DEFAULT"]["og_cover"] = "false"
+    config["DEFAULT"]["embed_art"] = "false"
+    config["DEFAULT"]["no_cover"] = "false"
     logging.info(f"{YELLOW}Getting tokens. Please wait...")
     spoofer = spoofbuz.Spoofer()
     config["DEFAULT"]["app_id"] = str(spoofer.getAppId())
     config["DEFAULT"]["secrets"] = ",".join(spoofer.getSecrets().values())
     with open(config_file, "w") as configfile:
         config.write(configfile)
-    logging.info(f"{GREEN}Config file updated.")
+    logging.info(
+        f"{GREEN}Config file updated. Edit more options in {config_file}"
+        "\nso you don't have to call custom flags every time you run "
+        "a qobuz-dl command."
+    )
 
 
 def main():
@@ -62,11 +72,6 @@ def main():
     if len(sys.argv) < 2:
         sys.exit(qobuz_dl_args().print_help())
 
-    email = None
-    password = None
-    app_id = None
-    secrets = None
-
     config = configparser.ConfigParser()
     config.read(CONFIG_FILE)
 
@@ -76,6 +81,12 @@ def main():
         default_folder = config["DEFAULT"]["default_folder"]
         default_limit = config["DEFAULT"]["default_limit"]
         default_quality = config["DEFAULT"]["default_quality"]
+        no_m3u = config["DEFAULT"]["no_m3u"]
+        albums_only = config["DEFAULT"]["albums_only"]
+        no_fallback = config["DEFAULT"]["no_fallback"]
+        og_cover = config["DEFAULT"]["og_cover"]
+        embed_art = config["DEFAULT"]["embed_art"]
+        no_cover = config["DEFAULT"]["no_cover"]
         app_id = config["DEFAULT"]["app_id"]
         secrets = [
             secret for secret in config["DEFAULT"]["secrets"].split(",") if secret
@@ -83,10 +94,10 @@ def main():
         arguments = qobuz_dl_args(
             default_quality, default_limit, default_folder
         ).parse_args()
-    except (KeyError, UnicodeDecodeError):
+    except (KeyError, UnicodeDecodeError, configparser.Error):
         arguments = qobuz_dl_args().parse_args()
         if not arguments.reset:
-            logging.warning(
+            sys.exit(
                 f"{RED}Your config file is corrupted! Run 'qobuz-dl -r' to fix this"
             )
     if arguments.reset:
@@ -95,12 +106,14 @@ def main():
     qobuz = QobuzDL(
         arguments.directory,
         arguments.quality,
-        arguments.embed_art,
-        ignore_singles_eps=arguments.albums_only,
-        no_m3u_for_playlists=arguments.no_m3u,
-        quality_fallback=not arguments.no_fallback,
-        cover_og_quality=arguments.og_cover,
+        arguments.embed_art or embed_art,
+        ignore_singles_eps=arguments.albums_only or albums_only,
+        no_m3u_for_playlists=arguments.no_m3u or no_m3u,
+        quality_fallback=not arguments.no_fallback or not no_fallback,
+        cover_og_quality=arguments.og_cover or og_cover,
+        no_cover=arguments.no_cover or no_cover,
     )
+
     qobuz.initialize_client(email, password, app_id, secrets)
 
     try:
