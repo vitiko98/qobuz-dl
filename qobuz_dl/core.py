@@ -1,3 +1,4 @@
+import logging
 import os
 import re
 import string
@@ -6,18 +7,21 @@ import time
 
 import requests
 from bs4 import BeautifulSoup as bso
+from mutagen.flac import FLAC
+from mutagen.mp3 import EasyMP3
 from pathvalidate import sanitize_filename
 
 import qobuz_dl.spoofbuz as spoofbuz
 from qobuz_dl import downloader, qopy
-
-from mutagen.flac import FLAC
-from mutagen.mp3 import EasyMP3
+from qobuz_dl.color import MAGENTA, OFF, RED, YELLOW, DF
 
 WEB_URL = "https://play.qobuz.com/"
 ARTISTS_SELECTOR = "td.chartlist-artist > a"
 TITLE_SELECTOR = "td.chartlist-name > a"
 EXTENSIONS = (".mp3", ".flac")
+QUALITIES = {5: "5 - MP3", 6: "6 - FLAC", 7: "7 - 24B<96kHz", 27: "27 - 24B>96kHz"}
+
+logger = logging.getLogger(__name__)
 
 
 class PartialFormatter(string.Formatter):
@@ -67,6 +71,7 @@ class QobuzDL:
 
     def initialize_client(self, email, pwd, app_id, secrets):
         self.client = qopy.Client(email, pwd, app_id, secrets)
+        logger.info(f"{YELLOW}Set quality: {QUALITIES[int(self.quality)]}")
 
     def get_tokens(self):
         spoofer = spoofbuz.Spoofer()
@@ -83,8 +88,8 @@ class QobuzDL:
     def get_id(self, url):
         return re.match(
             r"https?://(?:w{0,3}|play|open)\.qobuz\.com/(?:(?:album|track|artist"
-            "|playlist|label)/|[a-z]{2}-[a-z]{2}/album/-?\w+(?:-\w+)*-?/|user/"
-            "library/favorites/)(\w+)",
+            r"|playlist|label)/|[a-z]{2}-[a-z]{2}/album/-?\w+(?:-\w+)*-?/|user/"
+            r"library/favorites/)(\w+)",
             url,
         ).group(1)
 
@@ -122,23 +127,21 @@ class QobuzDL:
             type_dict = possibles[url_type]
             item_id = self.get_id(url)
         except (KeyError, IndexError):
-            print(
-                'Invalid url: "{}". Use urls from https://play.qobuz.com!'.format(url)
+            logger.info(
+                f'{RED}Invalid url: "{url}". Use urls from https://play.qobuz.com!'
             )
             return
         if type_dict["func"]:
             content = [item for item in type_dict["func"](item_id)]
             content_name = content[0]["name"]
-            print(
-                "\nDownloading all the music from {} ({})!".format(
-                    content_name, url_type
-                )
+            logger.info(
+                f"{YELLOW}Downloading all the music from {content_name} ({url_type})!"
             )
             new_path = self.create_dir(
                 os.path.join(self.directory, sanitize_filename(content_name))
             )
             items = [item[type_dict["iterable_key"]]["items"] for item in content][0]
-            print("{} downloads in queue".format(len(items)))
+            logger.info(f"{YELLOW}{len(items)} downloads in queue")
             for item in items:
                 self.download_from_id(
                     item["id"],
@@ -152,7 +155,7 @@ class QobuzDL:
 
     def download_list_of_urls(self, urls):
         if not urls or not isinstance(urls, list):
-            print("Nothing to download")
+            logger.info(f"{OFF}Nothing to download")
             return
         for url in urls:
             if "last.fm" in url:
@@ -167,24 +170,21 @@ class QobuzDL:
             try:
                 urls = txt.read().strip().split()
             except Exception as e:
-                print("Invalid text file: " + str(e))
+                logger.error(f"{RED}Invalid text file: {e}")
                 return
-            print(
-                'qobuz-dl will download {} urls from file: "{}"\n'.format(
-                    len(urls), txt_file
-                )
+            logger.info(
+                f'{YELLOW}qobuz-dl will download {len(urls)} urls from file: "{txt_file}"'
             )
             self.download_list_of_urls(urls)
 
     def lucky_mode(self, query, download=True):
         if len(query) < 3:
-            sys.exit("Your search query is too short or invalid!")
+            logger.info(f"{RED}Your search query is too short or invalid")
+            return
 
-        print(
-            'Searching {}s for "{}".\n'
-            "qobuz-dl will attempt to download the first {} results.".format(
-                self.lucky_type, query, self.lucky_limit
-            )
+        logger.info(
+            f'{YELLOW}Searching {self.lucky_type}s for "{query}".\n'
+            f"{YELLOW}qobuz-dl will attempt to download the first {self.lucky_limit} results."
         )
         results = self.search_by_type(query, self.lucky_type, self.lucky_limit, True)
 
@@ -198,7 +198,7 @@ class QobuzDL:
 
     def search_by_type(self, query, item_type, limit=10, lucky=False):
         if len(query) < 3:
-            print("Your search query is too short or invalid!")
+            logger.info("{RED}Your search query is too short or invalid")
             return
 
         possibles = {
@@ -252,7 +252,7 @@ class QobuzDL:
                 item_list.append({"text": text, "url": url} if not lucky else url)
             return item_list
         except (KeyError, IndexError):
-            print("Invalid mode: " + item_type)
+            logger.info(f"{RED}Invalid type: {item_type}")
             return
 
     def interactive(self, download=True):
@@ -260,8 +260,9 @@ class QobuzDL:
             from pick import pick
         except (ImportError, ModuleNotFoundError):
             if os.name == "nt":
-                print('Please install curses with "pip3 install windows-curses"')
-                return
+                sys.exit(
+                    'Please install curses with "pip3 install windows-curses" to continue'
+                )
             raise
 
         qualities = [
@@ -282,22 +283,22 @@ class QobuzDL:
             selected_type = pick(item_types, "I'll search for:\n[press Intro]")[0][
                 :-1
             ].lower()
-            print("Ok, we'll search for " + selected_type + "s")
+            logger.info(f"{YELLOW}Ok, we'll search for {selected_type}s")
             final_url_list = []
             while True:
-                query = input("\nEnter your search: [Ctrl + c to quit]\n- ")
-                print("Searching...")
+                query = input(f"{MAGENTA}Enter your search: [Ctrl + c to quit]\n-{DF} ")
+                logger.info(f"{YELLOW}Searching...")
                 options = self.search_by_type(
                     query, selected_type, self.interactive_limit
                 )
                 if not options:
-                    print("Nothing found!")
+                    logger.info(f"{OFF}Nothing found")
                     continue
                 title = (
-                    '*** RESULTS FOR "{}" ***\n\n'
+                    f'*** RESULTS FOR "{query.title()}" ***\n\n'
                     "Select [space] the item(s) you want to download "
                     "(one or more)\nPress Ctrl + c to quit\n"
-                    "Don't select anything to try another search".format(query.title())
+                    "Don't select anything to try another search"
                 )
                 selected_items = pick(
                     options,
@@ -315,12 +316,12 @@ class QobuzDL:
                     if y_n[0][0] == "N":
                         break
                 else:
-                    print("\nOk, try again...")
+                    logger.info(f"{YELLOW}Ok, try again...")
                     continue
             if final_url_list:
                 desc = (
-                    "Select [intro] the quality (the quality will be automat"
-                    "ically\ndowngraded if the selected is not found)"
+                    "Select [intro] the quality (the quality will "
+                    "be automatically\ndowngraded if the selected is not found)"
                 )
                 self.quality = pick(
                     qualities,
@@ -334,29 +335,36 @@ class QobuzDL:
 
                 return final_url_list
         except KeyboardInterrupt:
-            print("\nBye")
+            logger.info(f"{YELLOW}Bye")
             return
 
     def download_lastfm_pl(self, playlist_url):
         # Apparently, last fm API doesn't have a playlist endpoint. If you
         # find out that it has, please fix this!
-        r = requests.get(playlist_url)
+        try:
+            r = requests.get(playlist_url, timeout=10)
+        except requests.exceptions.RequestException as e:
+            logger.error(f"{RED}Playlist download failed: {e}")
+            return
         soup = bso(r.content, "html.parser")
         artists = [artist.text for artist in soup.select(ARTISTS_SELECTOR)]
         titles = [title.text for title in soup.select(TITLE_SELECTOR)]
 
+        track_list = []
         if len(artists) == len(titles) and artists:
             track_list = [
                 artist + " " + title for artist, title in zip(artists, titles)
             ]
 
         if not track_list:
-            print("Nothing found")
+            logger.info(f"{OFF}Nothing found")
             return
 
         pl_title = sanitize_filename(soup.select_one("h1").text)
         pl_directory = os.path.join(self.directory, pl_title)
-        print("Downloading playlist: {} ({} tracks)".format(pl_title, len(track_list)))
+        logger.info(
+            f"{YELLOW}Downloading playlist: {pl_title} ({len(track_list)} tracks)"
+        )
 
         for i in track_list:
             track_id = self.get_id(self.search_by_type(i, "track", 1, lucky=True)[0])

@@ -3,6 +3,7 @@
 # original author.
 
 import hashlib
+import logging
 import time
 
 import requests
@@ -12,14 +13,18 @@ from qobuz_dl.exceptions import (
     IneligibleError,
     InvalidAppIdError,
     InvalidAppSecretError,
+    InvalidQuality,
 )
+from qobuz_dl.color import GREEN, YELLOW
 
 RESET = "Reset your credentials with 'qobuz-dl -r'"
+
+logger = logging.getLogger(__name__)
 
 
 class Client:
     def __init__(self, email, pwd, app_id, secrets):
-        print("Logging...")
+        logger.info(f"{YELLOW}Logging...")
         self.secrets = secrets
         self.id = app_id
         self.session = requests.Session()
@@ -80,6 +85,8 @@ class Client:
             unix = time.time()
             track_id = kwargs["id"]
             fmt_id = kwargs["fmt_id"]
+            if int(fmt_id) not in (5, 6, 7, 27):
+                raise InvalidQuality("Invalid quality id: choose between 5, 6, 7 or 27")
             r_sig = "trackgetFileUrlformat_id{}intentstreamtrack_id{}{}{}".format(
                 fmt_id, track_id, unix, self.sec
             )
@@ -94,14 +101,13 @@ class Client:
         else:
             params = kwargs
         r = self.session.get(self.base + epoint, params=params)
-        # Do ref header.
         if epoint == "user/login":
             if r.status_code == 401:
                 raise AuthenticationError("Invalid credentials.\n" + RESET)
             elif r.status_code == 400:
                 raise InvalidAppIdError("Invalid app id.\n" + RESET)
             else:
-                print("Logged: OK")
+                logger.info(f"{GREEN}Logged: OK")
         elif epoint in ["track/getFileUrl", "userLibrary/getAlbumsList"]:
             if r.status_code == 400:
                 raise InvalidAppSecretError("Invalid app secret.\n" + RESET)
@@ -115,7 +121,7 @@ class Client:
         self.uat = usr_info["user_auth_token"]
         self.session.headers.update({"X-User-Auth-Token": self.uat})
         self.label = usr_info["user"]["credential"]["parameters"]["short_label"]
-        print("Membership: {}\n".format(self.label))
+        logger.info(f"{GREEN}Membership: {self.label}")
 
     def multi_meta(self, epoint, key, id, type):
         total = 1

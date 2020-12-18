@@ -12,3 +12,7 @@ class InvalidAppIdError(Exception):
 
 class InvalidAppSecretError(Exception):
     pass
+
+
+class InvalidQuality(Exception):
+    pass

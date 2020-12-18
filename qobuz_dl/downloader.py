@@ -1,3 +1,4 @@
+import logging
 import os
 
 import requests
@@ -5,8 +6,10 @@ from pathvalidate import sanitize_filename
 from tqdm import tqdm
 
 import qobuz_dl.metadata as metadata
+from qobuz_dl.color import OFF, GREEN, RED, YELLOW, CYAN
 
 QL_DOWNGRADE = "FormatRestrictedByFormatAvailability"
+logger = logging.getLogger(__name__)
 
 
 def tqdm_download(url, fname, track_name):
@@ -18,7 +21,7 @@ def tqdm_download(url, fname, track_name):
         unit_scale=True,
         unit_divisor=1024,
         desc=track_name,
-        bar_format="{n_fmt}/{total_fmt} /// {desc}",
+        bar_format=CYAN + "{n_fmt}/{total_fmt} /// {desc}",
     ) as bar:
         for data in r.iter_content(chunk_size=1024):
             size = file.write(data)
@@ -87,12 +90,12 @@ def get_title(item_dict):
 def get_extra(i, dirn, extra="cover.jpg"):
     extra_file = os.path.join(dirn, extra)
     if os.path.isfile(extra_file):
-        print(extra.split(".")[0].title() + " already downloaded")
+        logger.info(f"{OFF}{extra} was already downloaded")
         return
     tqdm_download(
         i.replace("_600.", "_org."),
         extra_file,
-        "Downloading " + extra.split(".")[0],
+        extra,
     )
 
 
@@ -127,7 +130,7 @@ def download_and_tag(
     try:
         url = track_url_dict["url"]
     except KeyError:
-        print("Track not available for download")
+        logger.info(f"{OFF}Track not available for download")
         return
 
     if multiple:
@@ -142,7 +145,7 @@ def download_and_tag(
     )
     final_file = os.path.join(root_dir, track_file)
     if os.path.isfile(final_file):
-        print(track_metadata["title"] + " was already downloaded. Skipping...")
+        logger.info(f'{OFF}{track_metadata["title"]}was already downloaded')
         return
 
     desc = get_description(track_url_dict, track_metadata, multiple)
@@ -159,8 +162,7 @@ def download_and_tag(
             embed_art,
         )
     except Exception as e:
-        print("Error tagging the file: " + str(e))
-        os.remove(filename)
+        logger.error(f"{RED}Error tagging the file: {e}")
 
 
 def download_id_by_type(
@@ -194,16 +196,18 @@ def download_id_by_type(
             meta.get("release_type") != "album"
             or meta.get("artist").get("name") == "Various Artists"
         ):
-            print("Ignoring Single/EP/VA: " + meta.get("title", ""))
+            logger.info(f'{OFF}Ignoring Single/EP/VA: {meta.get("title", "")}')
             return
 
         album_title = get_title(meta)
         album_format, quality_met = get_format(client, meta, quality)
         if not downgrade_quality and not quality_met:
-            print("Skipping release as doesn't met quality requirement")
+            logger.info(
+                f"{OFF}Skipping {album_title} as doesn't met quality requirement"
+            )
             return
 
-        print("\nDownloading: {}\n".format(album_title))
+        logger.info(f"\n{YELLOW}Downloading: {album_title} [{album_format}]\n")
         dirT = (
             meta["artist"]["name"],
             album_title,
@@ -225,7 +229,7 @@ def download_id_by_type(
             try:
                 parse = client.get_track_url(i["id"], quality)
             except requests.exceptions.HTTPError:
-                print("Nothing found")
+                logger.info(f"{OFF}Nothing found")
                 continue
             if "sample" not in parse and parse["sampling_rate"]:
                 is_mp3 = True if int(quality) == 5 else False
@@ -241,22 +245,24 @@ def download_id_by_type(
                     i["media_number"] if is_multiple else None,
                 )
             else:
-                print("Demo. Skipping")
+                logger.info(f"{OFF}Demo. Skipping")
             count = count + 1
     else:
         try:
             parse = client.get_track_url(item_id, quality)
         except requests.exceptions.HTTPError:
-            print("Nothing found")
+            logger.info(f"{OFF}Nothing found")
             return
 
         if "sample" not in parse and parse["sampling_rate"]:
             meta = client.get_track_meta(item_id)
             track_title = get_title(meta)
-            print("\nDownloading: {}\n".format(track_title))
+            logger.info(f"\n{YELLOW}Downloading: {track_title}")
             track_format, quality_met = get_format(client, meta, quality, True, parse)
             if not downgrade_quality and not quality_met:
-                print("Skipping track as doesn't met quality requirement")
+                logger.info(
+                    f"{OFF}Skipping {track_title} as doesn't met quality requirement"
+                )
                 return
             dirT = (
                 meta["album"]["artist"]["name"],
@@ -271,5 +277,5 @@ def download_id_by_type(
             is_mp3 = True if int(quality) == 5 else False
             download_and_tag(dirn, count, parse, meta, meta, True, is_mp3, embed_art)
         else:
-            print("Demo. Skipping")
-    print("\nCompleted\n")
+            logger.info(f"{OFF}Demo. Skipping")
+    logger.info(f"{GREEN}Completed")

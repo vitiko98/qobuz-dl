@@ -1,7 +1,10 @@
 import os
+import logging
 
 from mutagen.flac import FLAC, Picture
 from mutagen.mp3 import EasyMP3
+
+logger = logging.getLogger(__name__)
 
 
 def get_title(track_dict):
@@ -38,6 +41,7 @@ def tag_flac(filename, root_dir, final_name, d, album, istrack=True, em_image=Fa
     audio["TITLE"] = get_title(d)
 
     audio["TRACKNUMBER"] = str(d["track_number"])  # TRACK NUMBER
+    audio["DISCNUMBER"] = str(d["media_number"])
 
     try:
         audio["COMPOSER"] = d["composer"]["name"]  # COMPOSER
@@ -80,7 +84,7 @@ def tag_flac(filename, root_dir, final_name, d, album, istrack=True, em_image=Fa
                 image.data = img.read()
             audio.add_picture(image)
         except Exception as e:
-            print("Error embedding image: " + str(e))
+            logger.error(f"Error embedding image: {e}", exc_info=True)
 
     audio.save()
     os.rename(filename, final_name)

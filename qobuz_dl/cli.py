@@ -1,11 +1,18 @@
 import base64
 import configparser
+import logging
 import os
 import sys
 
 import qobuz_dl.spoofbuz as spoofbuz
-from qobuz_dl.core import QobuzDL
+from qobuz_dl.color import DF, GREEN, MAGENTA, RED, YELLOW
 from qobuz_dl.commands import qobuz_dl_args
+from qobuz_dl.core import QobuzDL
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(message)s",
+)
 
 if os.name == "nt":
     OS_CONFIG = os.environ.get("APPDATA")
@@ -17,32 +24,34 @@ CONFIG_FILE = os.path.join(CONFIG_PATH, "config.ini")
 
 
 def reset_config(config_file):
-    print("Creating config file: " + config_file)
+    logging.info(f"{YELLOW}Creating config file: {config_file}")
     config = configparser.ConfigParser()
-    config["DEFAULT"]["email"] = input("\nEnter your email:\n- ")
+    config["DEFAULT"]["email"] = input(f"{MAGENTA}Enter your email:\n-{DF} ")
     config["DEFAULT"]["password"] = base64.b64encode(
-        input("\nEnter your password\n- ").encode()
+        input(f"{MAGENTA}Enter your password\n-{DF} ").encode()
     ).decode()
     config["DEFAULT"]["default_folder"] = (
-        input("\nFolder for downloads (leave empy for default 'Qobuz Downloads')\n- ")
+        input(
+            f"{MAGENTA}Folder for downloads (leave empy for default 'Qobuz Downloads')\n-{DF} "
+        )
         or "Qobuz Downloads"
     )
     config["DEFAULT"]["default_quality"] = (
         input(
-            "\nDownload quality (5, 6, 7, 27) "
+            f"{MAGENTA}Download quality (5, 6, 7, 27) "
             "[320, LOSSLESS, 24B <96KHZ, 24B >96KHZ]"
-            "\n(leave empy for default '6')\n- "
+            f"\n(leave empy for default '6')\n-{DF} "
         )
         or "6"
     )
     config["DEFAULT"]["default_limit"] = "20"
-    print("Getting tokens. Please wait...")
+    logging.info(f"{YELLOW}Getting tokens. Please wait...")
     spoofer = spoofbuz.Spoofer()
     config["DEFAULT"]["app_id"] = str(spoofer.getAppId())
     config["DEFAULT"]["secrets"] = ",".join(spoofer.getSecrets().values())
     with open(config_file, "w") as configfile:
         config.write(configfile)
-    print("Config file updated.")
+    logging.info(f"{GREEN}Config file updated.")
 
 
 def main():
@@ -77,7 +86,9 @@ def main():
     except (KeyError, UnicodeDecodeError):
         arguments = qobuz_dl_args().parse_args()
         if not arguments.reset:
-            print("Your config file is corrupted! Run 'qobuz-dl -r' to fix this\n")
+            logging.warning(
+                f"{RED}Your config file is corrupted! Run 'qobuz-dl -r' to fix this"
+            )
     if arguments.reset:
         sys.exit(reset_config(CONFIG_FILE))
 
@@ -91,16 +102,22 @@ def main():
     )
     qobuz.initialize_client(email, password, app_id, secrets)
 
-    if arguments.command == "dl":
-        qobuz.download_list_of_urls(arguments.SOURCE)
-    elif arguments.command == "lucky":
-        query = " ".join(arguments.QUERY)
-        qobuz.lucky_type = arguments.type
-        qobuz.lucky_limit = arguments.number
-        qobuz.lucky_mode(query)
-    else:
-        qobuz.interactive_limit = arguments.limit
-        qobuz.interactive()
+    try:
+        if arguments.command == "dl":
+            qobuz.download_list_of_urls(arguments.SOURCE)
+        elif arguments.command == "lucky":
+            query = " ".join(arguments.QUERY)
+            qobuz.lucky_type = arguments.type
+            qobuz.lucky_limit = arguments.number
+            qobuz.lucky_mode(query)
+        else:
+            qobuz.interactive_limit = arguments.limit
+            qobuz.interactive()
+    except KeyboardInterrupt:
+        logging.info(
+            f"{RED}Interrupted by user\n{MAGENTA}Already downloaded items will "
+            "be skipped if you try to download the same releases again"
+        )
 
 
 if __name__ == "__main__":

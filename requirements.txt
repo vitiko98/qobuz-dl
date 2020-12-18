@@ -4,3 +4,4 @@ mutagen
 tqdm
 pick
 beautifulsoup4
+colorama
