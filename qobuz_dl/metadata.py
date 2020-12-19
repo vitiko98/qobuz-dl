@@ -24,6 +24,7 @@ def get_title(track_dict):
     return title
 
 
+# Use KeyError catching instead of dict.get to avoid empty tags
 def tag_flac(filename, root_dir, final_name, d, album, istrack=True, em_image=False):
     """
     Tag a FLAC file
@@ -61,13 +62,13 @@ def tag_flac(filename, root_dir, final_name, d, album, istrack=True, em_image=Fa
         audio["ALBUMARTIST"] = d["album"]["artist"]["name"]  # ALBUM ARTIST
         audio["TRACKTOTAL"] = str(d["album"]["tracks_count"])  # TRACK TOTAL
         audio["ALBUM"] = d["album"]["title"]  # ALBUM TITLE
-        audio["YEAR"] = d["album"]["release_date_original"].split("-")[0]
+        audio["DATE"] = d["album"]["release_date_original"].split("-")[0]
     else:
         audio["GENRE"] = ", ".join(album["genres_list"])  # GENRE
         audio["ALBUMARTIST"] = album["artist"]["name"]  # ALBUM ARTIST
         audio["TRACKTOTAL"] = str(album["tracks_count"])  # TRACK TOTAL
         audio["ALBUM"] = album["title"]  # ALBUM TITLE
-        audio["YEAR"] = album["release_date_original"].split("-")[0]  # YEAR
+        audio["DATE"] = album["release_date_original"].split("-")[0]
 
     if em_image:
         emb_image = os.path.join(root_dir, "cover.jpg")

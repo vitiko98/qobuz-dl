@@ -162,7 +162,7 @@ def download_and_tag(
             embed_art,
         )
     except Exception as e:
-        logger.error(f"{RED}Error tagging the file: {e}")
+        logger.error(f"{RED}Error tagging the file: {e}", exc_info=True)
 
 
 def download_id_by_type(
@@ -226,7 +226,6 @@ def download_id_by_type(
             logger.info(f"{OFF}Skipping cover")
         else:
             get_extra(meta["image"]["large"], dirn, og_quality=cover_og_quality)
-
 
         if "goodies" in meta:
             try:

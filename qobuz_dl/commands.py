@@ -61,7 +61,7 @@ def add_common_arg(custom_parser, default_folder, default_quality):
         "--directory",
         metavar="PATH",
         default=default_folder,
-        help=f'directory for downloads (default: "{default_folder}")'
+        help=f'directory for downloads (default: "{default_folder}")',
     )
     custom_parser.add_argument(
         "-q",
@@ -92,7 +92,9 @@ def add_common_arg(custom_parser, default_folder, default_quality):
         "-e", "--embed-art", action="store_true", help="embed cover art into files"
     )
     custom_parser.add_argument(
-        "--og-cover", action="store_true", help="download cover art in its original quality (bigger file)"
+        "--og-cover",
+        action="store_true",
+        help="download cover art in its original quality (bigger file)",
     )
     custom_parser.add_argument(
         "--no-cover", action="store_true", help="don't download cover art"

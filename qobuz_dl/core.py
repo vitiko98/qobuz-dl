@@ -59,7 +59,7 @@ class QobuzDL:
         no_m3u_for_playlists=False,
         quality_fallback=True,
         cover_og_quality=False,
-        no_cover=False
+        no_cover=False,
     ):
         self.directory = self.create_dir(directory)
         self.quality = quality
@@ -112,7 +112,7 @@ class QobuzDL:
                 self.no_cover,
             )
         except requests.exceptions.RequestException as e:
-            logger.error(f"Error getting release: {e}")
+            logger.error(f"{RED}Error getting release: {e}", exc_info=True)
 
     def handle_url(self, url):
         possibles = {
