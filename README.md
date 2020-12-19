@@ -109,6 +109,10 @@ Download the first 3 track results in 320 quality
 ```
 qobuz-dl lucky eric dolphy remastered --type track -n 3 -q 5
 ```
+Download the first track result without cover art
+```
+qobuz-dl lucky jay z story of oj --type track --no-cover
+```
 
 Run `qobuz-dl lucky --help` for more info.
 
@@ -143,7 +147,10 @@ commands:
 Using `qobuz-dl` as a module is really easy. Basically, the only thing you need is `QobuzDL` from `core`.
 
 ```python
+import logging
 from qobuz_dl.core import QobuzDL
+
+logging.basicConfig(level=logging.INFO)
 
 email = "your@email.com"
 password = "your_password"
