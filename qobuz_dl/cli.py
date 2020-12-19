@@ -1,6 +1,7 @@
 import base64
 import configparser
 import logging
+import glob
 import os
 import sys
 
@@ -62,6 +63,15 @@ def reset_config(config_file):
         "\nso you don't have to call custom flags every time you run "
         "a qobuz-dl command."
     )
+
+
+def remove_leftovers(directory):
+    directory = os.path.join(directory, "**", ".*.tmp")
+    for i in glob.glob(directory, recursive=True):
+        try:
+            os.remove(i)
+        except:  # noqa
+            pass
 
 
 def main():
@@ -127,11 +137,15 @@ def main():
         else:
             qobuz.interactive_limit = arguments.limit
             qobuz.interactive()
+
     except KeyboardInterrupt:
         logging.info(
             f"{RED}Interrupted by user\n{YELLOW}Already downloaded items will "
             "be skipped if you try to download the same releases again"
         )
+
+    finally:
+        remove_leftovers(qobuz.directory)
 
 
 if __name__ == "__main__":

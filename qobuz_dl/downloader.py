@@ -137,7 +137,7 @@ def download_and_tag(
         root_dir = os.path.join(root_dir, "Disc " + str(multiple))
         os.makedirs(root_dir, exist_ok=True)
 
-    filename = os.path.join(root_dir, ".{:02}".format(tmp_count) + extension)
+    filename = os.path.join(root_dir, ".{:02}.tmp".format(tmp_count))
 
     new_track_title = sanitize_filename(track_metadata["title"])
     track_file = "{:02}. {}{}".format(
