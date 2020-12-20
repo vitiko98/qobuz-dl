@@ -8,7 +8,7 @@ Search, explore and download Lossless and Hi-Res music from [Qobuz](https://www.
 * Download albums, tracks, artists, playlists and labels with **download** mode
 * Download music from last.fm playlists (Spotify, Apple Music and Youtube playlists are also supported through this method)
 * Queue support on **interactive** mode
-* Effective duplicate handling with its own portable database
+* Effective duplicate handling with own portable database
 * Support for albums with multiple discs
 * Support for M3U playlists
 * Downloads URLs from text file
