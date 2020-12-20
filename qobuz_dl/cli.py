@@ -6,7 +6,7 @@ import os
 import sys
 
 import qobuz_dl.spoofbuz as spoofbuz
-from qobuz_dl.color import CYAN, DF, GREEN, RED, YELLOW
+from qobuz_dl.color import GREEN, RED, YELLOW
 from qobuz_dl.commands import qobuz_dl_args
 from qobuz_dl.core import QobuzDL
 
@@ -28,21 +28,21 @@ QOBUZ_DB = os.path.join(CONFIG_PATH, "qobuz_dl.db")
 def reset_config(config_file):
     logging.info(f"{YELLOW}Creating config file: {config_file}")
     config = configparser.ConfigParser()
-    config["DEFAULT"]["email"] = input(f"{CYAN}Enter your email:\n-{DF} ")
+    config["DEFAULT"]["email"] = input("Enter your email:\n- ")
     config["DEFAULT"]["password"] = base64.b64encode(
-        input(f"{CYAN}Enter your password\n-{DF} ").encode()
+        input("Enter your password\n- ").encode()
     ).decode()
     config["DEFAULT"]["default_folder"] = (
         input(
-            f"{CYAN}Folder for downloads (leave empy for default 'Qobuz Downloads')\n-{DF} "
+            "Folder for downloads (leave empy for default 'Qobuz Downloads')\n- "
         )
         or "Qobuz Downloads"
     )
     config["DEFAULT"]["default_quality"] = (
         input(
-            f"{CYAN}Download quality (5, 6, 7, 27) "
+            "Download quality (5, 6, 7, 27) "
             "[320, LOSSLESS, 24B <96KHZ, 24B >96KHZ]"
-            f"\n(leave empy for default '6')\n-{DF} "
+            "\n(leave empy for default '6')\n- "
         )
         or "6"
     )

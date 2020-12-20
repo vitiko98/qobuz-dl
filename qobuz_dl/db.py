@@ -10,7 +10,7 @@ def create_db(db_path):
     with sqlite3.connect(db_path) as conn:
         try:
             conn.execute("CREATE TABLE downloads (id TEXT UNIQUE NOT NULL);")
-            logger.info(f"{YELLOW} Downloads database created")
+            logger.info(f"{YELLOW}Download-IDs database created")
         except sqlite3.OperationalError:
             pass
         return db_path
