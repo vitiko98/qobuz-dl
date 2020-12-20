@@ -28,12 +28,11 @@ def tqdm_download(url, fname, track_name):
             bar.update(size)
 
 
-def get_description(u, mt, multiple=None):
-    return "{} [{}/{}]".format(
-        ("[Disc {}] {}".format(multiple, mt["title"])) if multiple else mt["title"],
-        u["bit_depth"],
-        u["sampling_rate"],
-    )
+def get_description(u: dict, track_title, multiple=None):
+    downloading_title = f'{track_title} [{u["bit_depth"]}/{u["sampling_rate"]}]'
+    if multiple:
+        downloading_title = f"[Disc {multiple}] {downloading_title}"
+    return downloading_title
 
 
 def get_format(client, item_dict, quality, is_track_id=False, track_url_dict=None):
@@ -61,30 +60,31 @@ def get_format(client, item_dict, quality, is_track_id=False, track_url_dict=Non
             and new_track_dict["sampling_rate"] == 44.1
         ):
             return "FLAC", quality_met
-        return "Hi-Res", quality_met
+        return (
+            f'{new_track_dict["bit_depth"]}B-{new_track_dict["sampling_rate"]}Khz',
+            quality_met,
+        )
     except (KeyError, requests.exceptions.HTTPError):
         return "Unknown", quality_met
 
 
 def get_title(item_dict):
-    try:
+    album_title = item_dict["title"]
+    version = item_dict.get("version")
+    is_explicit = item_dict.get("parental_warning")
+    if version:
         album_title = (
-            ("{} ({})".format(item_dict["title"], item_dict["version"]))
-            if item_dict["version"]
-            and item_dict["version"].lower() not in item_dict["title"].lower()
-            else item_dict["title"]
-        )
-    except KeyError:
-        album_title = item_dict["title"]
-    try:
-        final_title = (
-            (album_title + " (Explicit)")
-            if item_dict["parental_warning"] and "explicit" not in album_title.lower()
+            f"{album_title} ({version})"
+            if version.lower() not in album_title.lower()
             else album_title
         )
-    except KeyError:
-        final_title = album_title
-    return final_title
+    if is_explicit:
+        album_title = (
+            f"{album_title} (Explicit)"
+            if "explicit" not in album_title.lower()
+            else album_title
+        )
+    return album_title
 
 
 def get_extra(i, dirn, extra="cover.jpg", og_quality=False):
@@ -134,21 +134,28 @@ def download_and_tag(
         return
 
     if multiple:
-        root_dir = os.path.join(root_dir, "Disc " + str(multiple))
+        root_dir = os.path.join(root_dir, f"Disc {multiple}")
         os.makedirs(root_dir, exist_ok=True)
 
-    filename = os.path.join(root_dir, ".{:02}.tmp".format(tmp_count))
+    filename = os.path.join(root_dir, f".{tmp_count:02}.tmp")
 
-    new_track_title = sanitize_filename(track_metadata["title"])
-    track_file = "{:02}. {}{}".format(
-        track_metadata["track_number"], new_track_title, extension
+    # Determine the filename
+    artist = track_metadata.get("performer", {}).get("name")
+    version = track_metadata.get("version")
+    new_track_title = (
+        f'{artist if artist else track_metadata["album"]["artist"]["name"]}'
+        f' - {track_metadata["title"]}'
     )
-    final_file = os.path.join(root_dir, track_file)
+    if version:
+        new_track_title = f"{new_track_title} ({version})"
+    track_file = f'{track_metadata["track_number"]:02}. {new_track_title}{extension}'
+    final_file = os.path.join(root_dir, sanitize_filename(track_file))
+
     if os.path.isfile(final_file):
-        logger.info(f'{OFF}{track_metadata["title"]}was already downloaded')
+        logger.info(f"{OFF}{new_track_title} was already downloaded")
         return
 
-    desc = get_description(track_url_dict, track_metadata, multiple)
+    desc = get_description(track_url_dict, new_track_title, multiple)
     tqdm_download(url, filename, desc)
     tag_function = metadata.tag_mp3 if is_mp3 else metadata.tag_flac
     try:
@@ -211,14 +218,14 @@ def download_id_by_type(
             )
             return
 
-        logger.info(f"\n{YELLOW}Downloading: {album_title} [{album_format}]\n")
+        logger.info(f"\n{YELLOW}Downloading: {album_title}\nQuality: {album_format}\n")
         dirT = (
             meta["artist"]["name"],
             album_title,
             meta["release_date_original"].split("-")[0],
             album_format,
         )
-        sanitized_title = sanitize_filename("{} - {} [{}] [{}]".format(*dirT))
+        sanitized_title = sanitize_filename("{} - {} ({}) [{}]".format(*dirT))
         dirn = os.path.join(path, sanitized_title)
         os.makedirs(dirn, exist_ok=True)
 
@@ -235,11 +242,7 @@ def download_id_by_type(
         media_numbers = [track["media_number"] for track in meta["tracks"]["items"]]
         is_multiple = True if len([*{*media_numbers}]) > 1 else False
         for i in meta["tracks"]["items"]:
-            try:
-                parse = client.get_track_url(i["id"], quality)
-            except requests.exceptions.HTTPError:
-                logger.info(f"{OFF}Nothing found")
-                continue
+            parse = client.get_track_url(i["id"], quality)
             if "sample" not in parse and parse["sampling_rate"]:
                 is_mp3 = True if int(quality) == 5 else False
                 download_and_tag(
@@ -257,11 +260,7 @@ def download_id_by_type(
                 logger.info(f"{OFF}Demo. Skipping")
             count = count + 1
     else:
-        try:
-            parse = client.get_track_url(item_id, quality)
-        except requests.exceptions.HTTPError:
-            logger.info(f"{OFF}Nothing found")
-            return
+        parse = client.get_track_url(item_id, quality)
 
         if "sample" not in parse and parse["sampling_rate"]:
             meta = client.get_track_meta(item_id)

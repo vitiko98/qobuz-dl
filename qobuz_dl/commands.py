@@ -99,6 +99,9 @@ def add_common_arg(custom_parser, default_folder, default_quality):
     custom_parser.add_argument(
         "--no-cover", action="store_true", help="don't download cover art"
     )
+    custom_parser.add_argument(
+        "--no-db", action="store_true", help="don't call the database"
+    )
 
 
 def qobuz_dl_args(
@@ -114,6 +117,12 @@ def qobuz_dl_args(
     )
     parser.add_argument(
         "-r", "--reset", action="store_true", help="create/reset config file"
+    )
+    parser.add_argument(
+        "-p",
+        "--purge",
+        action="store_true",
+        help="purge/delete downloaded-IDs database",
     )
 
     subparsers = parser.add_subparsers(

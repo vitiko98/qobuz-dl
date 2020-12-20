@@ -1,6 +1,5 @@
 import logging
 import os
-import glob
 import re
 import string
 import sys
@@ -15,6 +14,7 @@ from pathvalidate import sanitize_filename
 import qobuz_dl.spoofbuz as spoofbuz
 from qobuz_dl import downloader, qopy
 from qobuz_dl.color import CYAN, OFF, RED, YELLOW, DF, RESET
+from qobuz_dl.db import create_db, handle_download_id
 
 WEB_URL = "https://play.qobuz.com/"
 ARTISTS_SELECTOR = "td.chartlist-artist > a"
@@ -61,6 +61,7 @@ class QobuzDL:
         quality_fallback=True,
         cover_og_quality=False,
         no_cover=False,
+        downloads_db=None,
     ):
         self.directory = self.create_dir(directory)
         self.quality = quality
@@ -73,6 +74,7 @@ class QobuzDL:
         self.quality_fallback = quality_fallback
         self.cover_og_quality = cover_og_quality
         self.no_cover = no_cover
+        self.downloads_db = create_db(downloads_db) if downloads_db else None
 
     def initialize_client(self, email, pwd, app_id, secrets):
         self.client = qopy.Client(email, pwd, app_id, secrets)
@@ -99,6 +101,9 @@ class QobuzDL:
         ).group(1)
 
     def download_from_id(self, item_id, album=True, alt_path=None):
+        if handle_download_id(self.downloads_db, item_id, add_id=False):
+            logger.info(f"{OFF}This release ID ({item_id}) was already downloaded")
+            return
         try:
             downloader.download_id_by_type(
                 self.client,
@@ -112,6 +117,7 @@ class QobuzDL:
                 self.cover_og_quality,
                 self.no_cover,
             )
+            handle_download_id(self.downloads_db, item_id, add_id=True)
         except requests.exceptions.RequestException as e:
             logger.error(f"{RED}Error getting release: {e}", exc_info=True)
 

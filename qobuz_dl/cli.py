@@ -22,6 +22,7 @@ else:
 
 CONFIG_PATH = os.path.join(OS_CONFIG, "qobuz-dl")
 CONFIG_FILE = os.path.join(CONFIG_PATH, "config.ini")
+QOBUZ_DB = os.path.join(CONFIG_PATH, "qobuz_dl.db")
 
 
 def reset_config(config_file):
@@ -52,6 +53,7 @@ def reset_config(config_file):
     config["DEFAULT"]["og_cover"] = "false"
     config["DEFAULT"]["embed_art"] = "false"
     config["DEFAULT"]["no_cover"] = "false"
+    config["DEFAULT"]["no_database"] = "false"
     logging.info(f"{YELLOW}Getting tokens. Please wait...")
     spoofer = spoofbuz.Spoofer()
     config["DEFAULT"]["app_id"] = str(spoofer.getAppId())
@@ -97,6 +99,7 @@ def main():
         og_cover = config.getboolean("DEFAULT", "og_cover")
         embed_art = config.getboolean("DEFAULT", "embed_art")
         no_cover = config.getboolean("DEFAULT", "no_cover")
+        no_database = config.getboolean("DEFAULT", "no_database")
         app_id = config["DEFAULT"]["app_id"]
         secrets = [
             secret for secret in config["DEFAULT"]["secrets"].split(",") if secret
@@ -108,10 +111,18 @@ def main():
         arguments = qobuz_dl_args().parse_args()
         if not arguments.reset:
             sys.exit(
-                f"{RED}Your config file is corrupted! Run 'qobuz-dl -r' to fix this"
+                f"{RED}Your config file is corrupted! Run 'qobuz-dl -r' to fix this."
             )
+
     if arguments.reset:
         sys.exit(reset_config(CONFIG_FILE))
+
+    if arguments.purge:
+        try:
+            os.remove(QOBUZ_DB)
+        except FileNotFoundError:
+            pass
+        sys.exit(f"{GREEN}The database was deleted.")
 
     qobuz = QobuzDL(
         arguments.directory,
@@ -122,6 +133,7 @@ def main():
         quality_fallback=not arguments.no_fallback or not no_fallback,
         cover_og_quality=arguments.og_cover or og_cover,
         no_cover=arguments.no_cover or no_cover,
+        downloads_db=None if no_database or arguments.no_db else QOBUZ_DB
     )
 
     qobuz.initialize_client(email, password, app_id, secrets)
@@ -141,7 +153,7 @@ def main():
     except KeyboardInterrupt:
         logging.info(
             f"{RED}Interrupted by user\n{YELLOW}Already downloaded items will "
-            "be skipped if you try to download the same releases again"
+            "be skipped if you try to download the same releases again."
         )
 
     finally:

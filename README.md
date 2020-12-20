@@ -1,5 +1,5 @@
 # qobuz-dl
-Search, discover and download Lossless and Hi-Res music from [Qobuz](https://www.qobuz.com/).
+Search, explore and download Lossless and Hi-Res music from [Qobuz](https://www.qobuz.com/).
 
 ## Features
 
@@ -8,9 +8,11 @@ Search, discover and download Lossless and Hi-Res music from [Qobuz](https://www
 * Download albums, tracks, artists, playlists and labels with **download** mode
 * Download music from last.fm playlists (Spotify, Apple Music and Youtube playlists are also supported through this method)
 * Queue support on **interactive** mode
+* Effective duplicate handling with its own portable database
 * Support for albums with multiple discs
 * Support for M3U playlists
 * Downloads URLs from text file
+* Extended tags
 * And more
 
 ## Getting started
@@ -122,6 +124,8 @@ Reset your config file
 qobuz-dl -r
 ```
 
+By default, `qobuz-dl` will skip already downloaded items by ID with the message `This release ID ({item_id}) was already downloaded`. To avoid this check, add the flag `--no-db` at the end of a command. In extreme cases (e.g. lost collection), you can run `qobuz-dl -p` to completely reset the database.
+
 ## Usage
 ```
 usage: qobuz-dl [-h] [-r] {fun,dl,lucky} ...
@@ -132,6 +136,7 @@ See usage examples on https://github.com/vitiko98/qobuz-dl
 optional arguments:
   -h, --help      show this help message and exit
   -r, --reset     create/reset config file
+  -p, --purge     purge/delete downloaded-IDs database
 
 commands:
   run qobuz-dl <command> --help for more info
