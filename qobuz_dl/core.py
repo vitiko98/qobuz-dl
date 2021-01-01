@@ -184,12 +184,17 @@ class QobuzDL:
     def download_from_txt_file(self, txt_file):
         with open(txt_file, "r") as txt:
             try:
-                urls = txt.read().strip().split()
+                urls = [
+                    line.replace("\n", "")
+                    for line in txt.readlines()
+                    if not line.strip().startswith("#")
+                ]
             except Exception as e:
                 logger.error(f"{RED}Invalid text file: {e}")
                 return
             logger.info(
-                f'{YELLOW}qobuz-dl will download {len(urls)} urls from file: "{txt_file}"'
+                f"{YELLOW}qobuz-dl will download {len(urls)}"
+                f" urls from file: {txt_file}"
             )
             self.download_list_of_urls(urls)
 

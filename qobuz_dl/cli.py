@@ -1,5 +1,5 @@
-import base64
 import configparser
+import hashlib
 import logging
 import glob
 import os
@@ -29,13 +29,10 @@ def reset_config(config_file):
     logging.info(f"{YELLOW}Creating config file: {config_file}")
     config = configparser.ConfigParser()
     config["DEFAULT"]["email"] = input("Enter your email:\n- ")
-    config["DEFAULT"]["password"] = base64.b64encode(
-        input("Enter your password\n- ").encode()
-    ).decode()
+    password = input("Enter your password\n- ")
+    config["DEFAULT"]["password"] = hashlib.md5(password.encode("utf-8")).hexdigest()
     config["DEFAULT"]["default_folder"] = (
-        input(
-            "Folder for downloads (leave empy for default 'Qobuz Downloads')\n- "
-        )
+        input("Folder for downloads (leave empy for default 'Qobuz Downloads')\n- ")
         or "Qobuz Downloads"
     )
     config["DEFAULT"]["default_quality"] = (
@@ -89,7 +86,7 @@ def main():
 
     try:
         email = config["DEFAULT"]["email"]
-        password = base64.b64decode(config["DEFAULT"]["password"]).decode()
+        password = config["DEFAULT"]["password"]
         default_folder = config["DEFAULT"]["default_folder"]
         default_limit = config["DEFAULT"]["default_limit"]
         default_quality = config["DEFAULT"]["default_quality"]
@@ -133,9 +130,8 @@ def main():
         quality_fallback=not arguments.no_fallback or not no_fallback,
         cover_og_quality=arguments.og_cover or og_cover,
         no_cover=arguments.no_cover or no_cover,
-        downloads_db=None if no_database or arguments.no_db else QOBUZ_DB
+        downloads_db=None if no_database or arguments.no_db else QOBUZ_DB,
     )
-
     qobuz.initialize_client(email, password, app_id, secrets)
 
     try:
