@@ -141,13 +141,17 @@ def download_and_tag(
 
     # Determine the filename
     artist = track_metadata.get("performer", {}).get("name")
+    album_artist = track_metadata.get("album", {}).get("artist", {}).get("name")
+    new_track_title = track_metadata.get("title")
     version = track_metadata.get("version")
-    new_track_title = (
-        f'{artist if artist else track_metadata["album"]["artist"]["name"]}'
-        f' - {track_metadata["title"]}'
-    )
+
+    if artist or album_artist:
+        new_track_title = (
+            f"{artist if artist else album_artist}" f' - {track_metadata["title"]}'
+        )
     if version:
         new_track_title = f"{new_track_title} ({version})"
+
     track_file = f'{track_metadata["track_number"]:02}. {new_track_title}{extension}'
     final_file = os.path.join(root_dir, sanitize_filename(track_file))
 
