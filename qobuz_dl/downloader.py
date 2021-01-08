@@ -71,17 +71,10 @@ def get_format(client, item_dict, quality, is_track_id=False, track_url_dict=Non
 def get_title(item_dict):
     album_title = item_dict["title"]
     version = item_dict.get("version")
-    is_explicit = item_dict.get("parental_warning")
     if version:
         album_title = (
             f"{album_title} ({version})"
             if version.lower() not in album_title.lower()
-            else album_title
-        )
-    if is_explicit:
-        album_title = (
-            f"{album_title} (Explicit)"
-            if "explicit" not in album_title.lower()
             else album_title
         )
     return album_title
