@@ -16,3 +16,7 @@ class InvalidAppSecretError(Exception):
 
 class InvalidQuality(Exception):
     pass
+
+
+class NonStreamable(Exception):
+    pass

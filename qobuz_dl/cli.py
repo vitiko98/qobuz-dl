@@ -32,14 +32,14 @@ def reset_config(config_file):
     password = input("Enter your password\n- ")
     config["DEFAULT"]["password"] = hashlib.md5(password.encode("utf-8")).hexdigest()
     config["DEFAULT"]["default_folder"] = (
-        input("Folder for downloads (leave empy for default 'Qobuz Downloads')\n- ")
+        input("Folder for downloads (leave empty for default 'Qobuz Downloads')\n- ")
         or "Qobuz Downloads"
     )
     config["DEFAULT"]["default_quality"] = (
         input(
             "Download quality (5, 6, 7, 27) "
             "[320, LOSSLESS, 24B <96KHZ, 24B >96KHZ]"
-            "\n(leave empy for default '6')\n- "
+            "\n(leave empty for default '6')\n- "
         )
         or "6"
     )

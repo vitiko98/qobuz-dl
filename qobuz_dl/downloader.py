@@ -7,6 +7,7 @@ from tqdm import tqdm
 
 import qobuz_dl.metadata as metadata
 from qobuz_dl.color import OFF, GREEN, RED, YELLOW, CYAN
+from qobuz_dl.exceptions import NonStreamable
 
 QL_DOWNGRADE = "FormatRestrictedByFormatAvailability"
 logger = logging.getLogger(__name__)
@@ -145,8 +146,8 @@ def download_and_tag(
     if version:
         new_track_title = f"{new_track_title} ({version})"
 
-    track_file = f'{track_metadata["track_number"]:02}. {new_track_title}{extension}'
-    final_file = os.path.join(root_dir, sanitize_filename(track_file))
+    track_file = f'{track_metadata["track_number"]:02}. {new_track_title}'
+    final_file = os.path.join(root_dir, sanitize_filename(track_file))[:250] + extension
 
     if os.path.isfile(final_file):
         logger.info(f"{OFF}{new_track_title} was already downloaded")
@@ -199,6 +200,9 @@ def download_id_by_type(
 
     if album:
         meta = client.get_album_meta(item_id)
+
+        if not meta.get("streamable"):
+            raise NonStreamable("This release is not streamable")
 
         if albums_only and (
             meta.get("release_type") != "album"

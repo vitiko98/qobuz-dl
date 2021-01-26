@@ -102,13 +102,17 @@ class QobuzDL:
 
     def download_from_id(self, item_id, album=True, alt_path=None):
         if handle_download_id(self.downloads_db, item_id, add_id=False):
-            logger.info(f"{OFF}This release ID ({item_id}) was already downloaded")
+            logger.info(
+                f"{OFF}This release ID ({item_id}) was already downloaded "
+                "according to the local database.\nUse the '--no-db' flag "
+                "to bypass this."
+            )
             return
         try:
             downloader.download_id_by_type(
                 self.client,
                 item_id,
-                self.directory if not alt_path else alt_path,
+                alt_path or self.directory,
                 str(self.quality),
                 album,
                 self.embed_art,
