@@ -1,5 +1,6 @@
 # qobuz-dl
 Search, explore and download Lossless and Hi-Res music from [Qobuz](https://www.qobuz.com/).
+[![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=VZWSWVGZGJRMU&source=url)
 
 ## Features
 
