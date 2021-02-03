@@ -14,6 +14,7 @@ from pathvalidate import sanitize_filename
 import qobuz_dl.spoofbuz as spoofbuz
 from qobuz_dl import downloader, qopy
 from qobuz_dl.color import CYAN, OFF, RED, YELLOW, DF, RESET
+from qobuz_dl.exceptions import NonStreamable
 from qobuz_dl.db import create_db, handle_download_id
 
 WEB_URL = "https://play.qobuz.com/"
@@ -122,7 +123,7 @@ class QobuzDL:
                 self.no_cover,
             )
             handle_download_id(self.downloads_db, item_id, add_id=True)
-        except requests.exceptions.RequestException as e:
+        except (requests.exceptions.RequestException, NonStreamable) as e:
             logger.error(f"{RED}Error getting release: {e}", exc_info=True)
 
     def handle_url(self, url):
