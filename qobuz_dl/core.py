@@ -124,7 +124,7 @@ class QobuzDL:
             )
             handle_download_id(self.downloads_db, item_id, add_id=True)
         except (requests.exceptions.RequestException, NonStreamable) as e:
-            logger.error(f"{RED}Error getting release: {e}", exc_info=True)
+            logger.error(f"{RED}Error getting release: {e}. Skipping...")
 
     def handle_url(self, url):
         possibles = {
