@@ -44,14 +44,6 @@ def tag_flac(filename, root_dir, final_name, d, album,
     :param bool istrack
     :param bool em_image: Embed cover art into file
     """
-    print('in tag_flac d:')
-    # print(json.dumps(d.keys(), indent=2))
-    # print(d.keys())
-    print('album:')
-    # print(album.keys())
-    # print(json.dumps(album.keys(), indent=2))
-    print(f'{filename=}')
-    print(f'{istrack=}')
     audio = FLAC(filename)
 
     audio["TITLE"] = get_title(d)
@@ -190,13 +182,10 @@ def tag_mp3(filename, root_dir, final_name, d, album,
     audio['TPOS'] = id3.TPOS(encoding=3,
                              text=str(d["media_number"]))
 
-    def lookup_and_set_tags(tag_name, value):
-        id3tag = id3_legend[tag_name]
-        audio[id3tag.__name__] = id3tag(encoding=3, text=value)
-
     # write metadata in `tags` to file
     for k, v in tags.items():
-        lookup_and_set_tags(k, v)
+        id3tag = id3_legend[k]
+        audio[id3tag.__name__] = id3tag(encoding=3, text=v)
 
     if em_image:
         emb_image = os.path.join(root_dir, "cover.jpg")
