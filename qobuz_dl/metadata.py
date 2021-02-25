@@ -37,16 +37,10 @@ def _format_genres(genres: list) -> str:
     'Pop/Rock, Rock, Alternatif et Indé'
     '''
 
-    if len(genres) <= 1:
-        return ''.join(genres)
-
-    prev = genres[0]
-    new_genres = [prev]
-    for genre in genres[1:]:
-        new_genres.append(genre.replace(f'{prev}→', ''))
-        prev = genre
-
-    return ', '.join(new_genres)
+    if genres == []:
+        return ''
+    else:
+        return ', '.join(genres[-1].split("→"))
 
 
 # Use KeyError catching instead of dict.get to avoid empty tags
