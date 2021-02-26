@@ -30,13 +30,15 @@ def tqdm_download(url, fname, track_name):
 
 
 def get_description(u: dict, track_title, multiple=None):
-    downloading_title = f'{track_title} [{u["bit_depth"]}/{u["sampling_rate"]}]'
+    downloading_title = f'{track_title} '
+    f'[{u["bit_depth"]}/{u["sampling_rate"]}]'
     if multiple:
         downloading_title = f"[Disc {multiple}] {downloading_title}"
     return downloading_title
 
 
-def get_format(client, item_dict, quality, is_track_id=False, track_url_dict=None):
+def get_format(client, item_dict, quality,
+               is_track_id=False, track_url_dict=None):
     quality_met = True
     if int(quality) == 5:
         return "MP3", quality_met
@@ -53,7 +55,8 @@ def get_format(client, item_dict, quality, is_track_id=False, track_url_dict=Non
         restrictions = new_track_dict.get("restrictions")
         if isinstance(restrictions, list):
             if any(
-                restriction.get("code") == QL_DOWNGRADE for restriction in restrictions
+                restriction.get("code") == QL_DOWNGRADE
+                for restriction in restrictions
             ):
                 quality_met = False
         if (
@@ -62,7 +65,8 @@ def get_format(client, item_dict, quality, is_track_id=False, track_url_dict=Non
         ):
             return "FLAC", quality_met
         return (
-            f'{new_track_dict["bit_depth"]}B-{new_track_dict["sampling_rate"]}Khz',
+            f'{new_track_dict["bit_depth"]}B-'
+            f'{new_track_dict["sampling_rate"]}Khz',
             quality_met,
         )
     except (KeyError, requests.exceptions.HTTPError):
@@ -112,7 +116,7 @@ def download_and_tag(
     :param int tmp_count: Temporal download file number
     :param dict track_url_dict: get_track_url dictionary from Qobuz client
     :param dict track_metadata: Track item dictionary from Qobuz client
-    :param dict album_or_track_metadata: Album/track dictionary from Qobuz client
+    :param dict album_or_track_metadata: Album/track dict from Qobuz client
     :param bool is_track
     :param bool is_mp3
     :param bool embed_art: Embed cover art into file (FLAC-only)
@@ -135,7 +139,8 @@ def download_and_tag(
 
     # Determine the filename
     artist = track_metadata.get("performer", {}).get("name")
-    album_artist = track_metadata.get("album", {}).get("artist", {}).get("name")
+    album_artist = track_metadata.get("album", {}).get("artist",
+                                                       {}).get("name")
     new_track_title = track_metadata.get("title")
     version = track_metadata.get("version")
 
@@ -148,7 +153,8 @@ def download_and_tag(
         new_track_title = f"{new_track_title} ({version})"
 
     track_file = f'{track_metadata["track_number"]:02}. {new_track_title}'
-    final_file = os.path.join(root_dir, sanitize_filename(track_file))[:250] + extension
+    final_file = os.path.join(root_dir, sanitize_filename(track_file))[:250]
+    + extension
 
     if os.path.isfile(final_file):
         logger.info(f"{OFF}{new_track_title} was already downloaded")
@@ -286,7 +292,9 @@ def download_id_by_type(
                 meta["album"]["release_date_original"].split("-")[0],
                 track_format,
             )
-            sanitized_title = sanitize_filename("{} - {} [{}] [{}]".format(*dirT))
+            sanitized_title = sanitize_filename(
+                "{} - {} [{}] [{}]".format(*dirT)
+            )
             dirn = os.path.join(path, sanitized_title)
             os.makedirs(dirn, exist_ok=True)
             if no_cover:
