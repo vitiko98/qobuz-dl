@@ -85,17 +85,17 @@ def tag_flac(filename, root_dir, final_name, d, album,
         pass
 
     if istrack:
-        audio["GENRE"] = _format_genres(d["album"]["genres_list"])  # GENRE
-        audio["ALBUMARTIST"] = d["album"]["artist"]["name"]       # ALBUMARTIST
-        audio["TRACKTOTAL"] = str(d["album"]["tracks_count"])     # TRACK TOTAL
-        audio["ALBUM"] = d["album"]["title"]                      # ALBUM TITLE
+        audio["GENRE"] = _format_genres(d["album"]["genres_list"])
+        audio["ALBUMARTIST"] = d["album"]["artist"]["name"]
+        audio["TRACKTOTAL"] = str(d["album"]["tracks_count"])
+        audio["ALBUM"] = d["album"]["title"]
         audio["DATE"] = d["album"]["release_date_original"]
         audio["COPYRIGHT"] = _format_copyright(d["copyright"])
     else:
-        audio["GENRE"] = _format_genres(album["genres_list"])  # GENRE
-        audio["ALBUMARTIST"] = album["artist"]["name"]       # ALBUM ARTIST
-        audio["TRACKTOTAL"] = str(album["tracks_count"])     # TRACK TOTAL
-        audio["ALBUM"] = album["title"]                      # ALBUM TITLE
+        audio["GENRE"] = _format_genres(album["genres_list"])
+        audio["ALBUMARTIST"] = album["artist"]["name"]
+        audio["TRACKTOTAL"] = str(album["tracks_count"])
+        audio["ALBUM"] = album["title"]
         audio["DATE"] = album["release_date_original"]
         audio["COPYRIGHT"] = _format_copyright(album["copyright"])
 
