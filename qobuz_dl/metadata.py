@@ -40,7 +40,7 @@ def _format_genres(genres: list) -> str:
     if genres == []:
         return ''
     else:
-        return ', '.join(genres[-1].split("→"))
+        return ', '.join(genres[-1].split('\u2192'))
 
 
 # Use KeyError catching instead of dict.get to avoid empty tags
