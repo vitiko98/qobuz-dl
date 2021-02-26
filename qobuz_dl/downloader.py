@@ -153,8 +153,7 @@ def download_and_tag(
         new_track_title = f"{new_track_title} ({version})"
 
     track_file = f'{track_metadata["track_number"]:02}. {new_track_title}'
-    final_file = os.path.join(root_dir, sanitize_filename(track_file))[:250]
-    + extension
+    final_file = os.path.join(root_dir, sanitize_filename(track_file))[:250] + extension
 
     if os.path.isfile(final_file):
         logger.info(f"{OFF}{new_track_title} was already downloaded")
