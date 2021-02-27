@@ -30,13 +30,15 @@ def tqdm_download(url, fname, track_name):
 
 
 def get_description(u: dict, track_title, multiple=None):
-    downloading_title = f'{track_title} [{u["bit_depth"]}/{u["sampling_rate"]}]'
+    downloading_title = f'{track_title} '
+    f'[{u["bit_depth"]}/{u["sampling_rate"]}]'
     if multiple:
         downloading_title = f"[Disc {multiple}] {downloading_title}"
     return downloading_title
 
 
-def get_format(client, item_dict, quality, is_track_id=False, track_url_dict=None):
+def get_format(client, item_dict, quality,
+               is_track_id=False, track_url_dict=None):
     quality_met = True
     if int(quality) == 5:
         return "MP3", quality_met
@@ -53,7 +55,8 @@ def get_format(client, item_dict, quality, is_track_id=False, track_url_dict=Non
         restrictions = new_track_dict.get("restrictions")
         if isinstance(restrictions, list):
             if any(
-                restriction.get("code") == QL_DOWNGRADE for restriction in restrictions
+                restriction.get("code") == QL_DOWNGRADE
+                for restriction in restrictions
             ):
                 quality_met = False
         if (
@@ -62,7 +65,8 @@ def get_format(client, item_dict, quality, is_track_id=False, track_url_dict=Non
         ):
             return "FLAC", quality_met
         return (
-            f'{new_track_dict["bit_depth"]}B-{new_track_dict["sampling_rate"]}Khz',
+            f'{new_track_dict["bit_depth"]}B-'
+            f'{new_track_dict["sampling_rate"]}Khz',
             quality_met,
         )
     except (KeyError, requests.exceptions.HTTPError):
@@ -112,7 +116,7 @@ def download_and_tag(
     :param int tmp_count: Temporal download file number
     :param dict track_url_dict: get_track_url dictionary from Qobuz client
     :param dict track_metadata: Track item dictionary from Qobuz client
-    :param dict album_or_track_metadata: Album/track dictionary from Qobuz client
+    :param dict album_or_track_metadata: Album/track dict from Qobuz client
     :param bool is_track
     :param bool is_mp3
     :param bool embed_art: Embed cover art into file (FLAC-only)
@@ -135,13 +139,15 @@ def download_and_tag(
 
     # Determine the filename
     artist = track_metadata.get("performer", {}).get("name")
-    album_artist = track_metadata.get("album", {}).get("artist", {}).get("name")
+    album_artist = track_metadata.get("album", {}).get("artist",
+                                                       {}).get("name")
     new_track_title = track_metadata.get("title")
     version = track_metadata.get("version")
 
     if artist or album_artist:
         new_track_title = (
-            f"{artist if artist else album_artist}" f' - {track_metadata["title"]}'
+            f"{artist if artist else album_artist}"
+            f' - {track_metadata["title"]}'
         )
     if version:
         new_track_title = f"{new_track_title} ({version})"
@@ -215,11 +221,13 @@ def download_id_by_type(
         album_format, quality_met = get_format(client, meta, quality)
         if not downgrade_quality and not quality_met:
             logger.info(
-                f"{OFF}Skipping {album_title} as doesn't met quality requirement"
+                f"{OFF}Skipping {album_title} as it doesn't "
+                "meet quality requirement"
             )
             return
 
-        logger.info(f"\n{YELLOW}Downloading: {album_title}\nQuality: {album_format}\n")
+        logger.info(f"\n{YELLOW}Downloading: {album_title}\n"
+                    f"Quality: {album_format}\n")
         dirT = (
             meta["artist"]["name"],
             album_title,
@@ -233,14 +241,16 @@ def download_id_by_type(
         if no_cover:
             logger.info(f"{OFF}Skipping cover")
         else:
-            get_extra(meta["image"]["large"], dirn, og_quality=cover_og_quality)
+            get_extra(meta["image"]["large"], dirn,
+                      og_quality=cover_og_quality)
 
         if "goodies" in meta:
             try:
                 get_extra(meta["goodies"][0]["url"], dirn, "booklet.pdf")
             except:  # noqa
                 pass
-        media_numbers = [track["media_number"] for track in meta["tracks"]["items"]]
+        media_numbers = [track["media_number"] for track in
+                         meta["tracks"]["items"]]
         is_multiple = True if len([*{*media_numbers}]) > 1 else False
         for i in meta["tracks"]["items"]:
             parse = client.get_track_url(i["id"], quality)
@@ -267,10 +277,12 @@ def download_id_by_type(
             meta = client.get_track_meta(item_id)
             track_title = get_title(meta)
             logger.info(f"\n{YELLOW}Downloading: {track_title}")
-            track_format, quality_met = get_format(client, meta, quality, True, parse)
+            track_format, quality_met = get_format(client, meta,
+                                                   quality, True, parse)
             if not downgrade_quality and not quality_met:
                 logger.info(
-                    f"{OFF}Skipping {track_title} as doesn't met quality requirement"
+                    f"{OFF}Skipping {track_title} as it doesn't "
+                    "meet quality requirement"
                 )
                 return
             dirT = (
@@ -279,17 +291,21 @@ def download_id_by_type(
                 meta["album"]["release_date_original"].split("-")[0],
                 track_format,
             )
-            sanitized_title = sanitize_filename("{} - {} [{}] [{}]".format(*dirT))
+            sanitized_title = sanitize_filename(
+                "{} - {} [{}] [{}]".format(*dirT)
+            )
             dirn = os.path.join(path, sanitized_title)
             os.makedirs(dirn, exist_ok=True)
             if no_cover:
                 logger.info(f"{OFF}Skipping cover")
             else:
                 get_extra(
-                    meta["album"]["image"]["large"], dirn, og_quality=cover_og_quality
+                    meta["album"]["image"]["large"], dirn,
+                    og_quality=cover_og_quality
                 )
             is_mp3 = True if int(quality) == 5 else False
-            download_and_tag(dirn, count, parse, meta, meta, True, is_mp3, embed_art)
+            download_and_tag(dirn, count, parse, meta,
+                             meta, True, is_mp3, embed_art)
         else:
             logger.info(f"{OFF}Demo. Skipping")
     logger.info(f"{GREEN}Completed")
