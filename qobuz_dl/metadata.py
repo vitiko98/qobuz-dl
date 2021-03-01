@@ -10,6 +10,9 @@ logger = logging.getLogger(__name__)
 
 # unicode symbols
 COPYRIGHT, PHON_COPYRIGHT = '\u2117', '\u00a9'
+# if a metadata block exceeds this, mutagen will raise error
+# and the file won't be tagged
+FLAC_MAX_BLOCKSIZE = 16777215
 
 
 def get_title(track_dict):
@@ -28,6 +31,19 @@ def _format_copyright(s: str) -> str:
     s = s.replace('(P)', PHON_COPYRIGHT)
     s = s.replace('(C)', COPYRIGHT)
     return s
+
+
+def _format_genres(genres: list) -> str:
+    '''Fixes the weirdly formatted genre lists returned by the API.
+    >>> g = ['Pop/Rock', 'Pop/Rock→Rock', 'Pop/Rock→Rock→Alternatif et Indé']
+    >>> _format_genres(g)
+    'Pop/Rock, Rock, Alternatif et Indé'
+    '''
+
+    if genres == []:
+        return ''
+    else:
+        return ', '.join(genres[-1].split('\u2192'))
 
 
 # Use KeyError catching instead of dict.get to avoid empty tags
@@ -72,17 +88,17 @@ def tag_flac(filename, root_dir, final_name, d, album,
         pass
 
     if istrack:
-        audio["GENRE"] = ", ".join(d["album"]["genres_list"])  # GENRE
-        audio["ALBUMARTIST"] = d["album"]["artist"]["name"]    # ALBUM ARTIST
-        audio["TRACKTOTAL"] = str(d["album"]["tracks_count"])  # TRACK TOTAL
-        audio["ALBUM"] = d["album"]["title"]                   # ALBUM TITLE
+        audio["GENRE"] = _format_genres(d["album"]["genres_list"])
+        audio["ALBUMARTIST"] = d["album"]["artist"]["name"]
+        audio["TRACKTOTAL"] = str(d["album"]["tracks_count"])
+        audio["ALBUM"] = d["album"]["title"]
         audio["DATE"] = d["album"]["release_date_original"]
         audio["COPYRIGHT"] = _format_copyright(d["copyright"])
     else:
-        audio["GENRE"] = ", ".join(album["genres_list"])  # GENRE
-        audio["ALBUMARTIST"] = album["artist"]["name"]    # ALBUM ARTIST
-        audio["TRACKTOTAL"] = str(album["tracks_count"])  # TRACK TOTAL
-        audio["ALBUM"] = album["title"]                   # ALBUM TITLE
+        audio["GENRE"] = _format_genres(album["genres_list"])
+        audio["ALBUMARTIST"] = album["artist"]["name"]
+        audio["TRACKTOTAL"] = str(album["tracks_count"])
+        audio["ALBUM"] = album["title"]
         audio["DATE"] = album["release_date_original"]
         audio["COPYRIGHT"] = _format_copyright(album["copyright"])
 
@@ -97,6 +113,12 @@ def tag_flac(filename, root_dir, final_name, d, album,
             cover_image = multi_emb_image
 
         try:
+            # rest of the metadata still gets embedded
+            # when the image size is too big
+            if os.path.getsize(cover_image) > FLAC_MAX_BLOCKSIZE:
+                raise Exception("downloaded cover size too large to embed. "
+                                "turn off `og_cover` to avoid error")
+
             image = Picture()
             image.type = 3
             image.mime = "image/jpeg"
@@ -161,14 +183,14 @@ def tag_mp3(filename, root_dir, final_name, d, album,
             tags['artist'] = album["artist"]["name"]
 
     if istrack:
-        tags["genre"] = ", ".join(d["album"]["genres_list"])
+        tags["genre"] = _format_genres(d["album"]["genres_list"])
         tags["albumartist"] = d["album"]["artist"]["name"]
         tags["album"] = d["album"]["title"]
         tags["date"] = d["album"]["release_date_original"]
         tags["copyright"] = _format_copyright(d["copyright"])
         tracktotal = str(d["album"]["tracks_count"])
     else:
-        tags["genre"] = ", ".join(album["genres_list"])
+        tags["genre"] = _format_genres(album["genres_list"])
         tags["albumartist"] = album["artist"]["name"]
         tags["album"] = album["title"]
         tags["date"] = album["release_date_original"]

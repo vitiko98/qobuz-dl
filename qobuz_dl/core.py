@@ -65,6 +65,9 @@ class QobuzDL:
         cover_og_quality=False,
         no_cover=False,
         downloads_db=None,
+        folder_format='{artist} - {album} ({year}) [{bit_depth}B-'
+        '{sampling_rate}kHz]',
+        track_format='{tracknumber}. {tracktitle}',
     ):
         self.directory = self.create_dir(directory)
         self.quality = quality
@@ -78,6 +81,8 @@ class QobuzDL:
         self.cover_og_quality = cover_og_quality
         self.no_cover = no_cover
         self.downloads_db = create_db(downloads_db) if downloads_db else None
+        self.folder_format = folder_format
+        self.track_format = track_format
 
     def initialize_client(self, email, pwd, app_id, secrets):
         self.client = qopy.Client(email, pwd, app_id, secrets)
@@ -140,6 +145,8 @@ class QobuzDL:
                 self.quality_fallback,
                 self.cover_og_quality,
                 self.no_cover,
+                folder_format=self.folder_format,
+                track_format=self.track_format
             )
             handle_download_id(self.downloads_db, item_id, add_id=True)
         except (requests.exceptions.RequestException, NonStreamable) as e:
