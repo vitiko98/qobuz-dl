@@ -1,5 +1,6 @@
 import logging
 import os
+from typing import Tuple
 
 import requests
 from pathvalidate import sanitize_filename
@@ -12,6 +13,8 @@ from qobuz_dl.exceptions import NonStreamable
 QL_DOWNGRADE = "FormatRestrictedByFormatAvailability"
 DEFAULT_MP3_FOLDER_FORMAT = '{artist} - {album} [MP3]'
 DEFAULT_MP3_TRACK_FORMAT = '{tracknumber}. {tracktitle}'
+DEFAULT_UNKNOWN_FOLDER_FORMAT = '{artist} - {album}'
+DEFAULT_UNKNOWN_TRACK_FORMAT = '{tracknumber}. {tracktitle}'
 
 logger = logging.getLogger(__name__)
 
@@ -40,8 +43,9 @@ def get_description(u: dict, track_title, multiple=None):
     return downloading_title
 
 
-def get_format(client, item_dict, quality,
-               is_track_id=False, track_url_dict=None) -> tuple:
+def get_format(client, item_dict,
+               quality, is_track_id=False,
+               track_url_dict=None) -> Tuple[str, bool, int, int]:
     quality_met = True
     if int(quality) == 5:
         return ("MP3", quality_met, None, None)
@@ -63,12 +67,6 @@ def get_format(client, item_dict, quality,
             ):
                 quality_met = False
 
-            return (
-                "FLAC",
-                quality_met,
-                new_track_dict["bit_depth"],
-                new_track_dict["sampling_rate"]
-            )
         return (
             "FLAC",
             quality_met,
@@ -76,7 +74,7 @@ def get_format(client, item_dict, quality,
             new_track_dict["sampling_rate"],
         )
     except (KeyError, requests.exceptions.HTTPError):
-        return "Unknown", quality_met
+        return ("Unknown", quality_met, None, None)
 
 
 def get_title(item_dict):
@@ -127,7 +125,7 @@ def download_and_tag(
     :param bool is_track
     :param bool is_mp3
     :param bool embed_art: Embed cover art into file (FLAC-only)
-    :param track_format python format-string that determines file naming
+    :param str track_format format-string that determines file naming
     :param multiple: Multiple disc integer
     :type multiple: integer or None
     """
@@ -148,10 +146,10 @@ def download_and_tag(
 
     # Determine the filename
     track_title = track_metadata["title"]
+    print(track_metadata)
     filename_attr = {
-        'artist': track_metadata.get("performer", {}).get("name"),
-        'albumartist': track_metadata.get("album", {}).get("artist",
-                                                           {}).get("name"),
+        'artist': track_metadata["performer"]["name"],
+        'albumartist': track_metadata["album"]["artist"]["name"],
         'bit_depth': track_metadata['maximum_bit_depth'],
         'sampling_rate': track_metadata['maximum_sampling_rate'],
         'tracktitle': track_title,
@@ -217,38 +215,6 @@ def download_id_by_type(
     """
     count = 0
 
-    def _clean_format_gen(s: str) -> str:
-        '''General clean for format strings. Avoids user errors.
-        '''
-        if s.endswith('.mp3'):
-            s = s[:-4]
-        elif s.endswith('.flac'):
-            s = s[:-5]
-        s = s.strip()
-        return s
-
-    def _not_mp3_valid(s: str) -> bool:
-        return 'bit_depth' in s or 'sample_rate' in s
-
-    def clean_format_str(folder: str, track: str, bit_depth) -> tuple:
-        '''Cleans up the format strings to avoid errors
-        with MP3 files.
-        '''
-        print(f'in clean_format_str: {folder=}, {track=}, {bit_depth=}')
-        folder = _clean_format_gen(folder)
-        track = _clean_format_gen(track)
-        if bit_depth is None:  # if is an mp3, there is no bit depth
-            if _not_mp3_valid(folder):
-                logger.error(f'{RED}invalid format string for MP3: "{folder}"'
-                             f'\ndefaulting to "{DEFAULT_MP3_FOLDER_FORMAT}"')
-                folder = DEFAULT_MP3_FOLDER_FORMAT
-            if _not_mp3_valid(track):
-                logger.error(f'{RED}invalid format string for MP3: "{track}"'
-                             f'\ndefaulting to "{DEFAULT_MP3_TRACK_FORMAT}"')
-                track = DEFAULT_MP3_TRACK_FORMAT
-
-        return folder, track
-
     if album:
         meta = client.get_album_meta(item_id)
 
@@ -284,12 +250,9 @@ def download_id_by_type(
             'bit_depth': bit_depth,
             'sampling_rate': sampling_rate
         }
-        # TODO: if the quality is MP3, remove `bit_depth`
-        # and `sampling_rate` tags smartly from format
-        # instead of defaulting to a pre-chosen format
         folder_format, track_format = clean_format_str(folder_format,
                                                        track_format,
-                                                       bit_depth)
+                                                       file_format)
         sanitized_title = sanitize_filename(
             folder_format.format(**album_attr)
         )
@@ -376,3 +339,48 @@ def download_id_by_type(
         else:
             logger.info(f"{OFF}Demo. Skipping")
     logger.info(f"{GREEN}Completed")
+
+
+# ----------- Utilities -----------
+def _clean_format_gen(s: str) -> str:
+    '''General clean for format strings. Avoids user errors.
+    '''
+    if s.endswith('.mp3'):
+        s = s[:-4]
+    elif s.endswith('.flac'):
+        s = s[:-5]
+    s = s.strip()
+    return s
+
+
+def _not_mp3_valid(s: str) -> bool:
+    return 'bit_depth' in s or 'sample_rate' in s
+
+
+def clean_format_str(folder: str, track: str,
+                     file_format: str) -> Tuple[str, str]:
+    '''Cleans up the format strings to avoid errors
+    with MP3 files.
+    '''
+    folder = _clean_format_gen(folder)
+    track = _clean_format_gen(track)
+    if file_format == 'MP3':
+        if _not_mp3_valid(folder):
+            logger.error(f'{RED}invalid format string for MP3: "{folder}"'
+                         f'\ndefaulting to "{DEFAULT_MP3_FOLDER_FORMAT}"')
+            folder = DEFAULT_MP3_FOLDER_FORMAT
+        if _not_mp3_valid(track):
+            logger.error(f'{RED}invalid format string for MP3: "{track}"'
+                         f'\ndefaulting to "{DEFAULT_MP3_TRACK_FORMAT}"')
+            track = DEFAULT_MP3_TRACK_FORMAT
+    elif file_format == 'Unknown':
+        if _not_mp3_valid(folder):
+            logger.error(f'{RED}Error getting format. Defaulting format '
+                         f'string to "{DEFAULT_UNKNOWN_FOLDER_FORMAT}"')
+            folder = DEFAULT_UNKNOWN_FOLDER_FORMAT
+        if _not_mp3_valid(track):
+            logger.error(f'{RED}Error getting format. Defaulting format '
+                         f'string to "{DEFAULT_UNKNOWN_TRACK_FORMAT}"')
+            track = DEFAULT_UNKNOWN_TRACK_FORMAT
+
+    return (folder, track)
