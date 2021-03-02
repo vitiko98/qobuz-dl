@@ -105,17 +105,17 @@ def add_common_arg(custom_parser, default_folder, default_quality):
     custom_parser.add_argument(
         "-ff",
         "--folder-format",
-        metavar='PATTERN',
-        help='pattern for formatting folder names, e.g '
+        metavar="PATTERN",
+        help="pattern for formatting folder names, e.g "
         '"{artist} - {album} ({year})". available keys: artist, '
-        'albumartist, album, year, sampling_rate, bit_rate, tracktitle. '
-        'cannot contain characters used by the system, which includes /:<>',
+        "albumartist, album, year, sampling_rate, bit_rate, tracktitle. "
+        "cannot contain characters used by the system, which includes /:<>",
     )
     custom_parser.add_argument(
         "-tf",
         "--track-format",
-        metavar='PATTERN',
-        help='pattern for formatting track names. see `folder-format`.',
+        metavar="PATTERN",
+        help="pattern for formatting track names. see `folder-format`.",
     )
 
 
