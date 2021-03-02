@@ -50,6 +50,7 @@ def get_description(u: dict, track_title, multiple=None):
     return downloading_title
 
 
+
 def get_format(client, item_dict,
                quality, is_track_id=False,
                track_url_dict=None) -> Tuple[str, bool, int, int]:
@@ -263,6 +264,7 @@ def download_id_by_type(
                                                         file_format)
         sanitized_title = sanitize_filename(
             folder_format.format(**album_attr)
+
         )
         dirn = os.path.join(path, sanitized_title)
         os.makedirs(dirn, exist_ok=True)
@@ -331,6 +333,7 @@ def download_id_by_type(
             sanitized_title = sanitize_filename(
                 folder_format.format(**track_attr)
             )
+
             dirn = os.path.join(path, sanitized_title)
             os.makedirs(dirn, exist_ok=True)
             if no_cover:
