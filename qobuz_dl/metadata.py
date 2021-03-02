@@ -10,6 +10,9 @@ logger = logging.getLogger(__name__)
 
 # unicode symbols
 COPYRIGHT, PHON_COPYRIGHT = '\u2117', '\u00a9'
+# if a metadata block exceeds this, mutagen will raise error
+# and the file won't be tagged
+FLAC_MAX_BLOCKSIZE = 16777215
 
 
 def get_title(track_dict):
@@ -110,6 +113,12 @@ def tag_flac(filename, root_dir, final_name, d, album,
             cover_image = multi_emb_image
 
         try:
+            # rest of the metadata still gets embedded
+            # when the image size is too big
+            if os.path.getsize(cover_image) > FLAC_MAX_BLOCKSIZE:
+                raise Exception("downloaded cover size too large to embed. "
+                                "turn off `og_cover` to avoid error")
+
             image = Picture()
             image.type = 3
             image.mime = "image/jpeg"

@@ -102,6 +102,21 @@ def add_common_arg(custom_parser, default_folder, default_quality):
     custom_parser.add_argument(
         "--no-db", action="store_true", help="don't call the database"
     )
+    custom_parser.add_argument(
+        "-ff",
+        "--folder-format",
+        metavar='PATTERN',
+        help='pattern for formatting folder names, e.g '
+        '"{artist} - {album} ({year})". available keys: artist, '
+        'albumartist, album, year, sampling_rate, bit_rate, tracktitle. '
+        'cannot contain characters used by the system, which includes /:<>',
+    )
+    custom_parser.add_argument(
+        "-tf",
+        "--track-format",
+        metavar='PATTERN',
+        help='pattern for formatting track names. see `folder-format`.',
+    )
 
 
 def qobuz_dl_args(
