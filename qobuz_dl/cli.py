@@ -101,8 +101,20 @@ def main():
         no_cover = config.getboolean("DEFAULT", "no_cover")
         no_database = config.getboolean("DEFAULT", "no_database")
         app_id = config["DEFAULT"]["app_id"]
+
+        if ("folder_format" not in config["DEFAULT"]
+                or "track_format" not in config["DEFAULT"]):
+            logging.info(f'{YELLOW}Config file does not include format string,'
+                         ' updating...')
+            config["DEFAULT"]["folder_format"] = "{artist} - {album} ({year}) "
+            "[{bit_depth}B-{sampling_rate}kHz]"
+            config["DEFAULT"]["track_format"] = "{tracknumber}. {tracktitle}"
+            with open(CONFIG_FILE, 'w') as cf:
+                config.write(cf)
+
         folder_format = config["DEFAULT"]["folder_format"]
         track_format = config["DEFAULT"]["track_format"]
+
         secrets = [
             secret for secret in config["DEFAULT"]["secrets"].split(",") if secret
         ]
@@ -137,9 +149,9 @@ def main():
         no_cover=arguments.no_cover or no_cover,
         downloads_db=None if no_database or arguments.no_db else QOBUZ_DB,
         folder_format=arguments.folder_format
-        if hasattr(arguments, "folder_format") else folder_format,
+        if arguments.folder_format is not None else folder_format,
         track_format=arguments.track_format
-        if hasattr(arguments, "track_format") else track_format,
+        if arguments.track_format is not None else track_format,
     )
     qobuz.initialize_client(email, password, app_id, secrets)
 
