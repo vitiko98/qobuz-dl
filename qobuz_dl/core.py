@@ -101,7 +101,14 @@ class QobuzDL:
 
     def get_url_info(self, url: str) -> Tuple[str, str]:
         '''Returns the type of the url and the id.
+
+        Compatible with urls of the form:
+            https://www.qobuz.com/us-en/{type}/{name}/{id}
+            https://open.qobuz.com/{type}/{id}
+            https://play.qobuz.com/{type}/{id}
+            /us-en/{type}/-/{id}
         '''
+
         r = re.search(
             r"(?:https:\/\/(?:w{3}|open|play)\.qobuz\.com)?(?:\/[a-z]{2}-[a-z]{2})"
             r"?\/(album|artist|track|playlist|label)(?:\/[-\w\d]+)?\/([\w\d]+)",
