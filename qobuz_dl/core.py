@@ -4,6 +4,7 @@ import re
 import string
 import sys
 import time
+from typing import Tuple
 
 import requests
 from bs4 import BeautifulSoup as bso
@@ -98,29 +99,13 @@ class QobuzDL:
         os.makedirs(fix, exist_ok=True)
         return fix
 
-    def get_id(self, url):
-        return re.match(
-            r"https?://(?:w{0,3}|play|open)\.qobuz\.com/(?:(?:album|track"
-            r"|artist|playlist|label)/|[a-z]{2}-[a-z]{2}/album/-?\w+(?:-\w+)*"
-            r"-?/|user/library/favorites/)(\w+)",
+    def get_url_info(url: str) -> Tuple[str, str]:
+        r = re.search(
+            r"(?:https:\/\/(?:w{3}|open|play)\.qobuz\.com)?(?:\/[a-z]{2}-[a-z]{2})"
+            r"?\/(album|artist|track|playlist|label)(?:\/[-\w\d]+)?\/([\w\d]+)",
             url,
-        ).group(1)
-
-    def get_type(self, url):
-        if re.match(r"https?", url) is not None:
-            url_type = url.split("/")[3]
-            if url_type not in ["album", "artist", "playlist", "track", "label"]:
-                if url_type == "user":
-                    url_type = url.split("/")[-1]
-                else:
-                    # url is from Qobuz store
-                    # e.g. "https://www.qobuz.com/us-en/album/..."
-                    url_type = url.split("/")[4]
-        else:
-            # url missing base
-            # e.g. "/us-en/album/{artist}/{id}"
-            url_type = url.split("/")[2]
-        return url_type
+        )
+        return r.groups()
 
     def download_from_id(self, item_id, album=True, alt_path=None):
         if handle_download_id(self.downloads_db, item_id, add_id=False):
@@ -167,9 +152,8 @@ class QobuzDL:
             "track": {"album": False, "func": None, "iterable_key": None},
         }
         try:
-            url_type = self.get_type(url)
+            url_type, item_id = self.get_info(url)
             type_dict = possibles[url_type]
-            item_id = self.get_id(url)
         except (KeyError, IndexError):
             logger.info(
                 f'{RED}Invalid url: "{url}". Use urls from ' "https://play.qobuz.com!"
@@ -423,7 +407,7 @@ class QobuzDL:
         )
 
         for i in track_list:
-            track_id = self.get_id(self.search_by_type(i, "track", 1, lucky=True)[0])
+            track_id = self.get_url_info(self.search_by_type(i, "track", 1, lucky=True)[0])[1]
             if track_id:
                 self.download_from_id(track_id, False, pl_directory)
 
