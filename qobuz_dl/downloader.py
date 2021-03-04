@@ -247,7 +247,7 @@ def download_id_by_type(
             return
 
         logger.info(
-            f"\n{YELLOW}Downloading: {album_title}\n" f"Quality: {file_format}\n"
+            f"\n{YELLOW}Downloading: {album_title}\nQuality: {file_format} ({bit_depth}/{sampling_rate})\n"
         )
         album_attr = {
             "artist": meta["artist"]["name"],

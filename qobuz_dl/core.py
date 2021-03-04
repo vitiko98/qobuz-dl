@@ -1,3 +1,7 @@
+# ----- Testing ------
+import json
+
+# --------------------
 import logging
 import os
 import re
@@ -67,6 +71,7 @@ class QobuzDL:
         folder_format="{artist} - {album} ({year}) [{bit_depth}B-"
         "{sampling_rate}kHz]",
         track_format="{tracknumber}. {tracktitle}",
+        smart_discography=False,
     ):
         self.directory = self.create_dir(directory)
         self.quality = quality
@@ -82,6 +87,7 @@ class QobuzDL:
         self.downloads_db = create_db(downloads_db) if downloads_db else None
         self.folder_format = folder_format
         self.track_format = track_format
+        self.smart_discography = smart_discography
 
     def initialize_client(self, email, pwd, app_id, secrets):
         self.client = qopy.Client(email, pwd, app_id, secrets)
@@ -100,14 +106,14 @@ class QobuzDL:
         return fix
 
     def get_url_info(self, url: str) -> Tuple[str, str]:
-        '''Returns the type of the url and the id.
+        """Returns the type of the url and the id.
 
         Compatible with urls of the form:
             https://www.qobuz.com/us-en/{type}/{name}/{id}
             https://open.qobuz.com/{type}/{id}
             https://play.qobuz.com/{type}/{id}
             /us-en/{type}/-/{id}
-        '''
+        """
 
         r = re.search(
             r"(?:https:\/\/(?:w{3}|open|play)\.qobuz\.com)?(?:\/[a-z]{2}-[a-z]{2})"
@@ -178,7 +184,11 @@ class QobuzDL:
             new_path = self.create_dir(
                 os.path.join(self.directory, sanitize_filename(content_name))
             )
-            items = [item[type_dict["iterable_key"]]["items"] for item in content][0]
+
+            # items = [item[type_dict["iterable_key"]]["items"] for item in content][0]
+            items = self.smart_discography_filter(
+                content, True, True,
+            )
             logger.info(f"{YELLOW}{len(items)} downloads in queue")
             for item in items:
                 self.download_from_id(
@@ -416,7 +426,9 @@ class QobuzDL:
         )
 
         for i in track_list:
-            track_id = self.get_url_info(self.search_by_type(i, "track", 1, lucky=True)[0])[1]
+            track_id = self.get_url_info(
+                self.search_by_type(i, "track", 1, lucky=True)[0]
+            )[1]
             if track_id:
                 self.download_from_id(track_id, False, pl_directory)
 
@@ -468,3 +480,112 @@ class QobuzDL:
         if len(track_list) > 1:
             with open(os.path.join(pl_directory, pl_name), "w") as pl:
                 pl.write("\n\n".join(track_list))
+
+    def smart_discography_filter(
+        self, contents: list, save_space=False, remove_extras=False
+    ) -> list:
+        """When downloading some artists' discography, there can be a lot
+        of duplicate albums that needlessly use 10's of GB of bandwidth. This
+        filters the duplicates.
+
+        Example (Stevie Wonder):
+            * ...
+            * Songs In The Key of Life [24/192]
+            * Songs In The Key of Life [24/96]
+            * Songs In The Key of Life [16/44.1]
+            * ...
+
+        This function should choose either [24/96] or [24/192].
+        It also skips deluxe albums in favor of the originals, picks remasters
+        in favor of originals, and removes albums by other artists that just
+        feature the requested artist.
+        """
+
+        def print_album(a: dict):
+            print(
+                f"{album['title']} - {album['version']} ({album['maximum_bit_depth']}/{album['maximum_sampling_rate']})"
+            )
+
+        def remastered(s: str) -> bool:
+            """Case insensitive match to check whether
+            an album is remastered.
+            """
+            if s is None:
+                return False
+            return re.match(r"(?i)(re)?master(ed)?", s) is not None
+
+        def extra(album: dict) -> bool:
+            assert hasattr(album, "__getitem__"), "param must be dict-like"
+            if 'version' not in album:
+                return False
+            return (
+                re.findall(
+                    r"(?i)(anniversary|deluxe|live|collector|demo)",
+                    f"{album['title']} {album['version']}",
+                )
+                != []
+            )
+
+        # remove all albums by other artists
+        artist = contents[0]["name"]
+        items = [item["albums"]["items"] for item in contents][0]
+        artist_f = []  # artist filtered
+        for item in items:
+            if item["artist"]["name"] == artist:
+                artist_f.append(item)
+
+        # use dicts to group duplicate titles together
+        titles_f = dict()
+        for item in artist_f:
+            if (t := item["title"]) not in titles_f:
+                titles_f[t] = []
+            titles_f[t].append(item)
+
+        # pick desired quality out of duplicates
+        # remasters are given preferred status
+        quality_f = []
+        for albums in titles_f.values():
+            # no duplicates for title
+            if len(albums) == 1:
+                quality_f.append(albums[0])
+                continue
+
+            # desired bit depth and sampling rate
+            bit_depth = max(a["maximum_bit_depth"] for a in albums)
+            # having sampling rate > 44.1kHz is a waste of space
+            # https://en.wikipedia.org/wiki/Nyquist–Shannon_sampling_theorem
+            # https://en.wikipedia.org/wiki/44,100_Hz#Human_hearing_and_signal_processing
+            cmp_func = min if save_space else max
+            sampling_rate = cmp_func(
+                a["maximum_sampling_rate"]
+                for a in albums
+                if a["maximum_bit_depth"] == bit_depth
+            )
+            has_remaster = bool([a for a in albums if remastered(a["version"])])
+
+            # check if album has desired bit depth and sampling rate
+            # if there is a remaster in `item`, check if the album is a remaster
+            for album in albums:
+                if (
+                    album["maximum_bit_depth"] == bit_depth
+                    and album["maximum_sampling_rate"] == sampling_rate
+                ):
+                    if not has_remaster:
+                        quality_f.append(album)
+                    elif remastered(album["version"]):
+                        quality_f.append(album)
+
+        if remove_extras:
+            final = []
+            # this filters those huge albums with outtakes, live performances etc.
+            for album in quality_f:
+                if not extra(album):
+                    final.append(album)
+        else:
+            final = quality_f
+
+        return final
+        # key = lambda a: a["title"]
+        # final.sort(key=key)
+        # for album in final:
+        #     print_album(album)
