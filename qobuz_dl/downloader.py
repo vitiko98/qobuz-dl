@@ -367,10 +367,8 @@ def _clean_format_str(folder: str, track: str, file_format: str) -> Tuple[str, s
         fs = fs.strip()
 
         # default to pre-chosen string if format is invalid
-        if (
-            file_format in ("MP3", "Unknown")
-            and "bit_depth" in file_format
-            or "sampling_rate" in file_format
+        if file_format in ("MP3", "Unknown") and (
+            "bit_depth" in fs or "sampling_rate" in fs
         ):
             default = DEFAULT_FORMATS[file_format][i]
             logger.error(
