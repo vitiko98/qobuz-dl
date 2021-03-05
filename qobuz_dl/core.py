@@ -187,8 +187,8 @@ class QobuzDL:
             )
 
             if self.smart_discography and url_type == "artist":
-                logger.info(f"{YELLOW}Filtering {content_name}'s discography")
-                items = self.smart_discography_filter(
+                # change `save_space` and `skip_extras` for customization
+                items = self._smart_discography_filter(
                     content,
                     save_space=True,
                     skip_extras=True,
@@ -490,8 +490,8 @@ class QobuzDL:
             with open(os.path.join(pl_directory, pl_name), "w") as pl:
                 pl.write("\n\n".join(track_list))
 
-    def smart_discography_filter(
-        self, contents: list, save_space=False, skip_extras=False
+    def _smart_discography_filter(
+        self, contents: list, save_space: bool = False, skip_extras: bool = False
     ) -> list:
         """When downloading some artists' discography, many random and spam-like
         albums can get downloaded. This helps filter those out to just get the good stuff.
@@ -508,8 +508,8 @@ class QobuzDL:
         """
 
         # for debugging
-        def print_album(album: dict):
-            logger.info(
+        def print_album(album: dict) -> None:
+            logger.debug(
                 f"{album['title']} - {album.get('version', '~~')} ({album['maximum_bit_depth']}/{album['maximum_sampling_rate']} by {album['artist']['name']}) {album['id']}"
             )
 
@@ -519,6 +519,7 @@ class QobuzDL:
         }
 
         def is_type(album_t: str, album: dict) -> bool:
+            """Check if album is of type `album_t`"""
             version = album.get("version", "")
             title = album.get("title", "")
             regex = TYPE_REGEXES[album_t]
@@ -553,7 +554,7 @@ class QobuzDL:
             )
             remaster_exists = any(is_type("remaster", a) for a in albums)
 
-            def is_valid(album):
+            def is_valid(album: dict) -> bool:
                 return (
                     album["maximum_bit_depth"] == best_bit_depth
                     and album["maximum_sampling_rate"] == best_sampling_rate
