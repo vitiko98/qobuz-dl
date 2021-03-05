@@ -117,6 +117,12 @@ def add_common_arg(custom_parser, default_folder, default_quality):
         metavar="PATTERN",
         help="pattern for formatting track names. see `folder-format`.",
     )
+    custom_parser.add_argument(
+        "-sd",
+        "--smart-discography",
+        action="store_true",
+        help="Try to filter out unrelated albums when requesting an artists discography.",
+    )
 
 
 def qobuz_dl_args(
