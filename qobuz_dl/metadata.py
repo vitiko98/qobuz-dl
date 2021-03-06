@@ -1,3 +1,4 @@
+import re
 import os
 import logging
 
@@ -37,13 +38,12 @@ def _format_genres(genres: list) -> str:
     """Fixes the weirdly formatted genre lists returned by the API.
     >>> g = ['Pop/Rock', 'Pop/Rock→Rock', 'Pop/Rock→Rock→Alternatif et Indé']
     >>> _format_genres(g)
-    'Pop/Rock, Rock, Alternatif et Indé'
+    'Pop, Rock, Alternatif et Indé'
     """
-
-    if genres == []:
-        return ""
-    else:
-        return ", ".join(genres[-1].split("\u2192"))
+    genres = re.findall(r"([^\u2192\/]+)", "/".join(genres))
+    no_repeats = []
+    [no_repeats.append(g) for g in genres if g not in no_repeats]
+    return ", ".join(no_repeats)
 
 
 # Use KeyError catching instead of dict.get to avoid empty tags
