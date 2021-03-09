@@ -4,6 +4,7 @@ import re
 import string
 import sys
 import time
+from typing import Tuple
 
 import requests
 from bs4 import BeautifulSoup as bso
@@ -21,8 +22,12 @@ WEB_URL = "https://play.qobuz.com/"
 ARTISTS_SELECTOR = "td.chartlist-artist > a"
 TITLE_SELECTOR = "td.chartlist-name > a"
 EXTENSIONS = (".mp3", ".flac")
-QUALITIES = {5: "5 - MP3", 6: "6 - FLAC",
-             7: "7 - 24B<96kHz", 27: "27 - 24B>96kHz"}
+QUALITIES = {
+    5: "5 - MP3",
+    6: "6 - 16 bit, 44.1kHz",
+    7: "7 - 24 bit, <96kHz",
+    27: "27 - 24 bit, >96kHz",
+}
 
 logger = logging.getLogger(__name__)
 
@@ -33,8 +38,7 @@ class PartialFormatter(string.Formatter):
 
     def get_field(self, field_name, args, kwargs):
         try:
-            val = super(PartialFormatter, self).get_field(field_name,
-                                                          args, kwargs)
+            val = super(PartialFormatter, self).get_field(field_name, args, kwargs)
         except (KeyError, AttributeError):
             val = None, field_name
         return val
@@ -65,9 +69,10 @@ class QobuzDL:
         cover_og_quality=False,
         no_cover=False,
         downloads_db=None,
-        folder_format='{artist} - {album} ({year}) [{bit_depth}B-'
-        '{sampling_rate}kHz]',
-        track_format='{tracknumber}. {tracktitle}',
+        folder_format="{artist} - {album} ({year}) [{bit_depth}B-"
+        "{sampling_rate}kHz]",
+        track_format="{tracknumber}. {tracktitle}",
+        smart_discography=False,
     ):
         self.directory = self.create_dir(directory)
         self.quality = quality
@@ -83,10 +88,11 @@ class QobuzDL:
         self.downloads_db = create_db(downloads_db) if downloads_db else None
         self.folder_format = folder_format
         self.track_format = track_format
+        self.smart_discography = smart_discography
 
     def initialize_client(self, email, pwd, app_id, secrets):
         self.client = qopy.Client(email, pwd, app_id, secrets)
-        logger.info(f"{YELLOW}Set quality: {QUALITIES[int(self.quality)]}\n")
+        logger.info(f"{YELLOW}Set max quality: {QUALITIES[int(self.quality)]}\n")
 
     def get_tokens(self):
         spoofer = spoofbuz.Spoofer()
@@ -100,30 +106,22 @@ class QobuzDL:
         os.makedirs(fix, exist_ok=True)
         return fix
 
-    def get_id(self, url):
-        return re.match(
-            r"https?://(?:w{0,3}|play|open)\.qobuz\.com/(?:(?:album|track"
-            r"|artist|playlist|label)/|[a-z]{2}-[a-z]{2}/album/-?\w+(?:-\w+)*"
-            r"-?/|user/library/favorites/)(\w+)",
-            url,
-        ).group(1)
+    def get_url_info(self, url: str) -> Tuple[str, str]:
+        """Returns the type of the url and the id.
 
-    def get_type(self, url):
-        if re.match(r'https?', url) is not None:
-            url_type = url.split('/')[3]
-            if url_type not in ['album', 'artist', 'playlist',
-                                'track', 'label']:
-                if url_type == "user":
-                    url_type = url.split('/')[-1]
-                else:
-                    # url is from Qobuz store
-                    # e.g. "https://www.qobuz.com/us-en/album/..."
-                    url_type = url.split('/')[4]
-        else:
-            # url missing base
-            # e.g. "/us-en/album/{artist}/{id}"
-            url_type = url.split('/')[2]
-        return url_type
+        Compatible with urls of the form:
+            https://www.qobuz.com/us-en/{type}/{name}/{id}
+            https://open.qobuz.com/{type}/{id}
+            https://play.qobuz.com/{type}/{id}
+            /us-en/{type}/-/{id}
+        """
+
+        r = re.search(
+            r"(?:https:\/\/(?:w{3}|open|play)\.qobuz\.com)?(?:\/[a-z]{2}-[a-z]{2})"
+            r"?\/(album|artist|track|playlist|label)(?:\/[-\w\d]+)?\/([\w\d]+)",
+            url,
+        )
+        return r.groups()
 
     def download_from_id(self, item_id, album=True, alt_path=None):
         if handle_download_id(self.downloads_db, item_id, add_id=False):
@@ -146,7 +144,7 @@ class QobuzDL:
                 self.cover_og_quality,
                 self.no_cover,
                 folder_format=self.folder_format,
-                track_format=self.track_format
+                track_format=self.track_format,
             )
             handle_download_id(self.downloads_db, item_id, add_id=True)
         except (requests.exceptions.RequestException, NonStreamable) as e:
@@ -170,13 +168,11 @@ class QobuzDL:
             "track": {"album": False, "func": None, "iterable_key": None},
         }
         try:
-            url_type = self.get_type(url)
+            url_type, item_id = self.get_url_info(url)
             type_dict = possibles[url_type]
-            item_id = self.get_id(url)
         except (KeyError, IndexError):
             logger.info(
-                f'{RED}Invalid url: "{url}". Use urls from '
-                'https://play.qobuz.com!'
+                f'{RED}Invalid url: "{url}". Use urls from ' "https://play.qobuz.com!"
             )
             return
         if type_dict["func"]:
@@ -189,8 +185,19 @@ class QobuzDL:
             new_path = self.create_dir(
                 os.path.join(self.directory, sanitize_filename(content_name))
             )
-            items = [item[type_dict["iterable_key"]]["items"]
-                     for item in content][0]
+
+            if self.smart_discography and url_type == "artist":
+                # change `save_space` and `skip_extras` for customization
+                items = self._smart_discography_filter(
+                    content,
+                    save_space=True,
+                    skip_extras=True,
+                )
+            else:
+                items = [item[type_dict["iterable_key"]]["items"] for item in content][
+                    0
+                ]
+
             logger.info(f"{YELLOW}{len(items)} downloads in queue")
             for item in items:
                 self.download_from_id(
@@ -242,8 +249,7 @@ class QobuzDL:
             f"{YELLOW}qobuz-dl will attempt to download the first "
             f"{self.lucky_limit} results."
         )
-        results = self.search_by_type(query, self.lucky_type,
-                                      self.lucky_limit, True)
+        results = self.search_by_type(query, self.lucky_type, self.lucky_limit, True)
 
         if download:
             self.download_list_of_urls(results)
@@ -306,8 +312,7 @@ class QobuzDL:
                     )
 
                 url = "{}{}/{}".format(WEB_URL, item_type, i.get("id", ""))
-                item_list.append({"text": text, "url": url} if not lucky
-                                 else url)
+                item_list.append({"text": text, "url": url} if not lucky else url)
             return item_list
         except (KeyError, IndexError):
             logger.info(f"{RED}Invalid type: {item_type}")
@@ -319,7 +324,7 @@ class QobuzDL:
         except (ImportError, ModuleNotFoundError):
             if os.name == "nt":
                 sys.exit(
-                    'Please install curses with '
+                    "Please install curses with "
                     '"pip3 install windows-curses" to continue'
                 )
             raise
@@ -339,15 +344,15 @@ class QobuzDL:
 
         try:
             item_types = ["Albums", "Tracks", "Artists", "Playlists"]
-            selected_type = pick(item_types,
-                                 "I'll search for:\n[press Intro]"
-                                 )[0][:-1].lower()
-            logger.info(f"{YELLOW}Ok, we'll search for "
-                        f"{selected_type}s{RESET}")
+            selected_type = pick(item_types, "I'll search for:\n[press Intro]")[0][
+                :-1
+            ].lower()
+            logger.info(f"{YELLOW}Ok, we'll search for " f"{selected_type}s{RESET}")
             final_url_list = []
             while True:
-                query = input(f"{CYAN}Enter your search: [Ctrl + c to quit]\n"
-                              f"-{DF} ")
+                query = input(
+                    f"{CYAN}Enter your search: [Ctrl + c to quit]\n" f"-{DF} "
+                )
                 logger.info(f"{YELLOW}Searching...{RESET}")
                 options = self.search_by_type(
                     query, selected_type, self.interactive_limit
@@ -369,8 +374,7 @@ class QobuzDL:
                     options_map_func=get_title_text,
                 )
                 if len(selected_items) > 0:
-                    [final_url_list.append(i[0]["url"])
-                     for i in selected_items]
+                    [final_url_list.append(i[0]["url"]) for i in selected_items]
                     y_n = pick(
                         ["Yes", "No"],
                         "Items were added to queue to be downloaded. "
@@ -427,13 +431,13 @@ class QobuzDL:
         pl_title = sanitize_filename(soup.select_one("h1").text)
         pl_directory = os.path.join(self.directory, pl_title)
         logger.info(
-            f"{YELLOW}Downloading playlist: {pl_title} "
-            f"({len(track_list)} tracks)"
+            f"{YELLOW}Downloading playlist: {pl_title} " f"({len(track_list)} tracks)"
         )
 
         for i in track_list:
-            track_id = self.get_id(self.search_by_type(i, "track", 1,
-                                                       lucky=True)[0])
+            track_id = self.get_url_info(
+                self.search_by_type(i, "track", 1, lucky=True)[0]
+            )[1]
             if track_id:
                 self.download_from_id(track_id, False, pl_directory)
 
@@ -465,8 +469,7 @@ class QobuzDL:
             if not audio_files or len(audio_files) != len(audio_rel_files):
                 continue
 
-            for audio_rel_file, audio_file in zip(audio_rel_files,
-                                                  audio_files):
+            for audio_rel_file, audio_file in zip(audio_rel_files, audio_files):
                 try:
                     pl_item = (
                         EasyMP3(audio_file)
@@ -486,3 +489,87 @@ class QobuzDL:
         if len(track_list) > 1:
             with open(os.path.join(pl_directory, pl_name), "w") as pl:
                 pl.write("\n\n".join(track_list))
+
+    def _smart_discography_filter(
+        self, contents: list, save_space: bool = False, skip_extras: bool = False
+    ) -> list:
+        """When downloading some artists' discography, many random and spam-like
+        albums can get downloaded. This helps filter those out to just get the good stuff.
+
+        This function removes:
+            * albums by other artists, which may contain a feature from the requested artist
+            * duplicate albums in different qualities
+            * (optionally) removes collector's, deluxe, live albums
+
+        :param list contents: contents returned by qobuz API
+        :param bool save_space: choose highest bit depth, lowest sampling rate
+        :param bool remove_extras: remove albums with extra material (i.e. live, deluxe,...)
+        :returns: filtered items list
+        """
+
+        # for debugging
+        def print_album(album: dict) -> None:
+            logger.debug(
+                f"{album['title']} - {album.get('version', '~~')} ({album['maximum_bit_depth']}/{album['maximum_sampling_rate']} by {album['artist']['name']}) {album['id']}"
+            )
+
+        TYPE_REGEXES = {
+            "remaster": r"(?i)(re)?master(ed)?",
+            "extra": r"(?i)(anniversary|deluxe|live|collector|demo|expanded)",
+        }
+
+        def is_type(album_t: str, album: dict) -> bool:
+            """Check if album is of type `album_t`"""
+            version = album.get("version", "")
+            title = album.get("title", "")
+            regex = TYPE_REGEXES[album_t]
+            return re.search(regex, f"{title} {version}") is not None
+
+        def essence(album: dict) -> str:
+            """Ignore text in parens/brackets, return all lowercase.
+            Used to group two albums that may be named similarly, but not exactly
+            the same.
+            """
+            r = re.match(r"([^\(]+)(?:\s*[\(\[][^\)][\)\]])*", album)
+            return r.group(1).strip().lower()
+
+        requested_artist = contents[0]["name"]
+        items = [item["albums"]["items"] for item in contents][0]
+
+        # use dicts to group duplicate albums together by title
+        title_grouped = dict()
+        for item in items:
+            if (t := essence(item["title"])) not in title_grouped:
+                title_grouped[t] = []
+            title_grouped[t].append(item)
+
+        items = []
+        for albums in title_grouped.values():
+            best_bit_depth = max(a["maximum_bit_depth"] for a in albums)
+            get_best = min if save_space else max
+            best_sampling_rate = get_best(
+                a["maximum_sampling_rate"]
+                for a in albums
+                if a["maximum_bit_depth"] == best_bit_depth
+            )
+            remaster_exists = any(is_type("remaster", a) for a in albums)
+
+            def is_valid(album: dict) -> bool:
+                return (
+                    album["maximum_bit_depth"] == best_bit_depth
+                    and album["maximum_sampling_rate"] == best_sampling_rate
+                    and album["artist"]["name"] == requested_artist
+                    and not (  # states that are not allowed
+                        (remaster_exists and not is_type("remaster", album))
+                        or (skip_extras and is_type("extra", album))
+                    )
+                )
+
+            filtered = tuple(filter(is_valid, albums))
+            # most of the time, len is 0 or 1.
+            # if greater, it is a complete duplicate,
+            # so it doesn't matter which is chosen
+            if len(filtered) >= 1:
+                items.append(filtered[0])
+
+        return items

@@ -105,17 +105,27 @@ def add_common_arg(custom_parser, default_folder, default_quality):
     custom_parser.add_argument(
         "-ff",
         "--folder-format",
-        metavar='PATTERN',
-        help='pattern for formatting folder names, e.g '
-        '"{artist} - {album} ({year})". available keys: artist, '
-        'albumartist, album, year, sampling_rate, bit_rate, tracktitle. '
-        'cannot contain characters used by the system, which includes /:<>',
+        metavar="PATTERN",
+        help="""pattern for formatting folder names, e.g
+        "{artist} - {album} ({year})". available keys: artist,
+        albumartist, album, year, sampling_rate, bit_rate, tracktitle, version.
+        cannot contain characters used by the system, which includes /:<>""",
     )
     custom_parser.add_argument(
         "-tf",
         "--track-format",
-        metavar='PATTERN',
-        help='pattern for formatting track names. see `folder-format`.',
+        metavar="PATTERN",
+        help="pattern for formatting track names. see `folder-format`.",
+    )
+    # TODO: add customization options
+    custom_parser.add_argument(
+        "-s",
+        "--smart-discography",
+        action="store_true",
+        help="""Try to filter out spam-like albums when requesting an artist's
+        discography, and other optimizations. Filters albums not made by requested
+        artist, and deluxe/live/collection albums. Gives preference to remastered
+        albums, high bit depth/dynamic range, and low sampling rates (to save space).""",
     )
 
 

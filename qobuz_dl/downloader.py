@@ -13,14 +13,14 @@ from qobuz_dl.exceptions import NonStreamable
 QL_DOWNGRADE = "FormatRestrictedByFormatAvailability"
 # used in case of error
 DEFAULT_FORMATS = {
-    'MP3': [
-        '{artist} - {album} ({year}) [MP3]',
-        '{tracknumber}. {tracktitle}',
+    "MP3": [
+        "{artist} - {album} ({year}) [MP3]",
+        "{tracknumber}. {tracktitle}",
     ],
-    'Unknown': [
-        '{artist} - {album}',
-        '{tracknumber}. {tracktitle}',
-    ]
+    "Unknown": [
+        "{artist} - {album}",
+        "{tracknumber}. {tracktitle}",
+    ],
 }
 
 logger = logging.getLogger(__name__)
@@ -43,16 +43,16 @@ def tqdm_download(url, fname, track_name):
 
 
 def get_description(u: dict, track_title, multiple=None):
-    downloading_title = f'{track_title} '
+    downloading_title = f"{track_title} "
     f'[{u["bit_depth"]}/{u["sampling_rate"]}]'
     if multiple:
         downloading_title = f"[Disc {multiple}] {downloading_title}"
     return downloading_title
 
 
-def get_format(client, item_dict,
-               quality, is_track_id=False,
-               track_url_dict=None) -> Tuple[str, bool, int, int]:
+def get_format(
+    client, item_dict, quality, is_track_id=False, track_url_dict=None
+) -> Tuple[str, bool, int, int]:
     quality_met = True
     if int(quality) == 5:
         return ("MP3", quality_met, None, None)
@@ -69,8 +69,7 @@ def get_format(client, item_dict,
         restrictions = new_track_dict.get("restrictions")
         if isinstance(restrictions, list):
             if any(
-                restriction.get("code") == QL_DOWNGRADE
-                for restriction in restrictions
+                restriction.get("code") == QL_DOWNGRADE for restriction in restrictions
             ):
                 quality_met = False
 
@@ -119,7 +118,7 @@ def download_and_tag(
     is_mp3,
     embed_art=False,
     multiple=None,
-    track_format='{tracknumber}. {tracktitle}',
+    track_format="{tracknumber}. {tracktitle}",
 ):
     """
     Download and tag a file
@@ -155,14 +154,15 @@ def download_and_tag(
     track_title = track_metadata.get("title")
     artist = _safe_get(track_metadata, "performer", "name")
     filename_attr = {
-        'artist': artist,
-        'albumartist': _safe_get(track_metadata, "album", "artist", "name",
-                                 default=artist),
-        'bit_depth': track_metadata['maximum_bit_depth'],
-        'sampling_rate': track_metadata['maximum_sampling_rate'],
-        'tracktitle': track_title,
-        'version': track_metadata.get("version"),
-        'tracknumber': f"{track_metadata['track_number']:02}"
+        "artist": artist,
+        "albumartist": _safe_get(
+            track_metadata, "album", "artist", "name", default=artist
+        ),
+        "bit_depth": track_metadata["maximum_bit_depth"],
+        "sampling_rate": track_metadata["maximum_sampling_rate"],
+        "tracktitle": track_title,
+        "version": track_metadata.get("version"),
+        "tracknumber": f"{track_metadata['track_number']:02}",
     }
     # track_format is a format string
     # e.g. '{tracknumber}. {artist} - {tracktitle}'
@@ -201,9 +201,8 @@ def download_id_by_type(
     downgrade_quality=True,
     cover_og_quality=False,
     no_cover=False,
-    folder_format='{artist} - {album} ({year}) '
-    '[{bit_depth}B-{sampling_rate}kHz]',
-    track_format='{tracknumber}. {tracktitle}',
+    folder_format="{artist} - {album} ({year}) " "[{bit_depth}B-{sampling_rate}kHz]",
+    track_format="{tracknumber}. {tracktitle}",
 ):
     """
     Download and get metadata by ID and type (album or track)
@@ -243,43 +242,39 @@ def download_id_by_type(
 
         if not downgrade_quality and not quality_met:
             logger.info(
-                f"{OFF}Skipping {album_title} as it doesn't "
-                "meet quality requirement"
+                f"{OFF}Skipping {album_title} as it doesn't " "meet quality requirement"
             )
             return
 
-        logger.info(f"\n{YELLOW}Downloading: {album_title}\n"
-                    f"Quality: {file_format}\n")
-        album_attr = {
-            'artist': meta["artist"]["name"],
-            'album': album_title,
-            'year': meta["release_date_original"].split("-")[0],
-            'format': file_format,
-            'bit_depth': bit_depth,
-            'sampling_rate': sampling_rate
-        }
-        folder_format, track_format = _clean_format_str(folder_format,
-                                                        track_format,
-                                                        file_format)
-        sanitized_title = sanitize_filename(
-            folder_format.format(**album_attr)
+        logger.info(
+            f"\n{YELLOW}Downloading: {album_title}\nQuality: {file_format} ({bit_depth}/{sampling_rate})\n"
         )
+        album_attr = {
+            "artist": meta["artist"]["name"],
+            "album": album_title,
+            "year": meta["release_date_original"].split("-")[0],
+            "format": file_format,
+            "bit_depth": bit_depth,
+            "sampling_rate": sampling_rate,
+        }
+        folder_format, track_format = _clean_format_str(
+            folder_format, track_format, file_format
+        )
+        sanitized_title = sanitize_filename(folder_format.format(**album_attr))
         dirn = os.path.join(path, sanitized_title)
         os.makedirs(dirn, exist_ok=True)
 
         if no_cover:
             logger.info(f"{OFF}Skipping cover")
         else:
-            get_extra(meta["image"]["large"], dirn,
-                      og_quality=cover_og_quality)
+            get_extra(meta["image"]["large"], dirn, og_quality=cover_og_quality)
 
         if "goodies" in meta:
             try:
                 get_extra(meta["goodies"][0]["url"], dirn, "booklet.pdf")
             except:  # noqa
                 pass
-        media_numbers = [track["media_number"] for track in
-                         meta["tracks"]["items"]]
+        media_numbers = [track["media_number"] for track in meta["tracks"]["items"]]
         is_multiple = True if len([*{*media_numbers}]) > 1 else False
         for i in meta["tracks"]["items"]:
             parse = client.get_track_url(i["id"], quality)
@@ -307,13 +302,14 @@ def download_id_by_type(
             meta = client.get_track_meta(item_id)
             track_title = get_title(meta)
             logger.info(f"\n{YELLOW}Downloading: {track_title}")
-            format_info = get_format(client, meta, quality,
-                                     is_track_id=True, track_url_dict=parse)
+            format_info = get_format(
+                client, meta, quality, is_track_id=True, track_url_dict=parse
+            )
             file_format, quality_met, bit_depth, sampling_rate = format_info
 
-            folder_format, track_format = _clean_format_str(folder_format,
-                                                            track_format,
-                                                            bit_depth)
+            folder_format, track_format = _clean_format_str(
+                folder_format, track_format, bit_depth
+            )
 
             if not downgrade_quality and not quality_met:
                 logger.info(
@@ -322,15 +318,13 @@ def download_id_by_type(
                 )
                 return
             track_attr = {
-                'artist': meta["album"]["artist"]["name"],
-                'tracktitle': track_title,
-                'year': meta["album"]["release_date_original"].split("-")[0],
-                'bit_depth': bit_depth,
-                'sampling_rate': sampling_rate
+                "artist": meta["album"]["artist"]["name"],
+                "tracktitle": track_title,
+                "year": meta["album"]["release_date_original"].split("-")[0],
+                "bit_depth": bit_depth,
+                "sampling_rate": sampling_rate,
             }
-            sanitized_title = sanitize_filename(
-                folder_format.format(**track_attr)
-            )
+            sanitized_title = sanitize_filename(folder_format.format(**track_attr))
 
             dirn = os.path.join(path, sanitized_title)
             os.makedirs(dirn, exist_ok=True)
@@ -338,13 +332,20 @@ def download_id_by_type(
                 logger.info(f"{OFF}Skipping cover")
             else:
                 get_extra(
-                    meta["album"]["image"]["large"], dirn,
-                    og_quality=cover_og_quality
+                    meta["album"]["image"]["large"], dirn, og_quality=cover_og_quality
                 )
             is_mp3 = True if int(quality) == 5 else False
-            download_and_tag(dirn, count, parse, meta,
-                             meta, True, is_mp3, embed_art,
-                             track_format=track_format)
+            download_and_tag(
+                dirn,
+                count,
+                parse,
+                meta,
+                meta,
+                True,
+                is_mp3,
+                embed_art,
+                track_format=track_format,
+            )
         else:
             logger.info(f"{OFF}Demo. Skipping")
     logger.info(f"{GREEN}Completed")
@@ -352,25 +353,28 @@ def download_id_by_type(
 
 # ----------- Utilities -----------
 
-def _clean_format_str(folder: str, track: str,
-                      file_format: str) -> Tuple[str, str]:
-    '''Cleans up the format strings, avoids errors
+
+def _clean_format_str(folder: str, track: str, file_format: str) -> Tuple[str, str]:
+    """Cleans up the format strings, avoids errors
     with MP3 files.
-    '''
+    """
     final = []
     for i, fs in enumerate((folder, track)):
-        if fs.endswith('.mp3'):
+        if fs.endswith(".mp3"):
             fs = fs[:-4]
-        elif fs.endswith('.flac'):
+        elif fs.endswith(".flac"):
             fs = fs[:-5]
         fs = fs.strip()
 
         # default to pre-chosen string if format is invalid
-        if (file_format in ('MP3', 'Unknown') and
-                'bit_depth' in file_format or 'sampling_rate' in file_format):
+        if file_format in ("MP3", "Unknown") and (
+            "bit_depth" in fs or "sampling_rate" in fs
+        ):
             default = DEFAULT_FORMATS[file_format][i]
-            logger.error(f'{RED}invalid format string for format {file_format}'
-                         f'. defaulting to {default}')
+            logger.error(
+                f"{RED}invalid format string for format {file_format}"
+                f". defaulting to {default}"
+            )
             fs = default
         final.append(fs)
 
@@ -378,18 +382,18 @@ def _clean_format_str(folder: str, track: str,
 
 
 def _safe_get(d: dict, *keys, default=None):
-    '''A replacement for chained `get()` statements on dicts:
+    """A replacement for chained `get()` statements on dicts:
     >>> d = {'foo': {'bar': 'baz'}}
     >>> _safe_get(d, 'baz')
     None
     >>> _safe_get(d, 'foo', 'bar')
     'baz'
-    '''
+    """
     curr = d
     res = default
     for key in keys:
         res = curr.get(key, default)
-        if res == default or not hasattr(res, '__getitem__'):
+        if res == default or not hasattr(res, "__getitem__"):
             return res
         else:
             curr = res

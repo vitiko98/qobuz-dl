@@ -1,3 +1,4 @@
+import re
 import os
 import logging
 
@@ -9,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 # unicode symbols
-COPYRIGHT, PHON_COPYRIGHT = '\u2117', '\u00a9'
+COPYRIGHT, PHON_COPYRIGHT = "\u2117", "\u00a9"
 # if a metadata block exceeds this, mutagen will raise error
 # and the file won't be tagged
 FLAC_MAX_BLOCKSIZE = 16777215
@@ -28,27 +29,25 @@ def get_title(track_dict):
 
 
 def _format_copyright(s: str) -> str:
-    s = s.replace('(P)', PHON_COPYRIGHT)
-    s = s.replace('(C)', COPYRIGHT)
+    s = s.replace("(P)", PHON_COPYRIGHT)
+    s = s.replace("(C)", COPYRIGHT)
     return s
 
 
 def _format_genres(genres: list) -> str:
-    '''Fixes the weirdly formatted genre lists returned by the API.
+    """Fixes the weirdly formatted genre lists returned by the API.
     >>> g = ['Pop/Rock', 'Pop/Rock→Rock', 'Pop/Rock→Rock→Alternatif et Indé']
     >>> _format_genres(g)
-    'Pop/Rock, Rock, Alternatif et Indé'
-    '''
-
-    if genres == []:
-        return ''
-    else:
-        return ', '.join(genres[-1].split('\u2192'))
+    'Pop, Rock, Alternatif et Indé'
+    """
+    genres = re.findall(r"([^\u2192\/]+)", "/".join(genres))
+    no_repeats = []
+    [no_repeats.append(g) for g in genres if g not in no_repeats]
+    return ", ".join(no_repeats)
 
 
 # Use KeyError catching instead of dict.get to avoid empty tags
-def tag_flac(filename, root_dir, final_name, d, album,
-             istrack=True, em_image=False):
+def tag_flac(filename, root_dir, final_name, d, album, istrack=True, em_image=False):
     """
     Tag a FLAC file
 
@@ -116,8 +115,10 @@ def tag_flac(filename, root_dir, final_name, d, album,
             # rest of the metadata still gets embedded
             # when the image size is too big
             if os.path.getsize(cover_image) > FLAC_MAX_BLOCKSIZE:
-                raise Exception("downloaded cover size too large to embed. "
-                                "turn off `og_cover` to avoid error")
+                raise Exception(
+                    "downloaded cover size too large to embed. "
+                    "turn off `og_cover` to avoid error"
+                )
 
             image = Picture()
             image.type = 3
@@ -133,8 +134,7 @@ def tag_flac(filename, root_dir, final_name, d, album,
     os.rename(filename, final_name)
 
 
-def tag_mp3(filename, root_dir, final_name, d, album,
-            istrack=True, em_image=False):
+def tag_mp3(filename, root_dir, final_name, d, album, istrack=True, em_image=False):
     """
     Tag an mp3 file
 
@@ -159,7 +159,7 @@ def tag_mp3(filename, root_dir, final_name, d, album,
         "label": id3.TPUB,
         "performer": id3.TOPE,
         "title": id3.TIT2,
-        "year": id3.TYER
+        "year": id3.TYER,
     }
     try:
         audio = id3.ID3(filename)
@@ -168,19 +168,19 @@ def tag_mp3(filename, root_dir, final_name, d, album,
 
     # temporarily holds metadata
     tags = dict()
-    tags['title'] = get_title(d)
+    tags["title"] = get_title(d)
     try:
-        tags['label'] = album["label"]["name"]
+        tags["label"] = album["label"]["name"]
     except KeyError:
         pass
 
     try:
-        tags['artist'] = d["performer"]["name"]
+        tags["artist"] = d["performer"]["name"]
     except KeyError:
         if istrack:
-            tags['artist'] = d["album"]["artist"]["name"]
+            tags["artist"] = d["album"]["artist"]["name"]
         else:
-            tags['artist'] = album["artist"]["name"]
+            tags["artist"] = album["artist"]["name"]
 
     if istrack:
         tags["genre"] = _format_genres(d["album"]["genres_list"])
@@ -197,12 +197,10 @@ def tag_mp3(filename, root_dir, final_name, d, album,
         tags["copyright"] = _format_copyright(album["copyright"])
         tracktotal = str(album["tracks_count"])
 
-    tags['year'] = tags['date'][:4]
+    tags["year"] = tags["date"][:4]
 
-    audio['TRCK'] = id3.TRCK(encoding=3,
-                             text=f'{d["track_number"]}/{tracktotal}')
-    audio['TPOS'] = id3.TPOS(encoding=3,
-                             text=str(d["media_number"]))
+    audio["TRCK"] = id3.TRCK(encoding=3, text=f'{d["track_number"]}/{tracktotal}')
+    audio["TPOS"] = id3.TPOS(encoding=3, text=str(d["media_number"]))
 
     # write metadata in `tags` to file
     for k, v in tags.items():
@@ -219,8 +217,8 @@ def tag_mp3(filename, root_dir, final_name, d, album,
         else:
             cover_image = multi_emb_image
 
-        with open(cover_image, 'rb') as cover:
-            audio.add(id3.APIC(3, 'image/jpeg', 3, '', cover.read()))
+        with open(cover_image, "rb") as cover:
+            audio.add(id3.APIC(3, "image/jpeg", 3, "", cover.read()))
 
-    audio.save(filename, 'v2_version=3')
+    audio.save(filename, "v2_version=3")
     os.rename(filename, final_name)
