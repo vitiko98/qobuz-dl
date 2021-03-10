@@ -11,6 +11,7 @@ import requests
 from .exceptions import (AuthenticationError, IneligibleError,
                          InvalidAppIdError, InvalidAppSecretError,
                          InvalidQuality)
+from .spoofbuz import Spoofer
 
 logger = logging.getLogger(__name__)
 
@@ -18,26 +19,47 @@ logger = logging.getLogger(__name__)
 class ClientInterface:
     """Common API for clients of all platforms."""
 
-    def search(query: str, type='album'):
+    def search(self, query: str, type='album'):
+        """Search API for query.
+
+        :param query:
+        :type query: str
+        :param type:
+        """
         pass
 
-    def get(meta_id, type='album'):
+    def get(self, meta_id, type='album'):
+        """Get metadata.
+
+        :param meta_id:
+        :param type:
+        """
         pass
 
-    def set_file_url(track_id):
+    def get_file_url(self, track_id):
         pass
 
 
 class SecureClientInterface(ClientInterface):
-    def login(**kwargs):
+    def login(self, **kwargs):
+        """Authenticate the client.
+
+        :param kwargs:
+        """
         pass
 
 
 class QobuzClient(SecureClientInterface):
-    def __init__(self, email, pwd, app_id, secrets):
+    # ------- Public Methods -------------
+    def login(self, email: str, pwd: str, **kwargs):
         logger.info("Logging...")
-        self.secrets = secrets
-        self.id = app_id
+        if not kwargs.get('app_id') or kwargs.get('secrets'):
+            spoofer = Spoofer()
+            kwargs['app_id'] = spoofer.get_app_id()
+            kwargs['secrets'] = spoofer.get_secrets()
+
+        self.id = kwargs['app_id']
+        self.secrets = kwargs['secrets']
         self.session = requests.Session()
         self.session.headers.update(
             {
@@ -49,6 +71,32 @@ class QobuzClient(SecureClientInterface):
         self.auth(email, pwd)
         self.cfg_setup()
 
+    def search(self, query: str, media_type: str = 'album', limit: int = 500):
+        if media_type.endswith('s'):
+            media_type = media_type[:-1]
+
+        f_map = {
+            'album': self.search_albums,
+            'artist': self.search_artists,
+            'playlist': self.search_playlists,
+            'track': self.search_tracks,
+        }
+
+        return f_map[media_type](query)
+
+    def get(self, meta_id: str, media_type: str = 'album'):
+        f_map = {
+            'album': self.get_album_meta,
+            'artist': self.get_artist_meta,
+            'playlist': self.get_playlist_meta,
+            'track': self.get_track_meta,
+        }
+        return f_map[media_type](meta_id)
+
+    def get_file_url(self, meta_id: str, quality: int = 7):
+        return self.api_call("track/getFileUrl", id=id, fmt_id=quality)
+
+    # ---------- Private Methods ---------------
     def api_call(self, epoint, **kwargs):
         if epoint == "user/login":
             params = {
@@ -155,9 +203,6 @@ class QobuzClient(SecureClientInterface):
 
     def get_track_meta(self, id):
         return self.api_call("track/get", id=id)
-
-    def get_track_url(self, id, fmt_id):
-        return self.api_call("track/getFileUrl", id=id, fmt_id=fmt_id)
 
     def get_artist_meta(self, id):
         return self.multi_meta("artist/get", "albums_count", id, None)
