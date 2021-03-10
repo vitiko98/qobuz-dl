@@ -77,7 +77,7 @@ class Track:
             return
 
         self.temp_file = os.path.join(folder, f"{self['tracknumber']:02}.tmp")
-        self.final_file = self.get_final_path(folder)
+        self.final_file = self.get_final_path(folder) # Is this argument needed?
 
         if os.path.isfile(self.final_file):
             logger.debug("File already exists: %s", self.final_file)
@@ -93,6 +93,7 @@ class Track:
         :param progress_bar: turn on/off progress bar
         :type progress_bar: bool
         """
+        # Fixme: add the conditional to the progress_bar bool
         r = requests.get(url, allow_redirects=True, stream=True)
         total = int(r.headers.get("content-length", 0))
         with open(self.temp_file, "wb") as file, tqdm(
@@ -233,6 +234,8 @@ class Album(AbstractTrackGroup):
         :type progress_bar: bool
         """
         os.makedirs(folder, exist_ok=True)
+        logger.debug("Directory created: %s", folder)
+
         for track in self.tracklist:
             track.download(quality, folder, progress_bar)
             track.tag(album_meta=self.meta)
