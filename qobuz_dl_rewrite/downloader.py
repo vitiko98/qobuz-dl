@@ -3,11 +3,9 @@ import os
 import requests
 from tqdm import tqdm
 
-
+from .exceptions import NonStreamable
 from .metadata import TrackMetadata
 from .util import safe_get
-from .exceptions import NonStreamable
-
 
 EXTENSION = {
     5: ".mp3",

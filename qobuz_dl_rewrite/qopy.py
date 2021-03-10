@@ -8,14 +8,9 @@ import time
 
 import requests
 
-from .exceptions import (
-    AuthenticationError,
-    IneligibleError,
-    InvalidAppIdError,
-    InvalidAppSecretError,
-    InvalidQuality,
-)
-
+from .exceptions import (AuthenticationError, IneligibleError,
+                         InvalidAppIdError, InvalidAppSecretError,
+                         InvalidQuality)
 
 logger = logging.getLogger(__name__)
 

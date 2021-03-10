@@ -1,9 +1,8 @@
+import json
 import logging
 import re
-import json
 
 from .constants import COPYRIGHT, PHON_COPYRIGHT
-
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +31,6 @@ class TrackMetadata:
         if album is not None:
             self.add_album_meta(album)
 
-
     def add_album_meta(self, album: dict):
         """Parse the metadata from an album dict returned by the
         Qobuz API.
@@ -46,10 +44,8 @@ class TrackMetadata:
         self.copyright = album.get("copyright")
         self.albumartist = album.get("artist", {}).get("name")
 
-
         if album.get("label"):
             self.label = album["label"].get("name")
-
 
     def add_track_meta(self, track: dict):
         """Parse the metadata from a track dict returned by the
@@ -151,7 +147,6 @@ class TrackMetadata:
             return self._year
 
         return self.date[:4]
-
 
     @year.setter
     def year(self, val):

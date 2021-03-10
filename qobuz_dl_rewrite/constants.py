@@ -1,6 +1,5 @@
 import mutagen.id3 as id3
 
-
 EXT = {
     5: ".mp3",
     6: ".flac",
