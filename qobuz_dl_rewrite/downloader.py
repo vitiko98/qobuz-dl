@@ -10,13 +10,6 @@ from .metadata import TrackMetadata
 from .qopy import Client
 from .util import safe_get
 
-EXTENSION = {
-    5: ".mp3",
-    6: ".flac",
-    7: ".flac",
-    27: ".flac",
-}
-
 logger = logging.getLogger(__name__)
 
 
@@ -77,10 +70,9 @@ class Track:
             return
 
         self.temp_file = os.path.join(folder, f"{self['tracknumber']:02}.tmp")
-        self.final_file = self.get_final_path()
 
-        if os.path.isfile(self.final_file):
-            logger.debug("File already exists: %s", self.final_file)
+        if os.path.isfile(self.format_final_path()):
+            logger.debug("File already exists: %s", self.final_path)
             return
 
         self._download_file(dl_info["url"], progress_bar=progress_bar)
@@ -103,13 +95,13 @@ class Track:
                 size = file.write(data)
                 bar.update(size)
 
-    def get_final_path(self) -> str:
-        """Return the final filepath of the downloaded file.
+    def format_final_path(self) -> str:
+        """Return the final filepath of the downloaded file."""
+        if not hasattr(self, "final_path"):
+            filename = self.track_file_format.format(self.meta.get_formatter())
+            self.final_path = os.path.join(self.folder, filename)
 
-        :rtype: str
-        """
-        filename = self.track_file_format.format(dict(self.meta))
-        return os.path.join(self.folder, filename)
+        return self.final_path
 
     @classmethod
     def from_album_meta(cls, album: dict, pos: int, client: Client):
@@ -165,7 +157,7 @@ class Tracklist(list):
         if isinstance(key, str):
             return getattr(self, key)
         elif isinstance(key, int):
-            return super()[key]
+            return super().__getitem__(key)
         else:
             raise IndexError
 
@@ -195,16 +187,17 @@ class Album(Tracklist):
         if not self["streamable"]:
             raise NonStreamable(f"This album is not streamable ({album_id} ID)")
 
-        self.tracklist = self._load_tracks()
-
+        self._load_tracks()
         for k, v in kwargs.items():
             setattr(self, k, v)
 
     def _load_tracks(self):
         """Load tracks from the album metadata."""
-        tracklist = []
-        for i, track in enumerate(self.meta["tracks"]["items"]):
-            tracklist.append(Track(meta=track, pos=i, client=self.client))
+        # theres probably a cleaner way to do this
+        for i in range(len(self.meta["tracks"]["items"])):
+            self.append(
+                Track.from_album_meta(album=self.meta, pos=i, client=self.client)
+            )
 
     @property
     def title(self) -> str:
@@ -237,6 +230,6 @@ class Album(Tracklist):
         os.makedirs(folder, exist_ok=True)
         logger.debug("Directory created: %s", folder)
 
-        for track in self.tracklist:
+        for track in self:
             track.download(quality, folder, progress_bar)
             track.tag(album_meta=self.meta)

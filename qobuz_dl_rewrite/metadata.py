@@ -157,6 +157,14 @@ class TrackMetadata:
         """
         self._year = val
 
+    def get_formatter(self) -> dict:
+        """Returns a dict that is used to apply values to file format strings.
+
+        :rtype: dict
+        """
+        # the keys in the tuple are the possible keys for format strings
+        return {k: getattr(self, k) for k in ("artist", "year", "album")}
+
     def __setitem__(self, key, val):
         """Dict-like access for tags.
 
