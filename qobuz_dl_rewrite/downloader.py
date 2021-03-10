@@ -57,7 +57,7 @@ class Track:
     def download(
         self,
         quality: int = 7,
-        folder: Union[str, os.PathLike] = None,
+        folder: Optional[Union[str, os.PathLike]] = None,
         progress_bar: bool = True,
     ):
         """Download the track
