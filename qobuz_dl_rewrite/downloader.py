@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Union
+from typing import Union, Optional
 
 import requests
 from tqdm import tqdm
@@ -25,9 +25,9 @@ class Track:
 
     def __init__(
         self,
-        track_id: Union[None, str, int],
-        client: Union[None, Client],
-        meta: Union[None, TrackMetadata],
+        track_id: Optional[Union[str, int]] = None,
+        client: Optional[Client] = None,
+        meta: Optional[TrackMetadata] = None,
         **kwargs,
     ):
         """__init__.
@@ -53,8 +53,8 @@ class Track:
 
     def download(
         self,
-        quality: Union[int, None],
-        folder: Union[str, os.PathLike, None],
+        quality: Optional[int] = None,
+        folder: Optional[Union[str, os.PathLike]] = None,
         progress_bar: bool = True,
     ):
         "Download the track."
