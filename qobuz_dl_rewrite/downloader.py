@@ -117,6 +117,9 @@ class Track:
         meta.add_track_meta(album["tracks"]["items"][pos])
         return cls(track_id=track["id"], client=client, meta=meta)
 
+    def tag(self, extra_meta=None):
+        assert isinstance(self.meta, TrackMetadata), 'meta must be TrackMetadata'
+
     def __getitem__(self, key):
         """Dict-like interface for Track metadata.
 
@@ -184,6 +187,9 @@ class Album(Tracklist):
         """
         self.client = client
         self.meta = client.get_album_meta(album_id)
+        self.title = self.meta.get('title')
+        self.version = self.meta.get('version')
+
         if not self["streamable"]:
             raise NonStreamable(f"This album is not streamable ({album_id} ID)")
 
@@ -205,10 +211,9 @@ class Album(Tracklist):
 
         :rtype: str
         """
-        album_title = self["title"]
-        version = self.get("version")
-        if version is not None and version not in album_title:
-            album_title = f"{album_title} ({version})"
+        album_title = self.title
+        if self.version is not None and self.version not in self.title:
+            album_title = f"{album_title} ({self.version})"
 
         return album_title
 
