@@ -1,7 +1,6 @@
-import os
 import logging
+import os
 import sqlite3
-
 from typing import Union
 
 logger = logging.getLogger(__name__)
