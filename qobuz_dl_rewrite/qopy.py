@@ -15,7 +15,25 @@ from .exceptions import (AuthenticationError, IneligibleError,
 logger = logging.getLogger(__name__)
 
 
-class Client:
+class ClientInterface:
+    """Common API for clients of all platforms."""
+
+    def search(query: str, type='album'):
+        pass
+
+    def get(meta_id, type='album'):
+        pass
+
+    def set_file_url(track_id):
+        pass
+
+
+class SecureClientInterface(ClientInterface):
+    def login(**kwargs):
+        pass
+
+
+class QobuzClient(SecureClientInterface):
     def __init__(self, email, pwd, app_id, secrets):
         logger.info("Logging...")
         self.secrets = secrets
@@ -194,3 +212,12 @@ class Client:
                 break
         if not hasattr(self, "sec"):
             raise InvalidAppSecretError("Invalid app secret.")
+
+
+class DeezerClient(ClientInterface):
+    pass
+
+
+class TidalClient(SecureClientInterface):
+    pass
+
