@@ -302,10 +302,7 @@ class TidalClient(SecureClientInterface):
     def login(self, email: str, pwd: str, **kwargs):
         logger.info("Logging into Tidal")
 
-        # Quality can only be set before the session
         config = tidalapi.Config(quality=TIDAL_Q_IDS[kwargs.get("quality", 6)])
-
-        logger.debug("Config from tidalapi: %s", vars(config))
 
         self.session = tidalapi.Session(config=config)
         self.session.login(email, pwd)
@@ -333,5 +330,7 @@ class TidalClient(SecureClientInterface):
         }
         return f_map[media_type](meta_id)
 
-    def get_file_url(self, meta_id: Union[str, int]):
+    def get_file_url(self, meta_id: Union[str, int], quality: int = 6):
+        # Not tested
+        self.session._config.quality = TIDAL_Q_IDS[quality]
         return self.session.get_track_url(meta_id)
