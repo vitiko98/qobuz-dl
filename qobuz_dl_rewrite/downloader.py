@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Union, Optional
+from typing import Optional, Union
 
 import requests
 from tqdm import tqdm
@@ -30,11 +30,14 @@ class Track:
         meta: Optional[TrackMetadata] = None,
         **kwargs,
     ):
-        """__init__.
+        """Create a track object.
 
-        :param track_id: id returned by qobuz API
-        :param client: qopy.Client object
+        :param track_id: track id returned by Qobuz API
+        :type track_id: Optional[Union[str, int]]
+        :param client: qopy client
+        :type client: Optional[Client]
         :param meta: TrackMetadata object
+        :type meta: Optional[TrackMetadata]
         :param kwargs:
         """
         self.id = track_id
@@ -53,11 +56,19 @@ class Track:
 
     def download(
         self,
-        quality: Optional[int] = None,
-        folder: Optional[Union[str, os.PathLike]] = None,
+        quality: int = 7,
+        folder: Union[str, os.PathLike] = None,
         progress_bar: bool = True,
     ):
-        "Download the track."
+        """Download the track
+
+        :param quality: (5, 6, 7, 27)
+        :type quality: int
+        :param folder: folder to download the files to
+        :type folder: Union[str, os.PathLike]
+        :param progress_bar: turn on/off progress bar
+        :type progress_bar: bool
+        """
         quality, folder = quality or self.quality, folder or self.folder
         dl_info = self.client.get_track_url(self.id, quality)
 
@@ -75,6 +86,13 @@ class Track:
         self._download_file(dl_info["url"], progress_bar=progress_bar)
 
     def _download_file(self, url: str, progress_bar: bool = True):
+        """Downloads a file given the url, optionally with a progress bar.
+
+        :param url: url to file
+        :type url: str
+        :param progress_bar: turn on/off progress bar
+        :type progress_bar: bool
+        """
         r = requests.get(url, allow_redirects=True, stream=True)
         total = int(r.headers.get("content-length", 0))
         with open(self.temp_file, "wb") as file, tqdm(
@@ -84,7 +102,11 @@ class Track:
                 size = file.write(data)
                 bar.update(size)
 
-    def get_final_path(self):
+    def get_final_path(self) -> str:
+        """Return the final filepath of the downloaded file.
+
+        :rtype: str
+        """
         return self.track_file_format.format(dict(self.meta))
 
     @classmethod
@@ -161,7 +183,9 @@ class Album(AbstractTrackGroup):
         """Create a new Album object.
 
         :param client: a qopy client instance
+        :type client: Client
         :param album_id: album id returned by qobuz api
+        :type album_id: Union[str, int]
         :param kwargs:
         """
         self.client = client
@@ -204,7 +228,7 @@ class Album(AbstractTrackGroup):
         :param quality: (5, 6, 7, 27)
         :type quality: int
         :param folder: the folder to download the album to
-        :type folder: str
+        :type folder: Union[str, os.PathLike]
         :param progress_bar: turn on/off a tqdm progress bar
         :type progress_bar: bool
         """

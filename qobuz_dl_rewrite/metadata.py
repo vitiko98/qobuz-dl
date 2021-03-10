@@ -1,6 +1,7 @@
 import json
 import logging
 import re
+from typing import Optional, Union
 
 from .constants import COPYRIGHT, PHON_COPYRIGHT
 
@@ -10,14 +11,14 @@ logger = logging.getLogger(__name__)
 class TrackMetadata:
     """Contains all of the metadata needed to tag the file."""
 
-    def __init__(self, track: dict = None, album: dict = None):
-        """Creates a `TrackMetadata` object optionally initialized with
+    def __init__(self, track: Optional[dict] = None, album: Optional[dict] = None):
+        """Creates a TrackMetadata object optionally initialized with
         dicts returned by the Qobuz API.
 
         :param track: track dict from API
-        :type track: dict
+        :type track: Optional[dict]
         :param album: album dict from API
-        :type album: dict
+        :type album: Optional[dict]
         """
         if track and album is None:
             return
