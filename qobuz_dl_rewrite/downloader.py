@@ -10,6 +10,13 @@ from .metadata import TrackMetadata
 from .qopy import Client
 from .util import safe_get
 
+EXTENSION = {
+    5: ".mp3",
+    6: ".flac",
+    7: ".flac",
+    27: ".flac",
+}
+
 logger = logging.getLogger(__name__)
 
 
@@ -49,53 +56,45 @@ class Track:
 
     def download(
         self,
-        quality: Optional[int] = None,
+        quality: int = 7,
         folder: Optional[Union[str, os.PathLike]] = None,
         progress_bar: bool = True,
     ):
         """Download the track
 
         :param quality: (5, 6, 7, 27)
-        :type quality: Optional[int]
+        :type quality: int
         :param folder: folder to download the files to
-        :type folder: Optional[Union[str, os.PathLike]]
+        :type folder: Union[str, os.PathLike]
         :param progress_bar: turn on/off progress bar
         :type progress_bar: bool
         """
-        self.quality, self.folder = quality or self.quality, folder or self.folder
-        assert (
-            self.quality and self.folder is not None
-        ), "Must set downloads folder and quality"
-
+        quality, folder = quality or self.quality, folder or self.folder
         dl_info = self.client.get_track_url(self.id, quality)
 
         if dl_info.get("sample") or not dl_info.get("sampling_rate"):
             logger.debug("Track is a sample: %s", dl_info)
             return
 
-        self.temp_file = os.path.join(self.folder, f"{self['tracknumber']:02}.tmp")
-        self.final_file = self.get_final_path()
+        self.temp_file = os.path.join(folder, f"{self['tracknumber']:02}.tmp")
+        self.final_file = self.get_final_path(folder) # Is this argument needed?
 
         if os.path.isfile(self.final_file):
             logger.debug("File already exists: %s", self.final_file)
             return
 
-        self._download_file(dl_info, progress_bar=progress_bar)
+        self._download_file(dl_info["url"], progress_bar=progress_bar)
 
-    def _download_file(self, dl_info: dict, progress_bar: Optional[bool] = True):
+    def _download_file(self, url: str, progress_bar: bool = True):
         """Downloads a file given the url, optionally with a progress bar.
 
-        :param dl_info:
-        :type dl_info: dict
+        :param url: url to file
+        :type url: str
         :param progress_bar: turn on/off progress bar
-        :type progress_bar: Optional[bool]
+        :type progress_bar: bool
         """
-        logger.info(
-            f"Downloading {self['title']} ({dl_info['bit_depth']}/"
-            f"{dl_info['sampling_rate']})"
-        )
-
-        r = requests.get(dl_info["url"], allow_redirects=True, stream=True)
+        # Fixme: add the conditional to the progress_bar bool
+        r = requests.get(url, allow_redirects=True, stream=True)
         total = int(r.headers.get("content-length", 0))
         with open(self.temp_file, "wb") as file, tqdm(
             total=total, unit="iB", unit_scale=True, unit_divisor=1024
@@ -109,8 +108,7 @@ class Track:
 
         :rtype: str
         """
-        filename = self.track_file_format.format(self.meta.__dict__)
-        return os.path.join(self.folder, filename)
+        return self.track_file_format.format(dict(self.meta))
 
     @classmethod
     def from_album_meta(cls, album: dict, pos: int, client: Client):
@@ -159,28 +157,27 @@ class Track:
         self[key] = val
 
 
-class Tracklist(list):
-    """A base class for classes that contain lists of tracks.
-    It stores shared metadata that can be applied to its tracks."""
+class AbstractTrackGroup:
+    """A base class for classes that have some sort of tracklist.
+    Think of it like a smarter list of Track objects."""
 
     def __getitem__(self, key):
-        if isinstance(key, str):
-            return getattr(self, key)
-        elif isinstance(key, int):
-            return super()[key]
-        else:
-            raise IndexError
+        return getattr(self.meta, key)
 
     def __setitem__(self, key, val):
-        if isinstance(key, str):
-            setattr(self, key, val)
-        elif isinstance(key, int):
-            super()[key] = val
-        else:
-            raise IndexError
+        setattr(self.meta, key, val)
+
+    def get(self, *keys, default=None):
+        return safe_get(self.meta, *keys, default=default)
+
+    def set(self, key, val):
+        self[key] = val
+
+    def apply_common_metadata(self, track):
+        pass
 
 
-class Album(Tracklist):
+class Album(AbstractTrackGroup):
     """Represents a downloadable Qobuz album."""
 
     def __init__(self, client: Client, album_id: Union[str, int], **kwargs):
@@ -237,6 +234,8 @@ class Album(Tracklist):
         :type progress_bar: bool
         """
         os.makedirs(folder, exist_ok=True)
+        logger.debug("Directory created: %s", folder)
+
         for track in self.tracklist:
             track.download(quality, folder, progress_bar)
             track.tag(album_meta=self.meta)

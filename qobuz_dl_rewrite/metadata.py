@@ -26,7 +26,7 @@ class TrackMetadata:
         if track is not None:
             self.add_track_meta(track)
             # prefer track['album'] over album
-            if "album" in track:
+            if track.get("album"):
                 album = track.get("album")
 
         if album is not None:
@@ -56,8 +56,10 @@ class TrackMetadata:
         """
         self.title = track.get("title")
         if track.get("version"):
+            logger.debug("Version found: %s", track["version"])
             self.title = f"{self.title} ({track['version']})"
         if track.get("work"):
+            logger.debug("Work found: %s", track["work"])
             self.title = f"{track['work']}: {self.title}"
 
         self.tracknumber = str(track.get("track_number", 1))
@@ -69,7 +71,7 @@ class TrackMetadata:
                 self.artist = self.albumartist
 
     @property
-    def artist(self) -> str:
+    def artist(self) -> Union[str, None]:
         """Returns the value to set for the artist tag. Defaults to
         `self.albumartist` if there is no track artist.
 
@@ -104,7 +106,7 @@ class TrackMetadata:
         return ", ".join(no_repeats)
 
     @genre.setter
-    def genre(self, val: list):
+    def genre(self, val: list):  # Is the assert necessary?
         """Sets the internal `genre` field to the given list.
         It is not formatted until it is requested with `meta.genre`.
 
@@ -115,18 +117,16 @@ class TrackMetadata:
         self._genres = val
 
     @property
-    def copyright(self) -> str:
+    def copyright(self) -> Union[str, None]:
         """Formats the copyright string to use nice-looking unicode
         characters.
 
-        :rtype: str
+        :rtype: str, None
         """
         if hasattr(self, "_copyright"):
             cr = self.__copyright.replace("(P)", PHON_COPYRIGHT)
             cr = self.__copyright.replace("(C)", COPYRIGHT)
-        else:
-            cr = None
-        return cr
+            return cr
 
     @copyright.setter
     def copyright(self, val: str):
