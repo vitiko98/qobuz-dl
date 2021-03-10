@@ -1,9 +1,9 @@
-import re
-import os
 import logging
+import os
+import re
 
-from mutagen.flac import FLAC, Picture
 import mutagen.id3 as id3
+from mutagen.flac import FLAC, Picture
 from mutagen.id3 import ID3NoHeaderError
 
 logger = logging.getLogger(__name__)

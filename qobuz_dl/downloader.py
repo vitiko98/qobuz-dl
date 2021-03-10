@@ -7,7 +7,7 @@ from pathvalidate import sanitize_filename
 from tqdm import tqdm
 
 import qobuz_dl.metadata as metadata
-from qobuz_dl.color import OFF, GREEN, RED, YELLOW, CYAN
+from qobuz_dl.color import CYAN, GREEN, OFF, RED, YELLOW
 from qobuz_dl.exceptions import NonStreamable
 
 QL_DOWNGRADE = "FormatRestrictedByFormatAvailability"

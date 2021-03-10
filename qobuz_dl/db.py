@@ -1,7 +1,7 @@
 import logging
 import sqlite3
 
-from qobuz_dl.color import YELLOW, RED
+from qobuz_dl.color import RED, YELLOW
 
 logger = logging.getLogger(__name__)
 

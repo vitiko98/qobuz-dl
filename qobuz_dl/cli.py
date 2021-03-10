@@ -1,7 +1,7 @@
 import configparser
+import glob
 import hashlib
 import logging
-import glob
 import os
 import sys
 

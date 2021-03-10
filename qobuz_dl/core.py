@@ -14,9 +14,9 @@ from pathvalidate import sanitize_filename
 
 import qobuz_dl.spoofbuz as spoofbuz
 from qobuz_dl import downloader, qopy
-from qobuz_dl.color import CYAN, OFF, RED, YELLOW, DF, RESET
-from qobuz_dl.exceptions import NonStreamable
+from qobuz_dl.color import CYAN, DF, OFF, RED, RESET, YELLOW
 from qobuz_dl.db import create_db, handle_download_id
+from qobuz_dl.exceptions import NonStreamable
 
 WEB_URL = "https://play.qobuz.com/"
 ARTISTS_SELECTOR = "td.chartlist-artist > a"
