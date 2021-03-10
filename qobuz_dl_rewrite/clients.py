@@ -1,47 +1,47 @@
-# Wrapper for Qo-DL Reborn. This is a sligthly modified version
-# of qopy, originally written by Sorrow446. All credits to the
-# original author.
-
 import hashlib
 import logging
 import time
-
 from typing import Union
 
 import requests
+import tidalapi
 
-from .exceptions import (
-    AuthenticationError,
-    IneligibleError,
-    InvalidAppIdError,
-    InvalidAppSecretError,
-    InvalidQuality,
-)
+from .exceptions import (AuthenticationError, IneligibleError,
+                         InvalidAppIdError, InvalidAppSecretError,
+                         InvalidQuality)
 from .spoofbuz import Spoofer
 
 logger = logging.getLogger(__name__)
 
+# Qobuz
 QOBUZ_BASE = "https://www.qobuz.com/api.json/0.2/"
 AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:83.0) Gecko/20100101 Firefox/83.0"
+
+# Tidal
+TIDAL_Q_IDS = {
+    4: tidalapi.Quality.low,  # m4a
+    5: tidalapi.Quality.high,  # m4a
+    6: tidalapi.Quality.lossless,  # Lossless, but it also could be MQA
+}
 
 
 class ClientInterface:
     """Common API for clients of all platforms."""
 
-    def search(self, query: str, type="album"):
+    def search(self, query: str, type_="album"):
         """Search API for query.
 
         :param query:
         :type query: str
-        :param type:
+        :param type_:
         """
         pass
 
-    def get(self, meta_id, type="album"):
+    def get(self, meta_id, type_="album"):
         """Get metadata.
 
         :param meta_id:
-        :param type:
+        :param type_:
         """
         pass
 
@@ -61,7 +61,7 @@ class SecureClientInterface(ClientInterface):
 class QobuzClient(SecureClientInterface):
     # ------- Public Methods -------------
     def login(self, email: str, pwd: str, **kwargs):
-        logger.info("Logging...")
+        logger.info("Logging into Qobuz")
 
         if not kwargs.get("app_id") or kwargs.get("secrets"):
             spoofer = Spoofer()
@@ -93,16 +93,16 @@ class QobuzClient(SecureClientInterface):
 
         return f_map[media_type](query)
 
-    def get(self, meta_id: str, media_type: str = "album"):
+    def get(self, meta_id: Union[str, int], media_type: str = "album"):
         f_map = {
             "album": self.get_album_meta,
             "artist": self.get_artist_meta,
-            "playlist": self.get_playlist_meta,
+            "playlist": self.get_plist_meta,
             "track": self.get_track_meta,
         }
         return f_map[media_type](meta_id)
 
-    def get_file_url(self, meta_id: str, quality: int = 7):
+    def get_file_url(self, meta_id: Union[str, int], quality: int = 7):
         return self.api_call("track/getFileUrl", id=meta_id, fmt_id=quality)
 
     # ---------- Private Methods ---------------
@@ -157,13 +157,14 @@ class QobuzClient(SecureClientInterface):
             track_id = kwargs.get("id")
             fmt_id = kwargs.get("fmt_id", 6)  # 6 as default
 
-            if int(fmt_id) not in (5, 6, 7, 27):
+            if int(fmt_id) not in (5, 6, 7, 27):  # Needed?
                 raise InvalidQuality("Invalid quality id: choose between 5, 6, 7 or 27")
 
-            r_sig = "trackgetFileUrlformat_id{}intentstreamtrack_id{}{}{}".format(
-                fmt_id, track_id, unix, self.sec
-            )
+            r_sig = f"trackgetFileUrlformat_id{fmt_id}intentstreamtrack_id{track_id}{unix}{self.sec}"
+            logger.debug("Raw request signature: %s", r_sig)
             r_sig_hashed = hashlib.md5(r_sig.encode("utf-8")).hexdigest()
+            logger.debug("Hashed request signature: %s", r_sig_hashed)
+
             params = {
                 "request_ts": unix,
                 "request_sig": r_sig_hashed,
@@ -274,7 +275,8 @@ class QobuzClient(SecureClientInterface):
         try:
             self.api_call("userLibrary/getAlbumsList", sec=sec)
             return True
-        except InvalidAppSecretError:
+        except InvalidAppSecretError as error:
+            logger.debug("Test for %s secret didn't work: %s", sec, error)
             return False
 
     def cfg_setup(self):
@@ -291,4 +293,39 @@ class DeezerClient(ClientInterface):
 
 
 class TidalClient(SecureClientInterface):
-    pass
+    def login(self, email: str, pwd: str, **kwargs):
+        logger.info("Logging into Tidal")
+
+        # Quality can only be set before the session
+        config = tidalapi.Config(quality=TIDAL_Q_IDS[kwargs.get("quality", 6)])
+
+        logger.debug("Config from tidalapi: %s", vars(config))
+
+        self.session = tidalapi.Session(config=config)
+        self.session.login(email, pwd)
+
+        logger.info("Ok")
+
+    def search(self, query: str, field: str, limit: int = 50):
+        """
+        :param query:
+        :type query: str
+        :param field: artist, album, playlist, or track
+        :type field: str
+        :param limit:
+        :type limit: int
+        :raises ValueError: if field value is invalid
+        """
+        return self.session.search(field, query, limit)
+
+    def get(self, meta_id: Union[str, int], media_type: str = "album"):
+        f_map = {
+            "album": self.session.get_album,
+            "artist": self.session.get_artist,  # or get_artist_albums?
+            "playlist": self.session.get_playlist,
+            "track": self.session.get_track,
+        }
+        return f_map[media_type](meta_id)
+
+    def get_file_url(self, meta_id: Union[str, int]):
+        return self.session.get_track_url(meta_id)
