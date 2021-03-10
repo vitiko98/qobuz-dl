@@ -6,20 +6,29 @@ import hashlib
 import logging
 import time
 
+from typing import Union
+
 import requests
 
-from .exceptions import (AuthenticationError, IneligibleError,
-                         InvalidAppIdError, InvalidAppSecretError,
-                         InvalidQuality)
+from .exceptions import (
+    AuthenticationError,
+    IneligibleError,
+    InvalidAppIdError,
+    InvalidAppSecretError,
+    InvalidQuality,
+)
 from .spoofbuz import Spoofer
 
 logger = logging.getLogger(__name__)
+
+QOBUZ_BASE = "https://www.qobuz.com/api.json/0.2/"
+AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:83.0) Gecko/20100101 Firefox/83.0"
 
 
 class ClientInterface:
     """Common API for clients of all platforms."""
 
-    def search(self, query: str, type='album'):
+    def search(self, query: str, type="album"):
         """Search API for query.
 
         :param query:
@@ -28,7 +37,7 @@ class ClientInterface:
         """
         pass
 
-    def get(self, meta_id, type='album'):
+    def get(self, meta_id, type="album"):
         """Get metadata.
 
         :param meta_id:
@@ -53,81 +62,83 @@ class QobuzClient(SecureClientInterface):
     # ------- Public Methods -------------
     def login(self, email: str, pwd: str, **kwargs):
         logger.info("Logging...")
-        if not kwargs.get('app_id') or kwargs.get('secrets'):
-            spoofer = Spoofer()
-            kwargs['app_id'] = spoofer.get_app_id()
-            kwargs['secrets'] = spoofer.get_secrets()
 
-        self.id = kwargs['app_id']
-        self.secrets = kwargs['secrets']
+        if not kwargs.get("app_id") or kwargs.get("secrets"):
+            spoofer = Spoofer()
+            kwargs["app_id"] = spoofer.get_app_id()
+            kwargs["secrets"] = spoofer.get_secrets()
+
+        self.id = kwargs["app_id"]
+        self.secrets = kwargs["secrets"]
         self.session = requests.Session()
         self.session.headers.update(
             {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:83.0) Gecko/20100101 Firefox/83.0",
+                "User-Agent": AGENT,
                 "X-App-Id": self.id,
             }
         )
-        self.base = "https://www.qobuz.com/api.json/0.2/"
         self.auth(email, pwd)
         self.cfg_setup()
 
-    def search(self, query: str, media_type: str = 'album', limit: int = 500):
-        if media_type.endswith('s'):
+    def search(self, query: str, media_type: str = "album", limit: int = 500):
+        if media_type.endswith("s"):
             media_type = media_type[:-1]
 
         f_map = {
-            'album': self.search_albums,
-            'artist': self.search_artists,
-            'playlist': self.search_playlists,
-            'track': self.search_tracks,
+            "album": self.search_albums,
+            "artist": self.search_artists,
+            "playlist": self.search_playlists,
+            "track": self.search_tracks,
         }
 
         return f_map[media_type](query)
 
-    def get(self, meta_id: str, media_type: str = 'album'):
+    def get(self, meta_id: str, media_type: str = "album"):
         f_map = {
-            'album': self.get_album_meta,
-            'artist': self.get_artist_meta,
-            'playlist': self.get_playlist_meta,
-            'track': self.get_track_meta,
+            "album": self.get_album_meta,
+            "artist": self.get_artist_meta,
+            "playlist": self.get_playlist_meta,
+            "track": self.get_track_meta,
         }
         return f_map[media_type](meta_id)
 
     def get_file_url(self, meta_id: str, quality: int = 7):
-        return self.api_call("track/getFileUrl", id=id, fmt_id=quality)
+        return self.api_call("track/getFileUrl", id=meta_id, fmt_id=quality)
 
     # ---------- Private Methods ---------------
+
+    # TODO: make this less spaghettier!
     def api_call(self, epoint, **kwargs):
         if epoint == "user/login":
             params = {
-                "email": kwargs["email"],
-                "password": kwargs["pwd"],
+                "email": kwargs.get("email"),
+                "password": kwargs.get("pwd"),
                 "app_id": self.id,
             }
         elif epoint == "track/get":
-            params = {"track_id": kwargs["id"]}
+            params = {"track_id": kwargs.get("id")}
         elif epoint == "album/get":
-            params = {"album_id": kwargs["id"]}
+            params = {"album_id": kwargs.get("id")}
         elif epoint == "playlist/get":
             params = {
                 "extra": "tracks",
-                "playlist_id": kwargs["id"],
+                "playlist_id": kwargs.get("id"),
                 "limit": 500,
-                "offset": kwargs["offset"],
+                "offset": kwargs.get("offset"),
             }
         elif epoint == "artist/get":
             params = {
                 "app_id": self.id,
-                "artist_id": kwargs["id"],
+                "artist_id": kwargs.get("id"),
                 "limit": 500,
-                "offset": kwargs["offset"],
+                "offset": kwargs.get("offset"),
                 "extra": "albums",
             }
         elif epoint == "label/get":
             params = {
-                "label_id": kwargs["id"],
+                "label_id": kwargs.get("id"),
                 "limit": 500,
-                "offset": kwargs["offset"],
+                "offset": kwargs.get("offset"),
                 "extra": "albums",
             }
         elif epoint == "userLibrary/getAlbumsList":
@@ -142,10 +153,13 @@ class QobuzClient(SecureClientInterface):
             }
         elif epoint == "track/getFileUrl":
             unix = time.time()
-            track_id = kwargs["id"]
-            fmt_id = kwargs["fmt_id"]
+
+            track_id = kwargs.get("id")
+            fmt_id = kwargs.get("fmt_id", 6)  # 6 as default
+
             if int(fmt_id) not in (5, 6, 7, 27):
                 raise InvalidQuality("Invalid quality id: choose between 5, 6, 7 or 27")
+
             r_sig = "trackgetFileUrlformat_id{}intentstreamtrack_id{}{}{}".format(
                 fmt_id, track_id, unix, self.sec
             )
@@ -159,37 +173,50 @@ class QobuzClient(SecureClientInterface):
             }
         else:
             params = kwargs
-        r = self.session.get(self.base + epoint, params=params)
+
+        r = self.session.get(f"{QOBUZ_BASE}/{epoint}", params=params)
+
         if epoint == "user/login":
             if r.status_code == 401:
-                raise AuthenticationError("Invalid credentials.")
+                raise AuthenticationError("Invalid credentials from params %s" % params)
             elif r.status_code == 400:
-                raise InvalidAppIdError("Invalid app id.")
+                raise InvalidAppIdError("Invalid app id from params %s" % params)
             else:
-                logger.info(f"Logged: OK")
+                logger.info("Logged: OK")
+
         elif epoint in ["track/getFileUrl", "userLibrary/getAlbumsList"]:
             if r.status_code == 400:
-                raise InvalidAppSecretError("Invalid app secret.")
-        r.raise_for_status()
+                raise InvalidAppSecretError(
+                    "Invalid app secret from params %s" % params
+                )
+
+        r.raise_for_status()  # Needed?
+
         return r.json()
 
     def auth(self, email, pwd):
         usr_info = self.api_call("user/login", email=email, pwd=pwd)
+
         if not usr_info["user"]["credential"]["parameters"]:
             raise IneligibleError("Free accounts are not eligible to download tracks.")
+
         self.uat = usr_info["user_auth_token"]
+
         self.session.headers.update({"X-User-Auth-Token": self.uat})
+
         self.label = usr_info["user"]["credential"]["parameters"]["short_label"]
+
         logger.info(f"Membership: {self.label}")
 
-    def multi_meta(self, epoint, key, id, type):
+    # Needs more testing and debugging
+    def multi_meta(self, epoint: str, key: str, meta_id: Union[str, int], type_: str):
         total = 1
         offset = 0
         while total > 0:
-            if type in ["tracks", "albums"]:
-                j = self.api_call(epoint, id=id, offset=offset, type=type)[type]
+            if type_ in ("tracks", "albums"):
+                j = self.api_call(epoint, id=meta_id, offset=offset, type=type)[type]
             else:
-                j = self.api_call(epoint, id=id, offset=offset, type=type)
+                j = self.api_call(epoint, id=meta_id, offset=offset, type=type)
             if offset == 0:
                 yield j
                 total = j[key] - 500
@@ -245,7 +272,7 @@ class QobuzClient(SecureClientInterface):
 
     def test_secret(self, sec):
         try:
-            r = self.api_call("userLibrary/getAlbumsList", sec=sec)
+            self.api_call("userLibrary/getAlbumsList", sec=sec)
             return True
         except InvalidAppSecretError:
             return False
@@ -256,7 +283,7 @@ class QobuzClient(SecureClientInterface):
                 self.sec = secret
                 break
         if not hasattr(self, "sec"):
-            raise InvalidAppSecretError("Invalid app secret.")
+            raise InvalidAppSecretError(f"Invalid secrets: {self.secrets}")
 
 
 class DeezerClient(ClientInterface):
@@ -265,4 +292,3 @@ class DeezerClient(ClientInterface):
 
 class TidalClient(SecureClientInterface):
     pass
-
