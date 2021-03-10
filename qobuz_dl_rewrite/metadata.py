@@ -1,7 +1,11 @@
+import logging
 import re
 import json
 
-from constants import COPYRIGHT, PHON_COPYRIGHT
+from .constants import COPYRIGHT, PHON_COPYRIGHT
+
+
+logger = logging.getLogger(__name__)
 
 
 class TrackMetadata:
@@ -15,31 +19,31 @@ class TrackMetadata:
             self.add_track_meta(track)
             # prefer track['album'] over album
             if "album" in track:
-                album = track["album"]
+                album = track.get("album")
 
         if album is not None:
             self.add_album_meta(album)
 
     def add_album_meta(self, album):
-        self.album = album["title"]
-        self.tracktotal = str(album["tracks_count"])
-        self.genre = album["genres_list"]
-        self.date = album["release_date_original"]
-        self.copyright = album["copyright"]
-        self.albumartist = album["artist"]["name"]
+        self.album = album.get("title")
+        self.tracktotal = str(album.get("tracks_count", 1))
+        self.genre = album.get("genres_list", [])
+        self.date = album.get("release_date_original")
+        self.copyright = album.get("copyright")
+        self.albumartist = album.get("artist", {}).get("name")
 
-        if "label" in album:
-            self.label = album["label"]["name"]
+        if album.get("label"):
+            self.label = album["label"].get("name")
 
     def add_track_meta(self, track):
-        self.title = track["title"]
-        if "version" in track:
+        self.title = track.get("title")
+        if track.get("version"):
             self.title = f"{self.title} ({track['version']})"
-        if "work" in track:
+        if track.get("work"):
             self.title = f"{track['work']}: {self.title}"
 
-        self.tracknumber = str(track["track_number"])
-        self.discnumber = str(track["media_number"])
+        self.tracknumber = str(track.get("track_number", 1))
+        self.discnumber = str(track.get("media_number", 1))
         try:
             self.artist = track["performer"]["name"]
         except KeyError:
@@ -52,8 +56,6 @@ class TrackMetadata:
             return self.albumartist
         elif self._artist is not None:
             return self._artist
-        else:
-            return None
 
     @artist.setter
     def artist(self, val):
@@ -88,8 +90,8 @@ class TrackMetadata:
     def year(self):
         if hasattr(self, "_year"):
             return self._year
-        else:
-            return self.date[:4]
+
+        return self.date[:4]
 
     @year.setter
     def year(self, val):
