@@ -302,7 +302,7 @@ class TidalClient(SecureClientInterface):
     def login(self, email: str, pwd: str, **kwargs):
         logger.info("Logging into Tidal")
 
-        config = tidalapi.Config(quality=TIDAL_Q_IDS[kwargs.get("quality", 6)])
+        config = tidalapi.Config()
 
         self.session = tidalapi.Session(config=config)
         self.session.login(email, pwd)
