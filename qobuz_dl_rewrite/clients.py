@@ -6,9 +6,13 @@ from typing import Union
 import requests
 import tidalapi
 
-from .exceptions import (AuthenticationError, IneligibleError,
-                         InvalidAppIdError, InvalidAppSecretError,
-                         InvalidQuality)
+from .exceptions import (
+    AuthenticationError,
+    IneligibleError,
+    InvalidAppIdError,
+    InvalidAppSecretError,
+    InvalidQuality,
+)
 from .spoofbuz import Spoofer
 
 logger = logging.getLogger(__name__)
@@ -107,7 +111,9 @@ class QobuzClient(SecureClientInterface):
 
     # ---------- Private Methods ---------------
 
-    # TODO: make this less spaghettier!
+    # Credits to Sorrow446 for these methods
+
+    # TODO: Maybe a way of reducing the if statements (?)
     def api_call(self, epoint, **kwargs):
         if epoint == "user/login":
             params = {
