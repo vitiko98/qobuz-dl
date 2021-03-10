@@ -69,6 +69,7 @@ class Track:
             logger.debug("Track is a sample: %s", dl_info)
             return
 
+        # Is the track number really needed?
         self.temp_file = os.path.join(folder, f"{self['tracknumber']:02}.tmp")
 
         if os.path.isfile(self.format_final_path()):
@@ -100,6 +101,8 @@ class Track:
         if not hasattr(self, "final_path"):
             filename = self.track_file_format.format(self.meta.get_formatter())
             self.final_path = os.path.join(self.folder, filename)
+
+        logger.debug("Formatted path: %s", self.final_path)
 
         return self.final_path
 
@@ -156,18 +159,20 @@ class Tracklist(list):
     def __getitem__(self, key):
         if isinstance(key, str):
             return getattr(self, key)
-        elif isinstance(key, int):
+
+        if isinstance(key, int):
             return super().__getitem__(key)
-        else:
-            raise IndexError
+
+        raise TypeError(f"Bad type for key. Expected str or int, found {type(key)}")
 
     def __setitem__(self, key, val):
         if isinstance(key, str):
             setattr(self, key, val)
-        elif isinstance(key, int):
+
+        if isinstance(key, int):
             super().__setitem__(key, val)
-        else:
-            raise IndexError
+
+        raise TypeError(f"Bad type for value. Expected str or int, found {type(val)}")
 
 
 class Album(Tracklist):
@@ -206,7 +211,7 @@ class Album(Tracklist):
         :rtype: str
         """
         album_title = self["title"]
-        version = self.get("version")
+        version = self["version"]
         if version is not None and version not in album_title:
             album_title = f"{album_title} ({version})"
 
