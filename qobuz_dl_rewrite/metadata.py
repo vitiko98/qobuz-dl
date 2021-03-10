@@ -1,9 +1,8 @@
+import json
 import logging
 import re
-import json
 
 from .constants import COPYRIGHT, PHON_COPYRIGHT
-
 
 logger = logging.getLogger(__name__)
 

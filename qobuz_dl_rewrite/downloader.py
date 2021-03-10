@@ -1,13 +1,14 @@
+import logging
 import os
+from typing import Union
 
 import requests
 from tqdm import tqdm
 
-
-from .metadata import TrackMetadata
-from .util import safe_get
 from .exceptions import NonStreamable
-
+from .metadata import TrackMetadata
+from .qopy import Client
+from .util import safe_get
 
 EXTENSION = {
     5: ".mp3",
@@ -16,11 +17,19 @@ EXTENSION = {
     27: ".flac",
 }
 
+logger = logging.getLogger(__name__)
+
 
 class Track:
     """Represents a downloadable track returned by the qobuz api."""
 
-    def __init__(self, track_id=None, client=None, meta=None, **kwargs):
+    def __init__(
+        self,
+        track_id: Union[None, str, int],
+        client: Union[None, Client],
+        meta: Union[None, TrackMetadata],
+        **kwargs,
+    ):
         """__init__.
 
         :param track_id: id returned by qobuz API
@@ -37,30 +46,35 @@ class Track:
         if isinstance(meta, TrackMetadata):
             self.meta = meta
         elif meta is not None:
-            raise Exception("meta is None")
+            raise TypeError("meta can't be NoneType")
 
         for k, v in kwargs.items():
             self.__dict__[k] = v
 
-    def download(self, quality=None, folder=None, progress_bar=True):
-        """Download the track.
-
-        :param quality:
-        :param folder:
-        :param progress_bar:
-        """
+    def download(
+        self,
+        quality: Union[int, None],
+        folder: Union[str, os.PathLike, None],
+        progress_bar: bool = True,
+    ):
+        "Download the track."
         quality, folder = quality or self.quality, folder or self.folder
         dl_info = self.client.get_track_url(self.id, quality)
-        if "sample" in dl_info or not dl_info["sampling_rate"]:
+
+        if dl_info.get("sample") or not dl_info.get("sampling_rate"):
+            logger.debug("Track is a sample: %s", dl_info)
             return
 
         self.temp_file = os.path.join(folder, f"{self['tracknumber']:02}.tmp")
         self.final_file = self.get_final_path(folder)
+
         if os.path.isfile(self.final_file):
+            logger.debug("File already exists: %s", self.final_file)
             return
+
         self._download_file(dl_info["url"], progress_bar=progress_bar)
 
-    def _download_file(self, url, progress_bar=True):
+    def _download_file(self, url: str, progress_bar: bool = True):
         r = requests.get(url, allow_redirects=True, stream=True)
         total = int(r.headers.get("content-length", 0))
         with open(self.temp_file, "wb") as file, tqdm(
@@ -74,14 +88,15 @@ class Track:
         return self.track_file_format.format(dict(self.meta))
 
     @classmethod
-    def from_album_meta(cls, album, pos, client):
+    def from_album_meta(cls, album: dict, pos: int, client: Client):
         """Create a new Track object from album metadata.
 
         :param album: album metadata returned by API
         :param pos: index of the track
-        :param client: qopy client
+        :param client: qopy client object
+        :raises IndexError
         """
-        track = album["tracks"]["items"][pos]
+        track = album.get("tracks", {}).get("items", [])[pos]
         meta = TrackMetadata(album=album)
         meta.add_track_meta(album["tracks"]["items"][pos])
         return cls(track_id=track["id"], client=client, meta=meta)
@@ -142,7 +157,7 @@ class AbstractTrackGroup:
 class Album(AbstractTrackGroup):
     """Represents a downloadable Qobuz album."""
 
-    def __init__(self, client, album_id, **kwargs):
+    def __init__(self, client: Client, album_id: Union[str, int], **kwargs):
         """Create a new Album object.
 
         :param client: a qopy client instance
@@ -152,7 +167,7 @@ class Album(AbstractTrackGroup):
         self.client = client
         self.meta = client.get_album_meta(album_id)
         if not self["streamable"]:
-            raise NonStreamable("This release is not streamable")
+            raise NonStreamable(f"This album is not streamable ({album_id} ID)")
 
         self.tracklist = self._load_tracks()
 
@@ -179,7 +194,10 @@ class Album(AbstractTrackGroup):
         return album_title
 
     def download(
-        self, quality: int = 7, folder: str = "downloads", progress_bar: bool = True
+        self,
+        quality: int = 7,
+        folder: Union[str, os.PathLike] = "downloads",
+        progress_bar: bool = True,
     ):
         """Download the entire album.
 
