@@ -69,7 +69,7 @@ class Track:
         :param progress_bar: turn on/off progress bar
         :type progress_bar: bool
         """
-        quality, folder = quality or self.quality, folder or self.folder
+        self.quality, self.folder = quality or self.quality, folder or self.folder
         dl_info = self.client.get_track_url(self.id, quality)
 
         if dl_info.get("sample") or not dl_info.get("sampling_rate"):
@@ -77,7 +77,7 @@ class Track:
             return
 
         self.temp_file = os.path.join(folder, f"{self['tracknumber']:02}.tmp")
-        self.final_file = self.get_final_path(folder) # Is this argument needed?
+        self.final_file = self.get_final_path()
 
         if os.path.isfile(self.final_file):
             logger.debug("File already exists: %s", self.final_file)
@@ -108,7 +108,8 @@ class Track:
 
         :rtype: str
         """
-        return self.track_file_format.format(dict(self.meta))
+        filename = self.track_file_format.format(dict(self.meta))
+        return os.path.join(self.folder, filename)
 
     @classmethod
     def from_album_meta(cls, album: dict, pos: int, client: Client):
@@ -157,27 +158,27 @@ class Track:
         self[key] = val
 
 
-class AbstractTrackGroup:
-    """A base class for classes that have some sort of tracklist.
-    Think of it like a smarter list of Track objects."""
+class Tracklist(list):
+    """A base class for tracklist-like objects."""
 
     def __getitem__(self, key):
-        return getattr(self.meta, key)
+        if isinstance(key, str):
+            return getattr(self, key)
+        elif isinstance(key, int):
+            return super()[key]
+        else:
+            raise IndexError
 
     def __setitem__(self, key, val):
-        setattr(self.meta, key, val)
-
-    def get(self, *keys, default=None):
-        return safe_get(self.meta, *keys, default=default)
-
-    def set(self, key, val):
-        self[key] = val
-
-    def apply_common_metadata(self, track):
-        pass
+        if isinstance(key, str):
+            setattr(self, key, val)
+        elif isinstance(key, int):
+            super().__setitem__(key, val)
+        else:
+            raise IndexError
 
 
-class Album(AbstractTrackGroup):
+class Album(Tracklist):
     """Represents a downloadable Qobuz album."""
 
     def __init__(self, client: Client, album_id: Union[str, int], **kwargs):
