@@ -1,5 +1,6 @@
 import logging
 import os
+from tempfile import gettempdir
 from typing import Optional, Union
 
 import requests
@@ -69,8 +70,9 @@ class Track:
             logger.debug("Track is a sample: %s", dl_info)
             return
 
-        # Is the track number really needed?
-        self.temp_file = os.path.join(folder, f"{self['tracknumber']:02}.tmp")
+        self.temp_file = os.path.join(gettempdir(), "~qdl_track.tmp")
+
+        logger.debug("Temporary file path: %s", self.temp_file)
 
         if os.path.isfile(self.format_final_path()):
             logger.debug("File already exists: %s", self.final_path)
@@ -121,7 +123,7 @@ class Track:
         return cls(track_id=track["id"], client=client, meta=meta)
 
     def tag(self, extra_meta=None):
-        assert isinstance(self.meta, TrackMetadata), 'meta must be TrackMetadata'
+        assert isinstance(self.meta, TrackMetadata), "meta must be TrackMetadata"
 
     def __getitem__(self, key):
         """Dict-like interface for Track metadata.
@@ -192,8 +194,8 @@ class Album(Tracklist):
         """
         self.client = client
         self.meta = client.get_album_meta(album_id)
-        self.title = self.meta.get('title')
-        self.version = self.meta.get('version')
+        self.title = self.meta.get("title")
+        self.version = self.meta.get("version")
 
         if not self["streamable"]:
             raise NonStreamable(f"This album is not streamable ({album_id} ID)")
