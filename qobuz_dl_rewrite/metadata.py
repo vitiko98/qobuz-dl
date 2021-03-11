@@ -2,6 +2,7 @@ import json
 import logging
 import re
 from typing import Optional, Union
+from pprint import pprint
 
 from .constants import COPYRIGHT, FLAC_KEY, MP3_KEY, MP4_KEY, PHON_COPYRIGHT
 from .exceptions import InvalidCodecError
@@ -149,9 +150,11 @@ class TrackMetadata:
         :rtype: str, None
         """
         if hasattr(self, "_copyright"):
-            cr = self.__copyright.replace("(P)", PHON_COPYRIGHT)
-            cr = self.__copyright.replace("(C)", COPYRIGHT)
+            cr = self._copyright.replace("(P)", PHON_COPYRIGHT)
+            cr = cr.replace("(C)", COPYRIGHT)
             return cr
+        else:
+            raise AttributeError("copyright tag must be set before acessing")
 
     @copyright.setter
     def copyright(self, val: str):
@@ -161,7 +164,7 @@ class TrackMetadata:
         :param val:
         :type val: str
         """
-        self.__copyright = val
+        self._copyright = val
 
     @property
     def year(self) -> str:
@@ -188,7 +191,7 @@ class TrackMetadata:
         :rtype: dict
         """
         # the keys in the tuple are the possible keys for format strings
-        return {k: getattr(self, k) for k in ("artist", "year", "album")}
+        return {k: getattr(self, k) for k in ("artist", "year", "album", "tracknumber", "title")}
 
     def tags(self, codec: str = "flac"):
         """Return (key, value) pairs for tagging with mutagen.
@@ -246,10 +249,23 @@ class TrackMetadata:
         """
         return getattr(self, key)
 
+    def get(self, key, default=None):
+        if hasattr(self, key):
+            res = self.__getitem__(key)
+            if res is not None:
+                return res
+            else:
+                return default
+        else:
+            return default
+
+    def set(self, key, val):
+        return self.__setitem__(key, val)
+
     def __repr__(self) -> str:
         """Returns the string representation of the metadata object.
 
         :rtype: str
         """
         # TODO: make a more readable repr
-        return json.dumps(self.__dict__, indent=2)
+        return json.dumps(self.__dict__, indent=2) + f"{self.genre} {self.copyright}"

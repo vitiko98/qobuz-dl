@@ -1,3 +1,5 @@
+from pprint import pprint
+import sys
 import logging
 import os
 from tempfile import gettempdir
@@ -50,6 +52,7 @@ class Track:
             self.meta = kwargs["meta"]
         else:
             self.meta = None
+            logger.info("Track: meta not provided")
 
     def download(
         self,
@@ -68,7 +71,7 @@ class Track:
         """
         assert not self.__is_downloaded
         self.quality, self.folder = quality or self.quality, folder or self.folder
-        dl_info = self.client.get_track_url(self.id, quality)
+        dl_info = self.client.get_file_url(self.id, quality)
 
         if dl_info.get("sample") or not dl_info.get("sampling_rate"):
             logger.debug("Track is a sample: %s", dl_info)
@@ -83,6 +86,7 @@ class Track:
             return
 
         self._download_file(dl_info["url"], progress_bar=progress_bar)
+        os.rename(self.temp_file, self.final_path)
 
     def _download_file(self, url: str, progress_bar: bool = True):
         """Downloads a file given the url, optionally with a progress bar.
@@ -107,7 +111,8 @@ class Track:
     def format_final_path(self) -> str:
         """Return the final filepath of the downloaded file."""
         if not hasattr(self, "final_path"):
-            filename = self.track_file_format.format(self.meta.get_formatter())
+            formatter = self.meta.get_formatter()
+            filename = self.track_file_format.format(**formatter)
             self.final_path = os.path.join(self.folder, filename) + EXT[self.quality]
 
         logger.debug("Formatted path: %s", self.final_path)
@@ -115,7 +120,7 @@ class Track:
         return self.final_path
 
     @classmethod
-    def from_album_meta(cls, album: dict, pos: int, client: Optional):
+    def from_album_meta(cls, album: dict, pos: int, client):
         """Create a new Track object from album metadata.
 
         :param album: album metadata returned by API
@@ -124,9 +129,9 @@ class Track:
         :raises IndexError
         """
         track = album.get("tracks", {}).get("items", [])[pos]
-        meta = TrackMetadata(album=album)
+        meta = TrackMetadata(album=album, track=track)
         meta.add_track_meta(album["tracks"]["items"][pos])
-        return cls(track_id=track["id"], client=client, meta=meta)
+        return cls(client=client, meta=meta, id=track["id"])
 
     def tag(self, extra_meta=None):
         """Tag the track.
