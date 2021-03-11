@@ -8,7 +8,6 @@ from mutagen.flac import FLAC
 from mutagen.id3 import ID3, ID3NoHeaderError
 from tqdm import tqdm
 
-from .clients import ClientInterface
 from .constants import EXT
 from .exceptions import InvalidQuality, NonStreamable
 from .metadata import TrackMetadata
@@ -17,14 +16,13 @@ from .util import safe_get
 logger = logging.getLogger(__name__)
 
 
+# TODO: fix issue with the ClientInterface types
 class Track:
     """Represents a downloadable track returned by the qobuz api."""
 
     def __init__(
         self,
-        track_id: Optional[Union[str, int]] = None,
-        client: Optional[ClientInterface] = None,
-        meta: Optional[TrackMetadata] = None,
+        client,
         **kwargs,
     ):
         """Create a track object.
@@ -32,25 +30,26 @@ class Track:
         :param track_id: track id returned by Qobuz API
         :type track_id: Optional[Union[str, int]]
         :param client: qopy client
-        :type client: Optional[ClientInterface]
+        :type client: Optional
         :param meta: TrackMetadata object
         :type meta: Optional[TrackMetadata]
         :param kwargs:
         """
-        self.id = track_id
         self.client = client
-        self.track_file_format = "{tracknumber}. {title}"
+        self.__dict__.update(kwargs)
+
+        # adjustments after blind attribute sets
+        self.track_file_format = (
+            kwargs.get("filepath_format") or "{tracknumber}. {title}"
+        )
         self.__is_downloaded = False
         for attr in ("quality", "folder", "meta"):
             setattr(self, attr, None)
 
-        if isinstance(meta, TrackMetadata):
-            self.meta = meta
-        elif meta is not None:
-            raise TypeError("meta can't be NoneType")
-
-        for k, v in kwargs.items():
-            self.__dict__[k] = v
+        if isinstance(kwargs.get("meta"), TrackMetadata):
+            self.meta = kwargs["meta"]
+        else:
+            self.meta = None
 
     def download(
         self,
@@ -67,6 +66,7 @@ class Track:
         :param progress_bar: turn on/off progress bar
         :type progress_bar: bool
         """
+        assert not self.__is_downloaded
         self.quality, self.folder = quality or self.quality, folder or self.folder
         dl_info = self.client.get_track_url(self.id, quality)
 
@@ -102,7 +102,7 @@ class Track:
                 size = file.write(data)
                 bar.update(size)
 
-        self.downloaded = True
+        self.__is_downloaded = True
 
     def format_final_path(self) -> str:
         """Return the final filepath of the downloaded file."""
@@ -115,7 +115,7 @@ class Track:
         return self.final_path
 
     @classmethod
-    def from_album_meta(cls, album: dict, pos: int, client: ClientInterface):
+    def from_album_meta(cls, album: dict, pos: int, client: Optional):
         """Create a new Track object from album metadata.
 
         :param album: album metadata returned by API
@@ -214,21 +214,37 @@ class Tracklist(list):
 
         raise TypeError(f"Bad type for value. Expected str or int, found {type(val)}")
 
+    def get(self, key, default=None):
+        if isinstance(key, str):
+            if hasattr(self, key):
+                return getattr(self, key)
+            else:
+                return default
+
+        if isinstance(key, int):
+            if key < len(self):
+                return super().__getitem__(key)
+            else:
+                return default
+
+        raise TypeError(f"Bad type for key. Expected str or int, found {type(key)}")
+
+    def set(self, key, val):
+        self.__setitem__(key, val)
+
 
 class Album(Tracklist):
     """Represents a downloadable Qobuz album."""
 
-    def __init__(self, client: ClientInterface, album_id: Union[str, int], **kwargs):
+    def __init__(self, client, **kwargs):
         """Create a new Album object.
 
         :param client: a qopy client instance
-        :type client: ClientInterface
         :param album_id: album id returned by qobuz api
         :type album_id: Union[str, int]
         :param kwargs:
         """
         self.client = client
-        self.id = album_id
 
         for k, v in kwargs.items():
             setattr(self, k, v)
@@ -238,12 +254,12 @@ class Album(Tracklist):
             self.load_meta()
 
     def load_meta(self):
-        self.meta = client.get_album_meta(album_id)
+        self.meta = self.client.get_album_meta(self.id)
         self.title = self.meta.get("title")
         self.version = self.meta.get("version")
 
         if not self["streamable"]:
-            raise NonStreamable(f"This album is not streamable ({album_id} ID)")
+            raise NonStreamable(f"This album is not streamable ({self.id} ID)")
 
         self._load_tracks()
 
@@ -256,7 +272,7 @@ class Album(Tracklist):
             )
 
     @classmethod
-    def from_api(cls, item: dict, client: ClientInterface, source: str = "qobuz"):
+    def from_api(cls, item: dict, client, source: str = "qobuz"):
         """Create an Album object from the api response of Qobuz, Tidal,
         or Deezer.
 
@@ -265,24 +281,35 @@ class Album(Tracklist):
         :param source: in ('qobuz', 'deezer', 'tidal')
         :type source: str
         """
-        if source == 'qobuz':
+        if source == "qobuz":
             # only collect minimal information for identification purposes
             info = {
-                'title': item['title'],
-                'albumartist': item['artist']['name'],
-                'id': item['id'],  # this is the important part
-                'version': item['version'],
-                'url': item['url'],
-                'quality': (item['maximum_bit_depth'], item['maximum_sampling_rate']),
-                'streamable': item['streamable']
+                "title": item["title"],
+                "albumartist": item["artist"]["name"],
+                "id": item["id"],  # this is the important part
+                "version": item["version"],
+                "url": item["url"],
+                "quality": (item["maximum_bit_depth"], item["maximum_sampling_rate"]),
+                "streamable": item["streamable"],
             }
-        elif source == 'tidal':
-            pass
-        elif source == 'deezer':
-            pass
+        elif source == "tidal":
+            info = {
+                "title": item.name,
+                "id": item.id,
+                "albumartist": item.artist.name,
+            }
+        elif source == "deezer":
+            info = {
+                "title": item["title"],
+                "albumartist": item["artist"]["name"],
+                "id": item["id"],
+                "url": item["link"],
+                "quality": (16, 44.1),
+            }
         else:
             raise ValueError
 
+        return cls(client=client, **info)
 
     @property
     def title(self) -> str:
@@ -290,11 +317,16 @@ class Album(Tracklist):
 
         :rtype: str
         """
-        album_title = self.title
-        if self.version is not None and self.version not in self.title:
-            album_title = f"{album_title} ({self.version})"
+        album_title = self._title
+        if self.get("version"):
+            if self.version not in album_title:
+                album_title = f"{album_title} ({self.version})"
 
         return album_title
+
+    @title.setter
+    def title(self, val):
+        self._title = val
 
     def download(
         self,
@@ -317,6 +349,9 @@ class Album(Tracklist):
         for track in self:
             track.download(quality, folder, progress_bar)
             track.tag(album_meta=self.meta)
+
+    def __repr__(self) -> str:
+        return f"Album: {self.albumartist} {self.title}"
 
 
 class Playlist(Tracklist):

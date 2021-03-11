@@ -29,6 +29,7 @@ TIDAL_Q_IDS = {
     6: tidalapi.Quality.lossless,  # Lossless, but it also could be MQA
 }
 
+
 # Deezer
 DEEZER_BASE = "https://api.deezer.com"
 DEEZER_DL = "http://dz.loaderapp.info/deezer"
@@ -104,8 +105,9 @@ class QobuzClient(SecureClientInterface):
 
         media_funcs = f_map[media_type]
         resp = media_funcs[0](query, limit=limit)
+        # TODO: error handling
         return (
-            media_funcs[1].from_api(item, self, "qobuz")
+            media_funcs[1].from_api(item, client=self, source="qobuz")
             for item in resp["albums"]["items"]
         )
 
@@ -317,7 +319,7 @@ class DeezerClient(ClientInterface):
     def __init__(self):
         self.session = requests.Session()
 
-    def search(self, query: str, type_: str = "album"):
+    def search(self, query: str, media_type: str = "album"):
         """Search API for query.
 
         :param query:
@@ -325,10 +327,27 @@ class DeezerClient(ClientInterface):
         :param type_:
         :type type_: str
         """
-        response = self.session.get(f"{DEEZER_BASE}/search/{type_}?q={query}")
+        # TODO: more robust url sanitize
+        query = query.replace(" ", "+")
+
+        if media_type.endswith("s"):
+            media_type = media_type[:-1]
+
+        response = self.session.get(f"{DEEZER_BASE}/search/{media_type}?q={query}")
         response.raise_for_status()
 
-        return response.json()
+        f_map = {
+            "album": Album,
+            "artist": Artist,
+            "playlist": Playlist,
+            "track": Track,
+        }
+
+        results = response.json()["data"]
+        return (
+            f_map[media_type].from_api(item, client=self, source="deezer")
+            for item in results
+        )
 
     def get(self, meta_id: Union[str, int], type_: str = "album"):
         """Get metadata.
@@ -350,16 +369,14 @@ class DeezerClient(ClientInterface):
 
 class TidalClient(SecureClientInterface):
     def login(self, email: str, pwd: str):
-        logger.info("Logging into Tidal")
 
         config = tidalapi.Config()
 
         self.session = tidalapi.Session(config=config)
         self.session.login(email, pwd)
+        logger.info("Logged into Tidal")
 
-        logger.info("Ok")
-
-    def search(self, query: str, media_type: str = 'album', limit: int = 50):
+    def search(self, query: str, media_type: str = "album", limit: int = 50):
         """
         :param query:
         :type query: str
@@ -369,7 +386,18 @@ class TidalClient(SecureClientInterface):
         :type limit: int
         :raises ValueError: if field value is invalid
         """
-        return self.session.search(media_type, query, limit)
+        f_map = {
+            "album": Album,
+            "artist": Artist,
+            "playlist": Playlist,
+            "track": Track,
+        }
+        search_results = self.session.search(media_type, query, limit)
+        media = getattr(search_results, f"{media_type}s")
+        return (
+            f_map[media_type].from_api(item, client=self, source="tidal")
+            for item in media
+        )
 
     def get(self, meta_id: Union[str, int], media_type: str = "album"):
         """Get metadata.
