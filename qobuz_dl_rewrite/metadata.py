@@ -68,8 +68,10 @@ class TrackMetadata:
         self.copyright = album.get("copyright")
         self.albumartist = album.get("artist", {}).get("name")
 
-        if album.get("label"):
-            self.label = album["label"].get("name")
+        self.label = album.get("label")
+
+        if isinstance(self.label, dict):
+            self.label = self.label.get("name")
 
     def add_track_meta(self, track: dict):
         """Parse the metadata from a track dict returned by the
