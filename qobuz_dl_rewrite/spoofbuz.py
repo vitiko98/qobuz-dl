@@ -1,3 +1,5 @@
+# Credits to Dash for this tool.
+
 import base64
 import re
 from collections import OrderedDict
@@ -10,7 +12,7 @@ class Spoofer:
         self.seed_timezone_regex = r'[a-z]\.initialSeed\("(?P<seed>[\w=]+)",window\.utimezone\.(?P<timezone>[a-z]+)\)'
         # note: {timezones} should be replaced with every capitalized timezone joined by a |
         self.info_extras_regex = r'name:"\w+/(?P<timezone>{timezones})",info:"(?P<info>[\w=]+)",extras:"(?P<extras>[\w=]+)"'
-        self.appId_regex = r'{app_id:"(?P<app_id>\d{9})",app_secret:"\w{32}",base_port:"80",base_url:"https://www\.qobuz\.com",base_method:"/api\.json/0\.2/"},n\.base_url="https://play\.qobuz\.com"'
+        self.app_id_regex = r'{app_id:"(?P<app_id>\d{9})",app_secret:"\w{32}",base_port:"80",base_url:"https://www\.qobuz\.com",base_method:"/api\.json/0\.2/"},n\.base_url="https://play\.qobuz\.com"'
         login_page_request = requests.get("https://play.qobuz.com/login")
         login_page = login_page_request.text
         bundle_url_match = re.search(
@@ -22,7 +24,7 @@ class Spoofer:
         self.bundle = bundle_req.text
 
     def get_app_id(self):
-        return re.search(self.appId_regex, self.bundle).group("app_id")
+        return re.search(self.app_id_regex, self.bundle).group("app_id")
 
     def get_secrets(self):
         seed_matches = re.finditer(self.seed_timezone_regex, self.bundle)
