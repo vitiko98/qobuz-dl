@@ -44,6 +44,25 @@ class TrackMetadata:
         :param album: album dict from API
         :type album: Optional[dict]
         """
+        # self.title = None
+        # self.artist = None
+        self.album = None
+        self.albumartist = None
+        self.composer = None
+        # self.year = None
+        self.comment = "Lossless download from Qobuz"
+        self.description = None
+        self.purchase_date = None
+        self.grouping = None
+        # self.genre = None
+        self.lyrics = None
+        self.encoder = None
+        # self.copyright = None
+        self.compilation = None
+        self.cover = None
+        self.tracknumber = None
+        self.discnumber = None
+
         if track and album is None:
             return
 
@@ -80,7 +99,7 @@ class TrackMetadata:
 
         :param track:
         """
-        self.title = track.get("title")
+        self.title = track.get("title").strip()
         if track.get("version"):
             logger.debug("Version found: %s", track["version"])
             self.title = f"{self.title} ({track['version']})"
@@ -228,7 +247,8 @@ class TrackMetadata:
             else:
                 text = getattr(self, k)
 
-            yield (v.__name__, v(encoding=3, text=text))
+            if text is not None:
+                yield (v.__name__, v(encoding=3, text=text))
 
     def __mp4_tags(self):
         for k, v in MP4_KEY.items():

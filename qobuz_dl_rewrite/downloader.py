@@ -82,6 +82,7 @@ class Track:
         logger.debug("Temporary file path: %s", self.temp_file)
 
         if os.path.isfile(self.format_final_path()):
+            self.__is_downloaded = True
             logger.debug("File already exists: %s", self.final_path)
             return
 
@@ -338,6 +339,7 @@ class Album(Tracklist):
         quality: int = 7,
         folder: Union[str, os.PathLike] = "downloads",
         progress_bar: bool = True,
+        tag_tracks: bool = True,
     ):
         """Download the entire album.
 
@@ -352,8 +354,11 @@ class Album(Tracklist):
         logger.debug("Directory created: %s", folder)
 
         for track in self:
+            logger.debug(f"Downloading track to {folder} with {quality=}")
             track.download(quality, folder, progress_bar)
-            track.tag(album_meta=self.meta)
+            if tag_tracks:
+                logger.debug("Tagging track")
+                track.tag()
 
     def __repr__(self) -> str:
         return f"Album: {self.albumartist} {self.title}"
