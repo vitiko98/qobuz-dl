@@ -72,10 +72,8 @@ class SecureClientInterface(ClientInterface):
 class QobuzClient(SecureClientInterface):
     # ------- Public Methods -------------
     def login(self, email: str, pwd: str, **kwargs):
-        logger.info("Logging into Qobuz")
-
         if not kwargs.get("app_id") or not kwargs.get("secrets"):
-            logger.info("Getting tokens")
+            logger.info("app_id and secrets not provided, fetching tokens")
             spoofer = Spoofer()
             kwargs["app_id"] = spoofer.get_app_id()
             kwargs["secrets"] = spoofer.get_secrets()
@@ -210,7 +208,7 @@ class QobuzClient(SecureClientInterface):
             elif r.status_code == 400:
                 raise InvalidAppIdError("Invalid app id from params %s" % params)
             else:
-                logger.info("Logged: OK")
+                logger.info("Logged in to Qobuz")
 
         elif epoint in ["track/getFileUrl", "userLibrary/getAlbumsList"]:
             if r.status_code == 400:
@@ -234,7 +232,7 @@ class QobuzClient(SecureClientInterface):
 
         self.label = usr_info["user"]["credential"]["parameters"]["short_label"]
 
-        logger.info(f"Membership: {self.label}")
+        # logger.info(f"Membership: {self.label}")
 
     # Needs more testing and debugging
     def multi_meta(self, epoint: str, key: str, meta_id: Union[str, int], type_: str):
