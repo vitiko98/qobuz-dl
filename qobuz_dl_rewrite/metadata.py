@@ -4,6 +4,7 @@ import re
 from typing import Optional, Union
 
 from .constants import COPYRIGHT, FLAC_KEY, MP3_KEY, MP4_KEY, PHON_COPYRIGHT
+from .exceptions import InvalidCodecError
 
 logger = logging.getLogger(__name__)
 
@@ -207,7 +208,7 @@ class TrackMetadata:
         elif codec in ("alac", "m4a", "mp4", "aac"):
             return self.__gen_mp4_tags()
         else:
-            raise ValueError(f"Invalid format {codec}")
+            raise InvalidCodecError(f"Invalid format {codec}")
 
     def __gen_flac_tags(self):
         for k, v in FLAC_KEY.items():
@@ -215,9 +216,9 @@ class TrackMetadata:
 
     def __gen_mp3_tags(self):
         for k, v in MP3_KEY.items():
-            if k == 'tracknumber':
+            if k == "tracknumber":
                 text = f"{self.tracknumber}/{self.tracktotal}"
-            elif k == 'discnumber':
+            elif k == "discnumber":
                 text = str(self.discnumber)
             else:
                 text = getattr(self, k)

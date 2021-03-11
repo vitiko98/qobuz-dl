@@ -4,16 +4,15 @@ from tempfile import gettempdir
 from typing import Optional, Union
 
 import requests
-from tqdm import tqdm
-from mutagen.id3 import ID3
-from mutagen.id3 import ID3NoHeaderError
 from mutagen.flac import FLAC
+from mutagen.id3 import ID3, ID3NoHeaderError
+from tqdm import tqdm
 
-from .exceptions import NonStreamable
+from .constants import EXT
+from .exceptions import InvalidQuality, NonStreamable
 from .metadata import TrackMetadata
 from .qopy import Client
 from .util import safe_get
-from .constants import EXT
 
 logger = logging.getLogger(__name__)
 
@@ -140,23 +139,23 @@ class Track:
         # TODO: add compatibility with ALAC, AAC m4a
         # TODO: implement `extra_meta`
         if self.quality in (6, 7, 27):
-            codec = 'mp3'
+            codec = "mp3"
             try:
                 audio = ID3(self.final_path)
             except ID3NoHeaderError:
                 audio = ID3()
         elif self.quality == 5:
-            codec = 'flac'
+            codec = "flac"
             audio = FLAC(self.final_path)
         else:
-            raise ValueError('invalid quality "{self.quality}"')
+            raise InvalidQuality('invalid quality "{self.quality}"')
 
         for k, v in self.meta.tags(codec=codec):
             audio[k] = v
 
-        if codec == 'mp3':
+        if codec == "mp3":
             audio.save(self.final_path, "v2_version=3")
-        elif codec == 'flac':
+        elif codec == "flac":
             audio.save()
         else:
             raise ValueError('error saving file with codec "{codec}"')
@@ -192,6 +191,7 @@ class Track:
         :param val:
         """
         self.meta[key] = val
+
 
 class Tracklist(list):
     """A base class for tracklist-like objects."""

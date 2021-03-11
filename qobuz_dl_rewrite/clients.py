@@ -183,6 +183,13 @@ class QobuzClient(SecureClientInterface):
                 "format_id": fmt_id,
                 "intent": "stream",
             }
+        elif epoint == "album/getFeatured":
+            unix = time.time()
+            params = {
+                "limit": 500,
+                "offset": kwargs.get("offset"),
+                "type": kwargs.get("type"),
+            }
         else:
             params = kwargs
 
