@@ -1,17 +1,12 @@
-# ----- TESTING ---------
-import json
-import sys
-# ----- TESTING ---------
 import logging
 import os
 from tempfile import gettempdir
 from typing import Optional, Union
 
-import requests
 from mutagen.flac import FLAC, Picture
 from mutagen.id3 import ID3, ID3NoHeaderError, APIC
 
-from .constants import EXT
+from .constants import EXT, FLAC_MAX_BLOCKSIZE
 from .exceptions import InvalidQuality, NonStreamable
 from .metadata import TrackMetadata
 from .util import quality_id, safe_get, tqdm_download
@@ -355,6 +350,10 @@ class Album(Tracklist):
             tqdm_download(cover_url, cover_path)
 
         if quality in (6, 7, 27):
+            # TODO: switch to small cover image if file is too large
+            if (s := os.path.getsize(cover_path)) < FLAC_MAX_BLOCKSIZE:
+                raise Exception(f"cover art size ({s}) is too large")
+
             cover = Picture()
         elif quality == 5:
             cover = APIC()
