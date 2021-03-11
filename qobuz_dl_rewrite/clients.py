@@ -29,7 +29,7 @@ TIDAL_Q_IDS = {
 }
 
 # Deezer
-DEEZER_BASE = "https://api.deezer.com/search"
+DEEZER_BASE = "https://api.deezer.com"
 DEEZER_DL = "http://dz.loaderapp.info/deezer"
 DEEZER_Q_IDS = {4: 128, 5: 320, 6: 1411}
 
@@ -313,14 +313,15 @@ class DeezerClient(ClientInterface):
     def __init__(self):
         self.session = requests.Session()
 
-    def search(self, query: str, type_="album"):
+    def search(self, query: str, type_: str = "album"):
         """Search API for query.
 
         :param query:
         :type query: str
         :param type_:
+        :type type_: str
         """
-        response = self.session.get(f"{DEEZER_BASE}/{type_}?q={query}")
+        response = self.session.get(f"{DEEZER_BASE}/search/{type_}?q={query}")
         response.raise_for_status()
 
         return response.json()
@@ -329,7 +330,9 @@ class DeezerClient(ClientInterface):
         """Get metadata.
 
         :param meta_id:
+        :type meta_id: Union[str, int]
         :param type_:
+        :type type_: str
         """
         response = self.session.get(f"{DEEZER_BASE}/{type_}/{meta_id}")
         response.raise_for_status()
@@ -365,6 +368,13 @@ class TidalClient(SecureClientInterface):
         return self.session.search(media_type, query, limit)
 
     def get(self, meta_id: Union[str, int], media_type: str = "album"):
+        """Get metadata.
+
+        :param meta_id:
+        :type meta_id: Union[str, int]
+        :param media_type:
+        :type media_type: str
+        """
         f_map = {
             "album": self.session.get_album,
             "artist": self.session.get_artist,  # or get_artist_albums?
@@ -374,6 +384,12 @@ class TidalClient(SecureClientInterface):
         return f_map[media_type](meta_id)
 
     def get_file_url(self, meta_id: Union[str, int], quality: int = 6):
+        """
+        :param meta_id:
+        :type meta_id: Union[str, int]
+        :param quality:
+        :type quality: int
+        """
         # Not tested
         self.session._config.quality = TIDAL_Q_IDS[quality]
         return self.session.get_track_url(meta_id)

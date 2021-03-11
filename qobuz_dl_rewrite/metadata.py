@@ -64,7 +64,7 @@ class TrackMetadata:
         self.album = album.get("title")
         self.tracktotal = str(album.get("tracks_count", 1))
         self.genre = album.get("genres_list", [])
-        self.date = album.get("release_date_original")
+        self.date = album.get("release_date_original") or album.get("release_date")
         self.copyright = album.get("copyright")
         self.albumartist = album.get("artist", {}).get("name")
 
