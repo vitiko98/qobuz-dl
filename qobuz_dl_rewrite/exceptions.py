@@ -22,6 +22,5 @@ class NonStreamable(Exception):
     pass
 
 
-class InvalidFormatError(Exception):
-    def __init__(self, given_value, message='Invalid format "{}"'):
-        super().__init__(message.format(given_value))
+class InvalidCodecError(Exception):
+    pass
