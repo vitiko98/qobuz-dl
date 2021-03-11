@@ -1,16 +1,22 @@
 import json
 import logging
 import re
-from typing import Optional, Union
+from typing import Generator, Optional, Union, Tuple
 
-from .constants import COPYRIGHT, FLAC_KEY, MP3_KEY, MP4_KEY, PHON_COPYRIGHT
+from .constants import (
+    COPYRIGHT,
+    FLAC_KEY,
+    FORMATTER_KEYS,
+    MP3_KEY,
+    MP4_KEY,
+    PHON_COPYRIGHT,
+)
 from .exceptions import InvalidContainerError
 
 logger = logging.getLogger(__name__)
 
 
 class TrackMetadata:
-    # TODO: implement the ones that are not
     """Contains all of the metadata needed to tag the file.
     Available attributes:
         * title
@@ -43,20 +49,15 @@ class TrackMetadata:
         :param album: album dict from API
         :type album: Optional[dict]
         """
-        # self.title = None
-        # self.artist = None
         self.album = None
         self.albumartist = None
         self.composer = None
-        # self.year = None
-        self.comment = "Lossless download from Qobuz"
+        self.comment = None
         self.description = None
         self.purchase_date = None
         self.grouping = None
-        # self.genre = None
         self.lyrics = None
         self.encoder = None
-        # self.copyright = None
         self.compilation = None
         self.cover = None
         self.tracknumber = None
@@ -209,15 +210,20 @@ class TrackMetadata:
         :rtype: dict
         """
         # the keys in the tuple are the possible keys for format strings
-        return {
-            k: getattr(self, k)
-            for k in ("artist", "year", "album", "tracknumber", "title")
-        }
+        return {k: getattr(self, k) for k in FORMATTER_KEYS}
 
-    def tags(self, container: str = "flac"):
-        """Return (key, value) pairs for tagging with mutagen.
+    def tags(self, container: str = "flac") -> Generator:
+        """Return a generator of (key, value) pairs to use for tagging
+        files with mutagen. The *_KEY dicts are organized in the format
 
-        Usage:
+        >>> {attribute_name: key_to_use_for_metadata}
+
+        They are then converted to the format
+
+        >>> {key_to_use_for_metadata: value_of_attribute}
+
+        so that they can be used like this:
+
         >>> audio = MP4(path)
         >>> for k, v in meta.tags(container='MP4'):
         ...     audio[k] = v
@@ -225,6 +231,7 @@ class TrackMetadata:
 
         :param container: the container format
         :type container: str
+        :rtype: Generator
         """
         container = container.lower()
         if container in ("flac", "vorbis"):
@@ -236,13 +243,21 @@ class TrackMetadata:
         else:
             raise InvalidContainerError(f"Invalid container {container}")
 
-    def __gen_flac_tags(self):
+    def __gen_flac_tags(self) -> Tuple[str, str]:
+        """Generate key, value pairs to tag FLAC files.
+
+        :rtype: Tuple[str, str]
+        """
         for k, v in FLAC_KEY.items():
             tag = getattr(self, k)
             if tag is not None:
                 yield (v, tag)
 
-    def __gen_mp3_tags(self):
+    def __gen_mp3_tags(self) -> Tuple[str, str]:
+        """Generate key, value pairs to tag MP3 files.
+
+        :rtype: Tuple[str, str]
+        """
         for k, v in MP3_KEY.items():
             if k == "tracknumber":
                 text = f"{self.tracknumber}/{self.tracktotal}"
@@ -254,7 +269,12 @@ class TrackMetadata:
             if text is not None:
                 yield (v.__name__, v(encoding=3, text=text))
 
-    def __mp4_tags(self):
+    def __mp4_tags(self) -> Tuple[str, str]:
+        """Generate key, value pairs to tag ALAC or AAC files in
+        an MP4 container.
+
+        :rtype: Tuple[str, str]
+        """
         for k, v in MP4_KEY.items():
             return (v, getattr(self, k))
 
@@ -273,7 +293,13 @@ class TrackMetadata:
         """
         return getattr(self, key)
 
-    def get(self, key, default=None):
+    def get(self, key, default=None) -> str:
+        """Returns the requested attribute of the object, with
+        a default value.
+
+        :param key:
+        :param default:
+        """
         if hasattr(self, key):
             res = self.__getitem__(key)
             if res is not None:
@@ -283,7 +309,14 @@ class TrackMetadata:
 
         return default
 
-    def set(self, key, val):
+    def set(self, key, val) -> str:
+        """Equivalent to
+        >>> meta[key] = val
+
+        :param key:
+        :param val:
+        :rtype: str
+        """
         return self.__setitem__(key, val)
 
     def __repr__(self) -> str:

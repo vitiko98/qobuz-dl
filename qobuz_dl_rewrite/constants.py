@@ -8,7 +8,8 @@ EXT = {
 }
 
 QUALITY_DESC = {
-    5: "MP3",
+    4: "128kbps",
+    5: "320kbps",
     6: "16bit/44.1kHz",
     7: "24bit/96kHz",
     27: "24bit/192kHz",
@@ -86,3 +87,4 @@ MP3_KEY = dict(zip(__METADATA_TYPES, __MP3_KEYS))
 COPYRIGHT = "\u2117"
 PHON_COPYRIGHT = "\u00a9"
 FLAC_MAX_BLOCKSIZE = 16777215
+FORMATTER_KEYS = ("title", "album", "albumartist", "artist", "year", "trackumber")

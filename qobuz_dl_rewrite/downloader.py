@@ -4,7 +4,7 @@ from tempfile import gettempdir
 from typing import Optional, Union
 
 from mutagen.flac import FLAC, Picture
-from mutagen.id3 import ID3, ID3NoHeaderError, APIC
+from mutagen.id3 import APIC, ID3, ID3NoHeaderError
 
 from .constants import EXT, FLAC_MAX_BLOCKSIZE
 from .exceptions import InvalidQuality, NonStreamable
