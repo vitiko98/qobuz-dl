@@ -195,6 +195,7 @@ class Client:
             return False
 
     def cfg_setup(self):
+        logging.debug(self.secrets)
         for secret in self.secrets:
             if self.test_secret(secret):
                 self.sec = secret

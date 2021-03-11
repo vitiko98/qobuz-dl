@@ -24,7 +24,8 @@ class Spoofer:
         self.bundle = bundle_req.text
 
     def get_app_id(self):
-        return re.search(self.app_id_regex, self.bundle).group("app_id")
+        match = re.search(self.app_id_regex, self.bundle).group("app_id")
+        return str(match)
 
     def get_secrets(self):
         seed_matches = re.finditer(self.seed_timezone_regex, self.bundle)
@@ -50,4 +51,4 @@ class Spoofer:
             secrets[secret_pair] = base64.standard_b64decode(
                 "".join(secrets[secret_pair])[:-44]
             ).decode("utf-8")
-        return secrets
+        return secrets.values()

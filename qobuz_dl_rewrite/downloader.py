@@ -8,10 +8,10 @@ from mutagen.flac import FLAC
 from mutagen.id3 import ID3, ID3NoHeaderError
 from tqdm import tqdm
 
+from .clients import ClientInterface
 from .constants import EXT
 from .exceptions import InvalidQuality, NonStreamable
 from .metadata import TrackMetadata
-from .qopy import Client
 from .util import safe_get
 
 logger = logging.getLogger(__name__)
@@ -23,7 +23,7 @@ class Track:
     def __init__(
         self,
         track_id: Optional[Union[str, int]] = None,
-        client: Optional[Client] = None,
+        client: Optional[ClientInterface] = None,
         meta: Optional[TrackMetadata] = None,
         **kwargs,
     ):
@@ -32,7 +32,7 @@ class Track:
         :param track_id: track id returned by Qobuz API
         :type track_id: Optional[Union[str, int]]
         :param client: qopy client
-        :type client: Optional[Client]
+        :type client: Optional[ClientInterface]
         :param meta: TrackMetadata object
         :type meta: Optional[TrackMetadata]
         :param kwargs:
@@ -115,7 +115,7 @@ class Track:
         return self.final_path
 
     @classmethod
-    def from_album_meta(cls, album: dict, pos: int, client: Client):
+    def from_album_meta(cls, album: dict, pos: int, client: ClientInterface):
         """Create a new Track object from album metadata.
 
         :param album: album metadata returned by API
@@ -218,16 +218,26 @@ class Tracklist(list):
 class Album(Tracklist):
     """Represents a downloadable Qobuz album."""
 
-    def __init__(self, client: Client, album_id: Union[str, int], **kwargs):
+    def __init__(self, client: ClientInterface, album_id: Union[str, int], **kwargs):
         """Create a new Album object.
 
         :param client: a qopy client instance
-        :type client: Client
+        :type client: ClientInterface
         :param album_id: album id returned by qobuz api
         :type album_id: Union[str, int]
         :param kwargs:
         """
         self.client = client
+        self.id = album_id
+
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+        # to improve from_api method speed
+        if kwargs.get("load_on_init"):
+            self.load_meta()
+
+    def load_meta(self):
         self.meta = client.get_album_meta(album_id)
         self.title = self.meta.get("title")
         self.version = self.meta.get("version")
@@ -236,8 +246,6 @@ class Album(Tracklist):
             raise NonStreamable(f"This album is not streamable ({album_id} ID)")
 
         self._load_tracks()
-        for k, v in kwargs.items():
-            setattr(self, k, v)
 
     def _load_tracks(self):
         """Load tracks from the album metadata."""
@@ -246,6 +254,35 @@ class Album(Tracklist):
             self.append(
                 Track.from_album_meta(album=self.meta, pos=i, client=self.client)
             )
+
+    @classmethod
+    def from_api(cls, item: dict, client: ClientInterface, source: str = "qobuz"):
+        """Create an Album object from the api response of Qobuz, Tidal,
+        or Deezer.
+
+        :param resp: response dict
+        :type resp: dict
+        :param source: in ('qobuz', 'deezer', 'tidal')
+        :type source: str
+        """
+        if source == 'qobuz':
+            # only collect minimal information for identification purposes
+            info = {
+                'title': item['title'],
+                'albumartist': item['artist']['name'],
+                'id': item['id'],  # this is the important part
+                'version': item['version'],
+                'url': item['url'],
+                'quality': (item['maximum_bit_depth'], item['maximum_sampling_rate']),
+                'streamable': item['streamable']
+            }
+        elif source == 'tidal':
+            pass
+        elif source == 'deezer':
+            pass
+        else:
+            raise ValueError
+
 
     @property
     def title(self) -> str:
@@ -280,3 +317,11 @@ class Album(Tracklist):
         for track in self:
             track.download(quality, folder, progress_bar)
             track.tag(album_meta=self.meta)
+
+
+class Playlist(Tracklist):
+    pass
+
+
+class Artist(Tracklist):
+    pass

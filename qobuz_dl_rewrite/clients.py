@@ -6,6 +6,7 @@ from typing import Union
 import requests
 import tidalapi
 
+from .downloader import Album, Artist, Playlist, Track
 from .exceptions import (
     AuthenticationError,
     IneligibleError,
@@ -95,13 +96,18 @@ class QobuzClient(SecureClientInterface):
             media_type = media_type[:-1]
 
         f_map = {
-            "album": self.search_albums,
-            "artist": self.search_artists,
-            "playlist": self.search_playlists,
-            "track": self.search_tracks,
+            "album": (self.search_albums, Album),
+            "artist": (self.search_artists, Artist),
+            "playlist": (self.search_playlists, Playlist),
+            "track": (self.search_tracks, Track),
         }
 
-        return f_map[media_type](query, limit=limit)
+        media_funcs = f_map[media_type]
+        resp = media_funcs[0](query, limit=limit)
+        return (
+            media_funcs[1].from_api(item, self, "qobuz")
+            for item in resp["albums"]["items"]
+        )
 
     def get(self, meta_id: Union[str, int], media_type: str = "album"):
         f_map = {
@@ -353,7 +359,7 @@ class TidalClient(SecureClientInterface):
 
         logger.info("Ok")
 
-    def search(self, query: str, media_type: str, limit: int = 50):
+    def search(self, query: str, media_type: str = 'album', limit: int = 50):
         """
         :param query:
         :type query: str
