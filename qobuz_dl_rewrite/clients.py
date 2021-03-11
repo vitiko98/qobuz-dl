@@ -28,6 +28,11 @@ TIDAL_Q_IDS = {
     6: tidalapi.Quality.lossless,  # Lossless, but it also could be MQA
 }
 
+# Deezer
+DEEZER_BASE = "https://api.deezer.com/search"
+DEEZER_DL = "http://dz.loaderapp.info/deezer"
+DEEZER_Q_IDS = {4: 128, 5: 320, 6: 1411}
+
 
 class ClientInterface:
     """Common API for clients of all platforms."""
@@ -295,11 +300,39 @@ class QobuzClient(SecureClientInterface):
 
 
 class DeezerClient(ClientInterface):
-    pass
+    def __init__(self):
+        self.session = requests.Session()
+
+    def search(self, query: str, type_="album"):
+        """Search API for query.
+
+        :param query:
+        :type query: str
+        :param type_:
+        """
+        response = self.session.get(f"{DEEZER_BASE}/{type_}?q={query}")
+        response.raise_for_status()
+
+        return response.json()
+
+    def get(self, meta_id: Union[str, int], type_: str = "album"):
+        """Get metadata.
+
+        :param meta_id:
+        :param type_:
+        """
+        response = self.session.get(f"{DEEZER_BASE}/{type_}/{meta_id}")
+        response.raise_for_status()
+
+        return response.json()
+
+    @staticmethod
+    def get_file_url(meta_id: Union[str, int], quality: int = 6):
+        return f'{DEEZER_DL}/{DEEZER_Q_IDS[quality]}/"{DEEZER_BASE}/track/{meta_id}"'
 
 
 class TidalClient(SecureClientInterface):
-    def login(self, email: str, pwd: str, **kwargs):
+    def login(self, email: str, pwd: str):
         logger.info("Logging into Tidal")
 
         config = tidalapi.Config()
@@ -309,17 +342,17 @@ class TidalClient(SecureClientInterface):
 
         logger.info("Ok")
 
-    def search(self, query: str, field: str, limit: int = 50):
+    def search(self, query: str, media_type: str, limit: int = 50):
         """
         :param query:
         :type query: str
-        :param field: artist, album, playlist, or track
-        :type field: str
+        :param media_type: artist, album, playlist, or track
+        :type media_type: str
         :param limit:
         :type limit: int
         :raises ValueError: if field value is invalid
         """
-        return self.session.search(field, query, limit)
+        return self.session.search(media_type, query, limit)
 
     def get(self, meta_id: Union[str, int], media_type: str = "album"):
         f_map = {
