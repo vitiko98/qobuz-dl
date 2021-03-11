@@ -1,19 +1,20 @@
-from pprint import pprint
+# ----- TESTING ---------
+import json
 import sys
+# ----- TESTING ---------
 import logging
 import os
 from tempfile import gettempdir
 from typing import Optional, Union
 
 import requests
-from mutagen.flac import FLAC
-from mutagen.id3 import ID3, ID3NoHeaderError
-from tqdm import tqdm
+from mutagen.flac import FLAC, Picture
+from mutagen.id3 import ID3, ID3NoHeaderError, APIC
 
 from .constants import EXT
 from .exceptions import InvalidQuality, NonStreamable
 from .metadata import TrackMetadata
-from .util import safe_get
+from .util import quality_id, safe_get, tqdm_download
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +53,7 @@ class Track:
             self.meta = kwargs["meta"]
         else:
             self.meta = None
-            logger.info("Track: meta not provided")
+            logger.debug("Track: meta not provided")
 
     def download(
         self,
@@ -86,28 +87,10 @@ class Track:
             logger.debug("File already exists: %s", self.final_path)
             return
 
-        self._download_file(dl_info["url"], progress_bar=progress_bar)
-        os.rename(self.temp_file, self.final_path)
-
-    def _download_file(self, url: str, progress_bar: bool = True):
-        """Downloads a file given the url, optionally with a progress bar.
-
-        :param url: url to file
-        :type url: str
-        :param progress_bar: turn on/off progress bar
-        :type progress_bar: bool
-        """
-        # Fixme: add the conditional to the progress_bar bool
-        r = requests.get(url, allow_redirects=True, stream=True)
-        total = int(r.headers.get("content-length", 0))
-        with open(self.temp_file, "wb") as file, tqdm(
-            total=total, unit="iB", unit_scale=True, unit_divisor=1024
-        ) as bar:
-            for data in r.iter_content(chunk_size=1024):
-                size = file.write(data)
-                bar.update(size)
-
+        tqdm_download(dl_info['url'], self.temp_file)  # downloads file
         self.__is_downloaded = True
+
+        os.rename(self.temp_file, self.final_path)
 
     def format_final_path(self) -> str:
         """Return the final filepath of the downloaded file."""
@@ -122,7 +105,7 @@ class Track:
 
     @classmethod
     def from_album_meta(cls, album: dict, pos: int, client):
-        """Create a new Track object from album metadata.
+        """Return a new Track object from album metadata.
 
         :param album: album metadata returned by API
         :param pos: index of the track
@@ -134,7 +117,7 @@ class Track:
         meta.add_track_meta(album["tracks"]["items"][pos])
         return cls(client=client, meta=meta, id=track["id"])
 
-    def tag(self, extra_meta=None):
+    def tag(self, album_meta=None, cover=None):
         """Tag the track.
 
         :param extra_meta: extra metadata that should be applied
@@ -142,29 +125,38 @@ class Track:
         assert isinstance(self.meta, TrackMetadata), "meta must be TrackMetadata"
         assert self.__is_downloaded, "file must be downloaded before tagging"
 
+        if album_meta is not None:
+            self.meta.add_album_meta(album_meta)
+            self.cover_urls = album_meta["image"]
+            logger.debug(f"covers: {album_meta['image']}")
+
         # TODO: add compatibility with ALAC, AAC m4a
-        # TODO: implement `extra_meta`
         if self.quality in (6, 7, 27):
-            codec = "mp3"
+            container = "flac"
+            logger.debug(f"tagging file with {container=}")
+            audio = FLAC(self.final_path)
+        elif self.quality == 5:
+            container = "mp3"
+            logger.debug(f"tagging file with {container=}")
             try:
                 audio = ID3(self.final_path)
             except ID3NoHeaderError:
                 audio = ID3()
-        elif self.quality == 5:
-            codec = "flac"
-            audio = FLAC(self.final_path)
         else:
-            raise InvalidQuality('invalid quality "{self.quality}"')
+            raise InvalidQuality(f'invalid quality "{self.quality}"')
 
-        for k, v in self.meta.tags(codec=codec):
+        for k, v in self.meta.tags(container=container):
             audio[k] = v
 
-        if codec == "mp3":
-            audio.save(self.final_path, "v2_version=3")
-        elif codec == "flac":
+        assert cover is not None  # temporary
+        if container == "flac":
+            audio.add_picture(cover)
             audio.save()
+        elif container == "mp3":
+            audio.add(cover)
+            audio.save(self.final_path, "v2_version=3")
         else:
-            raise ValueError('error saving file with codec "{codec}"')
+            raise ValueError(f'error saving file with container "{container}"')
 
     def get(self, *keys, default=None):
         """Safe get method that allows for layered access.
@@ -260,9 +252,10 @@ class Album(Tracklist):
             self.load_meta()
 
     def load_meta(self):
-        self.meta = self.client.get_album_meta(self.id)
+        self.meta = self.client.get(self.id, 'album')
         self.title = self.meta.get("title")
         self.version = self.meta.get("version")
+        self.cover_urls = self.meta.get("image")
 
         if not self["streamable"]:
             raise NonStreamable(f"This album is not streamable ({self.id} ID)")
@@ -295,7 +288,9 @@ class Album(Tracklist):
                 "id": item["id"],  # this is the important part
                 "version": item["version"],
                 "url": item["url"],
-                "quality": (item["maximum_bit_depth"], item["maximum_sampling_rate"]),
+                "quality": quality_id(
+                    item["maximum_bit_depth"], item["maximum_sampling_rate"]
+                ),
                 "streamable": item["streamable"],
             }
         elif source == "tidal":
@@ -310,7 +305,7 @@ class Album(Tracklist):
                 "albumartist": item["artist"]["name"],
                 "id": item["id"],
                 "url": item["link"],
-                "quality": (16, 44.1),
+                "quality": 6,
             }
         else:
             raise ValueError
@@ -353,12 +348,30 @@ class Album(Tracklist):
         os.makedirs(folder, exist_ok=True)
         logger.debug("Directory created: %s", folder)
 
+        # download large version for now
+        if self.cover_urls is not None:
+            cover_path = os.path.join(folder, 'cover.jpg')
+            cover_url = self.cover_urls['large']
+            tqdm_download(cover_url, cover_path)
+
+        if quality in (6, 7, 27):
+            cover = Picture()
+        elif quality == 5:
+            cover = APIC()
+        else:
+            raise InvalidQuality(f"{quality=}")
+
+        cover.type = 3
+        cover.mime = 'image/jpeg'
+        with open(cover_path, 'rb') as img:
+            cover.data = img.read()
+
         for track in self:
             logger.debug(f"Downloading track to {folder} with {quality=}")
             track.download(quality, folder, progress_bar)
             if tag_tracks:
                 logger.debug("Tagging track")
-                track.tag()
+                track.tag(album_meta=self.meta, cover=cover)
 
     def __repr__(self) -> str:
         return f"Album: {self.albumartist} {self.title}"

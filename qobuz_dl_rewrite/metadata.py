@@ -2,10 +2,9 @@ import json
 import logging
 import re
 from typing import Optional, Union
-from pprint import pprint
 
 from .constants import COPYRIGHT, FLAC_KEY, MP3_KEY, MP4_KEY, PHON_COPYRIGHT
-from .exceptions import InvalidCodecError
+from .exceptions import InvalidContainerError
 
 logger = logging.getLogger(__name__)
 
@@ -210,33 +209,38 @@ class TrackMetadata:
         :rtype: dict
         """
         # the keys in the tuple are the possible keys for format strings
-        return {k: getattr(self, k) for k in ("artist", "year", "album", "tracknumber", "title")}
+        return {
+            k: getattr(self, k)
+            for k in ("artist", "year", "album", "tracknumber", "title")
+        }
 
-    def tags(self, codec: str = "flac"):
+    def tags(self, container: str = "flac"):
         """Return (key, value) pairs for tagging with mutagen.
 
         Usage:
         >>> audio = MP4(path)
-        >>> for k, v in meta.tags(codec='MP4'):
+        >>> for k, v in meta.tags(container='MP4'):
         ...     audio[k] = v
         >>> audio.save()
 
-        :param codec: the container format
-        :type codec: str
+        :param container: the container format
+        :type container: str
         """
-        codec = codec.lower()
-        if codec == ("flac", "vorbis"):
+        container = container.lower()
+        if container in ("flac", "vorbis"):
             return self.__gen_flac_tags()
-        elif codec in ("mp3", "id3"):
+        elif container in ("mp3", "id3"):
             return self.__gen_mp3_tags()
-        elif codec in ("alac", "m4a", "mp4", "aac"):
+        elif container in ("alac", "m4a", "mp4", "aac"):
             return self.__gen_mp4_tags()
         else:
-            raise InvalidCodecError(f"Invalid format {codec}")
+            raise InvalidContainerError(f"Invalid container {container}")
 
     def __gen_flac_tags(self):
         for k, v in FLAC_KEY.items():
-            yield (v, getattr(self, k))
+            tag = getattr(self, k)
+            if tag is not None:
+                yield (v, tag)
 
     def __gen_mp3_tags(self):
         for k, v in MP3_KEY.items():

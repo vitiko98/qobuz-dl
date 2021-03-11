@@ -22,5 +22,5 @@ class NonStreamable(Exception):
     pass
 
 
-class InvalidCodecError(Exception):
+class InvalidContainerError(Exception):
     pass
