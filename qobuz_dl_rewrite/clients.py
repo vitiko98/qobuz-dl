@@ -2,6 +2,7 @@ import hashlib
 import logging
 import time
 from typing import Union
+from abc import ABC, abstractmethod
 
 import requests
 import tidalapi
@@ -36,9 +37,12 @@ DEEZER_DL = "http://dz.loaderapp.info/deezer"
 DEEZER_Q_IDS = {4: 128, 5: 320, 6: 1411}
 
 
-class ClientInterface:
-    """Common API for clients of all platforms."""
+class ClientInterface(ABC):
+    """Common API for clients of all platforms. Do not directly use this
+    class; use a subclass.
+    """
 
+    @abstractmethod
     def search(self, query: str, type_="album"):
         """Search API for query.
 
@@ -48,6 +52,7 @@ class ClientInterface:
         """
         pass
 
+    @abstractmethod
     def get(self, meta_id, type_="album"):
         """Get metadata.
 
@@ -56,11 +61,20 @@ class ClientInterface:
         """
         pass
 
+    @abstractmethod
     def get_file_url(self, track_id):
+        """Get the direct download url for a file.
+
+        :param track_id: id of the track
+        """
         pass
 
 
 class SecureClientInterface(ClientInterface):
+    """Identical to a ClientInterface except for a login
+    method."""
+
+    @abstractmethod
     def login(self, **kwargs):
         """Authenticate the client.
 
@@ -72,7 +86,15 @@ class SecureClientInterface(ClientInterface):
 class QobuzClient(SecureClientInterface):
     # ------- Public Methods -------------
     def login(self, email: str, pwd: str, **kwargs):
-        if not kwargs.get("app_id") or not kwargs.get("secrets"):
+        """Authenticate the QobuzClient. Must have a paid membership.
+
+        :param email: email for the qobuz account
+        :type email: str
+        :param pwd: password for the qobuz account
+        :type pwd: str
+        :param kwargs: include `app_id` and `secrets` to save a lot of time
+        """
+        if kwargs.get("app_id") or kwargs.get("secrets") is None:
             logger.info("app_id and secrets not provided, fetching tokens")
             spoofer = Spoofer()
             kwargs["app_id"] = spoofer.get_app_id()
@@ -80,6 +102,7 @@ class QobuzClient(SecureClientInterface):
 
         self.id = kwargs["app_id"]
         self.secrets = kwargs["secrets"]
+
         self.session = requests.Session()
         self.session.headers.update(
             {
@@ -87,8 +110,12 @@ class QobuzClient(SecureClientInterface):
                 "X-App-Id": self.id,
             }
         )
-        self.auth(email, pwd)
-        self.cfg_setup()
+
+        logger.debug("authenticating")
+        self._auth(email, pwd)
+        logger.debug("setting up config")
+        self._cfg_setup()
+        logger.debug("ready to use")
 
     def search(self, query: str, media_type: str = "album", limit: int = 500):
         if media_type.endswith("s"):
@@ -119,14 +146,15 @@ class QobuzClient(SecureClientInterface):
         return f_map[media_type](meta_id)
 
     def get_file_url(self, meta_id: Union[str, int], quality: int = 7):
-        return self.api_call("track/getFileUrl", id=meta_id, fmt_id=quality)
+        return self._api_call("track/getFileUrl", id=meta_id, fmt_id=quality)
 
     # ---------- Private Methods ---------------
 
     # Credits to Sorrow446 for these methods
 
     # TODO: Maybe a way of reducing the if statements (?)
-    def api_call(self, epoint, **kwargs):
+    # TODO: prepend a `_` before private methods
+    def _api_call(self, epoint, **kwargs):
         if epoint == "user/login":
             params = {
                 "email": kwargs.get("email"),
@@ -220,8 +248,8 @@ class QobuzClient(SecureClientInterface):
 
         return r.json()
 
-    def auth(self, email, pwd):
-        usr_info = self.api_call("user/login", email=email, pwd=pwd)
+    def _auth(self, email, pwd):
+        usr_info = self._api_call("user/login", email=email, pwd=pwd)
 
         if not usr_info["user"]["credential"]["parameters"]:
             raise IneligibleError("Free accounts are not eligible to download tracks.")
@@ -235,14 +263,14 @@ class QobuzClient(SecureClientInterface):
         # logger.info(f"Membership: {self.label}")
 
     # Needs more testing and debugging
-    def multi_meta(self, epoint: str, key: str, meta_id: Union[str, int], type_: str):
+    def _multi_meta(self, epoint: str, key: str, meta_id: Union[str, int], type_: str):
         total = 1
         offset = 0
         while total > 0:
             if type_ in ("tracks", "albums"):
-                j = self.api_call(epoint, id=meta_id, offset=offset, type=type)[type]
+                j = self._api_call(epoint, id=meta_id, offset=offset, type=type)[type]
             else:
-                j = self.api_call(epoint, id=meta_id, offset=offset, type=type)
+                j = self._api_call(epoint, id=meta_id, offset=offset, type=type)
             if offset == 0:
                 yield j
                 total = j[key] - 500
@@ -252,59 +280,59 @@ class QobuzClient(SecureClientInterface):
             offset += 500
 
     def get_album_meta(self, id):
-        return self.api_call("album/get", id=id)
+        return self._api_call("album/get", id=id)
 
     def get_track_meta(self, id):
-        return self.api_call("track/get", id=id)
+        return self._api_call("track/get", id=id)
 
     def get_artist_meta(self, id):
-        return self.multi_meta("artist/get", "albums_count", id, None)
+        return self._multi_meta("artist/get", "albums_count", id, None)
 
     def get_plist_meta(self, id):
-        return self.multi_meta("playlist/get", "tracks_count", id, None)
+        return self._multi_meta("playlist/get", "tracks_count", id, None)
 
     def get_label_meta(self, id):
-        return self.multi_meta("label/get", "albums_count", id, None)
+        return self._multi_meta("label/get", "albums_count", id, None)
 
     def search_albums(self, query, limit):
-        return self.api_call("album/search", query=query, limit=limit)
+        return self._api_call("album/search", query=query, limit=limit)
 
     def search_artists(self, query, limit):
-        return self.api_call("artist/search", query=query, limit=limit)
+        return self._api_call("artist/search", query=query, limit=limit)
 
     def search_playlists(self, query, limit):
-        return self.api_call("playlist/search", query=query, limit=limit)
+        return self._api_call("playlist/search", query=query, limit=limit)
 
     def search_tracks(self, query, limit):
-        return self.api_call("track/search", query=query, limit=limit)
+        return self._api_call("track/search", query=query, limit=limit)
 
     def get_favorite_albums(self, offset, limit):
-        return self.api_call(
+        return self._api_call(
             "favorite/getUserFavorites", type="albums", offset=offset, limit=limit
         )
 
     def get_favorite_tracks(self, offset, limit):
-        return self.api_call(
+        return self._api_call(
             "favorite/getUserFavorites", type="tracks", offset=offset, limit=limit
         )
 
     def get_favorite_artists(self, offset, limit):
-        return self.api_call(
+        return self._api_call(
             "favorite/getUserFavorites", type="artists", offset=offset, limit=limit
         )
 
     def get_user_playlists(self, limit):
-        return self.api_call("playlist/getUserPlaylists", limit=limit)
+        return self._api_call("playlist/getUserPlaylists", limit=limit)
 
     def test_secret(self, sec):
         try:
-            self.api_call("userLibrary/getAlbumsList", sec=sec)
+            self._api_call("userLibrary/getAlbumsList", sec=sec)
             return True
         except InvalidAppSecretError as error:
             logger.debug("Test for %s secret didn't work: %s", sec, error)
             return False
 
-    def cfg_setup(self):
+    def _cfg_setup(self):
         for secret in self.secrets:
             if self.test_secret(secret):
                 self.sec = secret

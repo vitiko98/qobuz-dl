@@ -125,7 +125,7 @@ class Track:
             self.cover_urls = album_meta["image"]
             logger.debug(f"covers: {album_meta['image']}")
 
-        # TODO: add compatibility with ALAC, AAC m4a
+        # TODO: add compatibility with MP4 container
         if self.quality in (6, 7, 27):
             container = "flac"
             logger.debug(f"tagging file with {container=}")
