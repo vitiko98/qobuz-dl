@@ -72,7 +72,8 @@ class QobuzClient(SecureClientInterface):
     def login(self, email: str, pwd: str, **kwargs):
         logger.info("Logging into Qobuz")
 
-        if not kwargs.get("app_id") or kwargs.get("secrets"):
+        if not kwargs.get("app_id") or not kwargs.get("secrets"):
+            logger.info("Getting tokens")
             spoofer = Spoofer()
             kwargs["app_id"] = spoofer.get_app_id()
             kwargs["secrets"] = spoofer.get_secrets()
@@ -100,7 +101,9 @@ class QobuzClient(SecureClientInterface):
             "track": self.search_tracks,
         }
 
-        return f_map[media_type](query)
+        return f_map[media_type](query, limit=limit).get(
+            f"{media_type}s", {"items": []}
+        )
 
     def get(self, meta_id: Union[str, int], media_type: str = "album"):
         f_map = {
