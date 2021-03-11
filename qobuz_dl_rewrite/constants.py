@@ -54,7 +54,7 @@ __MP3_KEYS = [
     id3.TCMP,
     None,
     id3.TRCK,
-    None,
+    id3.TPOS,
 ]
 
 __METADATA_TYPES = [

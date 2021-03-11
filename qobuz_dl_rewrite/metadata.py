@@ -3,13 +3,35 @@ import logging
 import re
 from typing import Optional, Union
 
-from .constants import COPYRIGHT, PHON_COPYRIGHT
+from .constants import COPYRIGHT, FLAC_KEY, MP3_KEY, MP4_KEY, PHON_COPYRIGHT
 
 logger = logging.getLogger(__name__)
 
 
 class TrackMetadata:
-    """Contains all of the metadata needed to tag the file."""
+    # TODO: implement the ones that are not
+    """Contains all of the metadata needed to tag the file.
+    Available attributes:
+        * title
+        * artist
+        * album
+        * albumartist
+        * composer
+        * year
+        * comment
+        * description
+        * purchase_date
+        * grouping
+        * genre
+        * lyrics
+        * encoder
+        * copyright
+        * compilation
+        * cover
+        * tracknumber
+        * discnumber
+
+    """
 
     def __init__(self, track: Optional[dict] = None, album: Optional[dict] = None):
         """Creates a TrackMetadata object optionally initialized with
@@ -164,6 +186,47 @@ class TrackMetadata:
         """
         # the keys in the tuple are the possible keys for format strings
         return {k: getattr(self, k) for k in ("artist", "year", "album")}
+
+    def tags(self, codec: str = "flac"):
+        """Return (key, value) pairs for tagging with mutagen.
+
+        Usage:
+        >>> audio = MP4(path)
+        >>> for k, v in meta.tags(codec='MP4'):
+        ...     audio[k] = v
+        >>> audio.save()
+
+        :param codec: the container format
+        :type codec: str
+        """
+        codec = codec.lower()
+        if codec == ("flac", "vorbis"):
+            return self.__gen_flac_tags()
+        elif codec in ("mp3", "id3"):
+            return self.__gen_mp3_tags()
+        elif codec in ("alac", "m4a", "mp4", "aac"):
+            return self.__gen_mp4_tags()
+        else:
+            raise ValueError(f"Invalid format {codec}")
+
+    def __gen_flac_tags(self):
+        for k, v in FLAC_KEY.items():
+            yield (v, getattr(self, k))
+
+    def __gen_mp3_tags(self):
+        for k, v in MP3_KEY.items():
+            if k == 'tracknumber':
+                text = f"{self.tracknumber}/{self.tracktotal}"
+            elif k == 'discnumber':
+                text = str(self.discnumber)
+            else:
+                text = getattr(self, k)
+
+            yield (v.__name__, v(encoding=3, text=text))
+
+    def __mp4_tags(self):
+        for k, v in MP4_KEY.items():
+            return (v, getattr(self, k))
 
     def __setitem__(self, key, val):
         """Dict-like access for tags.

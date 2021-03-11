@@ -23,8 +23,8 @@ AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:83.0) Gecko/20100101 Firef
 
 # Tidal
 TIDAL_Q_IDS = {
-    4: tidalapi.Quality.low,  # m4a
-    5: tidalapi.Quality.high,  # m4a
+    4: tidalapi.Quality.low,  # AAC
+    5: tidalapi.Quality.high,  # AAC
     6: tidalapi.Quality.lossless,  # Lossless, but it also could be MQA
 }
 
