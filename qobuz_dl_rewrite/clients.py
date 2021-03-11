@@ -101,9 +101,7 @@ class QobuzClient(SecureClientInterface):
             "track": self.search_tracks,
         }
 
-        return f_map[media_type](query, limit=limit).get(
-            f"{media_type}s", {"items": []}
-        )
+        return f_map[media_type](query, limit=limit)
 
     def get(self, meta_id: Union[str, int], media_type: str = "album"):
         f_map = {
