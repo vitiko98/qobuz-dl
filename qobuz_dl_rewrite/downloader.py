@@ -82,7 +82,7 @@ class Track:
             logger.debug("File already exists: %s", self.final_path)
             return
 
-        tqdm_download(dl_info['url'], self.temp_file)  # downloads file
+        tqdm_download(dl_info["url"], self.temp_file)  # downloads file
         self.__is_downloaded = True
 
         os.rename(self.temp_file, self.final_path)
@@ -128,17 +128,17 @@ class Track:
         # TODO: add compatibility with MP4 container
         if self.quality in (6, 7, 27):
             container = "flac"
-            logger.debug(f"tagging file with {container=}")
+            logger.debug("Tagging file with %s", container)
             audio = FLAC(self.final_path)
         elif self.quality == 5:
             container = "mp3"
-            logger.debug(f"tagging file with {container=}")
+            logger.debug("Tagging file with %s", container)
             try:
                 audio = ID3(self.final_path)
             except ID3NoHeaderError:
                 audio = ID3()
         else:
-            raise InvalidQuality(f'invalid quality "{self.quality}"')
+            raise InvalidQuality(f'Invalid quality: "{self.quality}"')
 
         for k, v in self.meta.tags(container=container):
             audio[k] = v
@@ -151,7 +151,7 @@ class Track:
             audio.add(cover)
             audio.save(self.final_path, "v2_version=3")
         else:
-            raise ValueError(f'error saving file with container "{container}"')
+            raise ValueError(f'Error saving file with container "{container}"')
 
     def get(self, *keys, default=None):
         """Safe get method that allows for layered access.
@@ -247,7 +247,7 @@ class Album(Tracklist):
             self.load_meta()
 
     def load_meta(self):
-        self.meta = self.client.get(self.id, 'album')
+        self.meta = self.client.get(self.id, "album")
         self.title = self.meta.get("title")
         self.version = self.meta.get("version")
         self.cover_urls = self.meta.get("image")
@@ -315,7 +315,7 @@ class Album(Tracklist):
         """
         album_title = self._title
         if self.get("version"):
-            if self.version not in album_title:
+            if self.version.lower() not in album_title.lower():
                 album_title = f"{album_title} ({self.version})"
 
         return album_title
@@ -343,13 +343,14 @@ class Album(Tracklist):
         os.makedirs(folder, exist_ok=True)
         logger.debug("Directory created: %s", folder)
 
+        cover_path = None
         # download large version for now
         if self.cover_urls is not None:
-            cover_path = os.path.join(folder, 'cover.jpg')
-            cover_url = self.cover_urls['large']
+            cover_path = os.path.join(folder, "cover.jpg")
+            cover_url = self.cover_urls["large"]
             tqdm_download(cover_url, cover_path)
 
-        if quality in (6, 7, 27):
+        if quality in (6, 7, 27) and cover_path:
             # TODO: switch to small cover image if file is too large
             if (s := os.path.getsize(cover_path)) < FLAC_MAX_BLOCKSIZE:
                 raise Exception(f"cover art size ({s}) is too large")
@@ -358,15 +359,16 @@ class Album(Tracklist):
         elif quality == 5:
             cover = APIC()
         else:
-            raise InvalidQuality(f"{quality=}")
+            raise InvalidQuality(f"Invalid quality: {quality}")
 
-        cover.type = 3
-        cover.mime = 'image/jpeg'
-        with open(cover_path, 'rb') as img:
-            cover.data = img.read()
+        if cover_path:
+            cover.type = 3
+            cover.mime = "image/jpeg"
+            with open(cover_path, "rb") as img:
+                cover.data = img.read()
 
         for track in self:
-            logger.debug(f"Downloading track to {folder} with {quality=}")
+            logger.debug("Downloading track to %s with %s", folder, quality)
             track.download(quality, folder, progress_bar)
             if tag_tracks:
                 logger.debug("Tagging track")

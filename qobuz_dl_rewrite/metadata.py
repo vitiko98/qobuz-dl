@@ -172,7 +172,7 @@ class TrackMetadata:
             cr = cr.replace("(C)", COPYRIGHT)
             return cr
         else:
-            raise AttributeError("copyright tag must be set before acessing")
+            raise AttributeError("Copyright tag must be set before acessing")
 
     @copyright.setter
     def copyright(self, val: str):
@@ -278,10 +278,10 @@ class TrackMetadata:
             res = self.__getitem__(key)
             if res is not None:
                 return res
-            else:
-                return default
-        else:
+
             return default
+
+        return default
 
     def set(self, key, val):
         return self.__setitem__(key, val)
