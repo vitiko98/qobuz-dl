@@ -5,11 +5,15 @@ from typing import Optional, Union
 
 import requests
 from tqdm import tqdm
+from mutagen.id3 import ID3
+from mutagen.id3 import ID3NoHeaderError
+from mutagen.flac import FLAC
 
 from .exceptions import NonStreamable
 from .metadata import TrackMetadata
 from .qopy import Client
 from .util import safe_get
+from .constants import EXT
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +41,7 @@ class Track:
         self.id = track_id
         self.client = client
         self.track_file_format = "{tracknumber}. {title}"
+        self.__is_downloaded = False
         for attr in ("quality", "folder", "meta"):
             setattr(self, attr, None)
 
@@ -98,11 +103,13 @@ class Track:
                 size = file.write(data)
                 bar.update(size)
 
+        self.downloaded = True
+
     def format_final_path(self) -> str:
         """Return the final filepath of the downloaded file."""
         if not hasattr(self, "final_path"):
             filename = self.track_file_format.format(self.meta.get_formatter())
-            self.final_path = os.path.join(self.folder, filename)
+            self.final_path = os.path.join(self.folder, filename) + EXT[self.quality]
 
         logger.debug("Formatted path: %s", self.final_path)
 
@@ -123,22 +130,36 @@ class Track:
         return cls(track_id=track["id"], client=client, meta=meta)
 
     def tag(self, extra_meta=None):
+        """Tag the track.
+
+        :param extra_meta: extra metadata that should be applied
+        """
         assert isinstance(self.meta, TrackMetadata), "meta must be TrackMetadata"
+        assert self.__is_downloaded, "file must be downloaded before tagging"
 
-    def __getitem__(self, key):
-        """Dict-like interface for Track metadata.
+        # TODO: add compatibility with ALAC, AAC m4a
+        # TODO: implement `extra_meta`
+        if self.quality in (6, 7, 27):
+            codec = 'mp3'
+            try:
+                audio = ID3(self.final_path)
+            except ID3NoHeaderError:
+                audio = ID3()
+        elif self.quality == 5:
+            codec = 'flac'
+            audio = FLAC(self.final_path)
+        else:
+            raise ValueError('invalid quality "{self.quality}"')
 
-        :param key:
-        """
-        return self.meta[key]
+        for k, v in self.meta.tags(codec=codec):
+            audio[k] = v
 
-    def __setitem__(self, key, val):
-        """Dict-like interface for Track metadata.
-
-        :param key:
-        :param val:
-        """
-        self.meta[key] = val
+        if codec == 'mp3':
+            audio.save(self.final_path, "v2_version=3")
+        elif codec == 'flac':
+            audio.save()
+        else:
+            raise ValueError('error saving file with codec "{codec}"')
 
     def get(self, *keys, default=None):
         """Safe get method that allows for layered access.
@@ -157,6 +178,20 @@ class Track:
         """
         self[key] = val
 
+    def __getitem__(self, key):
+        """Dict-like interface for Track metadata.
+
+        :param key:
+        """
+        return self.meta[key]
+
+    def __setitem__(self, key, val):
+        """Dict-like interface for Track metadata.
+
+        :param key:
+        :param val:
+        """
+        self.meta[key] = val
 
 class Tracklist(list):
     """A base class for tracklist-like objects."""
