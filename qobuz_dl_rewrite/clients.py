@@ -2,7 +2,7 @@ import hashlib
 import logging
 import time
 from abc import ABC, abstractmethod
-from typing import Union, Generator
+from typing import Generator, Union, Tuple
 
 import requests
 import tidalapi
@@ -141,6 +141,7 @@ class QobuzClient(SecureClientInterface):
 
         logger.debug("authenticating")
         self._auth(email, pwd)
+        # self._api_login(email, pwd)
         logger.debug("setting up config")
         self._cfg_setup()
         logger.debug("ready to use")
@@ -256,6 +257,7 @@ class QobuzClient(SecureClientInterface):
         else:
             params = kwargs
 
+        logging.debug(f"calling api endpoint {epoint} with params {params}")
         r = self.session.get(f"{QOBUZ_BASE}/{epoint}", params=params)
 
         if epoint == "user/login":
@@ -317,6 +319,7 @@ class QobuzClient(SecureClientInterface):
         return self._multi_meta("artist/get", "albums_count", id, None)
 
     def get_plist_meta(self, id) -> Generator:
+        logging.info("in get plist meta")
         return self._multi_meta("playlist/get", "tracks_count", id, None)
 
     def get_label_meta(self, id) -> Generator:
@@ -391,36 +394,40 @@ class QobuzClient(SecureClientInterface):
         if not hasattr(self, "sec"):
             raise InvalidAppSecretError(f"Invalid secrets: {self.secrets}")
 
-    # ---------- Not Tested -------------
+    # ---------- NEW FUNCTIONS -------------
     def _api_get(self, media_type, **kwargs):
+        item_id = kwargs.get("id")
+        assert item_id is not None, 'must provide id'
+
         params = {
             "app_id": self.id,
-            f"{media_type}_id": kwargs.get("id"),
-            "limit": 500 or kwargs.get("limit"),
-            "offset": kwargs.get("offset"),
+            f"{media_type}_id": item_id,
+            "limit": kwargs.get("limit", 500),
+            "offset": kwargs.get("offset", 0),
         }
         extras = {
             "artist": "albums",
             "playlist": "tracks",
-            "label": "albums",
+            "label": "albums",  # not tested
         }
 
-        if media_type in extras:
-            params.update({"extras": extras[media_type]})
+        if extras.get(media_type):
+            params.update({"extra": extras[media_type]})
 
         epoint = f"{media_type}/get"
 
-        status_code, response = self._api_request(epoint, params)
+        response, status_code = self._api_request(epoint, params)
         return response
 
     def _api_login(self, email, pwd):
+        # usr_info = self._api_call("user/login", email=email, pwd=pwd)
         params = {
             "email": email,
             "password": pwd,
             "app_id": self.id,
         }
         epoint = "user/login"
-        status_code, resp = self._api_request(epoint, params)
+        resp, status_code = self._api_request(epoint, params)
 
         if status_code == 401:
             raise AuthenticationError("Invalid credentials from params %s" % params)
@@ -429,13 +436,21 @@ class QobuzClient(SecureClientInterface):
         else:
             logger.info("Logged in to Qobuz")
 
-    def _api_get_file_url(self, track_id, quality=6):
+        if not resp["user"]["credential"]["parameters"]:
+            raise IneligibleError("Free accounts are not eligible to download tracks.")
+
+        self.uat = resp["user_auth_token"]
+        self.session.headers.update({"X-User-Auth-Token": self.uat})
+        self.label = resp["user"]["credential"]["parameters"]["short_label"]
+
+    def _api_get_file_url(self, track_id, quality=6, sec=None):
         unix_ts = time.time()
 
         if int(quality) not in (5, 6, 7, 27):  # Needed?
             raise InvalidQuality(f"Invalid quality id {quality}. Choose 5, 6, 7 or 27")
 
-        r_sig = f"trackgetFileUrlformat_id{quality}intentstreamtrack_id{track_id}{unix_ts}{self.sec}"
+        secret = sec or self.sec
+        r_sig = f"trackgetFileUrlformat_id{quality}intentstreamtrack_id{track_id}{unix_ts}{secret}"
         logger.debug("Raw request signature: %s", r_sig)
         r_sig_hashed = hashlib.md5(r_sig.encode("utf-8")).hexdigest()
         logger.debug("Hashed request signature: %s", r_sig_hashed)
@@ -447,17 +462,24 @@ class QobuzClient(SecureClientInterface):
             "format_id": quality,
             "intent": "stream",
         }
-        response, status_code = self._api_request('track/getFileUrl', params)
+        response, status_code = self._api_request("track/getFileUrl", params)
         if status_code == 400:
-            raise InvalidAppSecretError(
-                "Invalid app secret from params %s" % params
-            )
+            raise InvalidAppSecretError("Invalid app secret from params %s" % params)
         return response
 
-    def _api_request(self, epoint, params):
+    def _api_request(self, epoint, params) -> Tuple[dict, int]:
+        logging.debug(f"Calling API with endpoint {epoint} params {params}")
         r = self.session.get(f"{QOBUZ_BASE}/{epoint}", params=params)
         r.raise_for_status()
         return r.json(), r.status_code
+
+    def _test_secret(self, secret) -> bool:
+        try:
+            self._api_get_file_url('19512574', sec=secret)
+            return True
+        except InvalidAppSecretError as error:
+            logger.debug("Test for %s secret didn't work: %s", secret, error)
+            return False
 
 
 class DeezerClient(ClientInterface):
