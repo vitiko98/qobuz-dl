@@ -2,7 +2,7 @@ import hashlib
 import logging
 import time
 from abc import ABC, abstractmethod
-from typing import Union
+from typing import Union, Generator
 
 import requests
 import tidalapi
@@ -22,14 +22,23 @@ logger = logging.getLogger(__name__)
 QOBUZ_BASE = "https://www.qobuz.com/api.json/0.2/"
 AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:83.0) Gecko/20100101 Firefox/83.0"
 
-QOBUZ_FEATURED_KEYS = ['most-streamed', 'recent-releases', 'best-sellers',
-                       'press-awards', 'ideal-discography', 'editor-picks',
-                       'most-featured', 'qobuzissims', 'new-releases', 'new-releases-full']
+QOBUZ_FEATURED_KEYS = [
+    "most-streamed",
+    "recent-releases",
+    "best-sellers",
+    "press-awards",
+    "ideal-discography",
+    "editor-picks",
+    "most-featured",
+    "qobuzissims",
+    "new-releases",
+    "new-releases-full",
+]
 
 # Tidal
 TIDAL_Q_IDS = {
-    4: tidalapi.Quality.low,       # AAC
-    5: tidalapi.Quality.high,      # AAC
+    4: tidalapi.Quality.low,  # AAC
+    5: tidalapi.Quality.high,  # AAC
     6: tidalapi.Quality.lossless,  # Lossless, but it also could be MQA
 }
 
@@ -41,6 +50,7 @@ DEEZER_Q_IDS = {4: 128, 5: 320, 6: 1411}
 
 
 # ----------- Abstract Classes -----------------
+
 
 class ClientInterface(ABC):
     """Common API for clients of all platforms.
@@ -95,6 +105,7 @@ class SecureClientInterface(ClientInterface):
 
 
 # ------------- Clients -----------------
+
 
 class QobuzClient(SecureClientInterface):
     # ------- Public Methods -------------
@@ -302,13 +313,13 @@ class QobuzClient(SecureClientInterface):
     def get_track_meta(self, id):
         return self._api_call("track/get", id=id)
 
-    def get_artist_meta(self, id):
+    def get_artist_meta(self, id) -> Generator:
         return self._multi_meta("artist/get", "albums_count", id, None)
 
-    def get_plist_meta(self, id):
+    def get_plist_meta(self, id) -> Generator:
         return self._multi_meta("playlist/get", "tracks_count", id, None)
 
-    def get_label_meta(self, id):
+    def get_label_meta(self, id) -> Generator:
         return self._multi_meta("label/get", "albums_count", id, None)
 
     def search_albums(self, query, limit):
@@ -344,7 +355,7 @@ class QobuzClient(SecureClientInterface):
         """
         assert query in QOBUZ_FEATURED_KEYS, f'query "{query}" is invalid.'
 
-        return self._api_call('album/getFeatured', limit=limit, type=query)
+        return self._api_call("album/getFeatured", limit=limit, type=query)
 
     def get_favorite_albums(self, offset, limit):
         return self._api_call(
@@ -408,7 +419,7 @@ class QobuzClient(SecureClientInterface):
             "password": pwd,
             "app_id": self.id,
         }
-        epoint = 'user/login'
+        epoint = "user/login"
         status_code, resp = self._api_request(epoint, params)
 
         if status_code == 401:
@@ -417,6 +428,31 @@ class QobuzClient(SecureClientInterface):
             raise InvalidAppIdError("Invalid app id from params %s" % params)
         else:
             logger.info("Logged in to Qobuz")
+
+    def _api_get_file_url(self, track_id, quality=6):
+        unix_ts = time.time()
+
+        if int(quality) not in (5, 6, 7, 27):  # Needed?
+            raise InvalidQuality(f"Invalid quality id {quality}. Choose 5, 6, 7 or 27")
+
+        r_sig = f"trackgetFileUrlformat_id{quality}intentstreamtrack_id{track_id}{unix_ts}{self.sec}"
+        logger.debug("Raw request signature: %s", r_sig)
+        r_sig_hashed = hashlib.md5(r_sig.encode("utf-8")).hexdigest()
+        logger.debug("Hashed request signature: %s", r_sig_hashed)
+
+        params = {
+            "request_ts": unix_ts,
+            "request_sig": r_sig_hashed,
+            "track_id": track_id,
+            "format_id": quality,
+            "intent": "stream",
+        }
+        response, status_code = self._api_request('track/getFileUrl', params)
+        if status_code == 400:
+            raise InvalidAppSecretError(
+                "Invalid app secret from params %s" % params
+            )
+        return response
 
     def _api_request(self, epoint, params):
         r = self.session.get(f"{QOBUZ_BASE}/{epoint}", params=params)
