@@ -347,12 +347,12 @@ class Album(Tracklist):
         # download large version for now
         if self.cover_urls is not None:
             cover_path = os.path.join(folder, "cover.jpg")
-            cover_url = self.cover_urls["large"]
+            cover_url = self.cover_urls["small"]
             tqdm_download(cover_url, cover_path)
 
         if quality in (6, 7, 27) and cover_path:
             # TODO: switch to small cover image if file is too large
-            if (s := os.path.getsize(cover_path)) < FLAC_MAX_BLOCKSIZE:
+            if (s := os.path.getsize(cover_path)) > FLAC_MAX_BLOCKSIZE:
                 raise Exception(f"cover art size ({s}) is too large")
 
             cover = Picture()

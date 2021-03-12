@@ -87,4 +87,4 @@ MP3_KEY = dict(zip(__METADATA_TYPES, __MP3_KEYS))
 COPYRIGHT = "\u2117"
 PHON_COPYRIGHT = "\u00a9"
 FLAC_MAX_BLOCKSIZE = 16777215
-FORMATTER_KEYS = ("title", "album", "albumartist", "artist", "year", "trackumber")
+FORMATTER_KEYS = ("title", "album", "albumartist", "artist", "year", "tracknumber")

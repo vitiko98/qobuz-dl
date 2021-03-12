@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 class TrackMetadata:
     """Contains all of the metadata needed to tag the file.
     Available attributes:
+
         * title
         * artist
         * album
@@ -325,4 +326,4 @@ class TrackMetadata:
         :rtype: str
         """
         # TODO: make a more readable repr
-        return json.dumps(self.__dict__, indent=2) + f"{self.genre} {self.copyright}"
+        return json.dumps(self.__dict__, indent=2)
