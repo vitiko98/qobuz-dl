@@ -1,8 +1,15 @@
 import re
+import logging
 
-from clients import QobuzClient, DeezerClient, TidalClient
-from downloader import Album, Track
+from .clients import QobuzClient, DeezerClient, TidalClient
+from .downloader import Album, Track
 from .db import QobuzDB
+
+# ------- Testing ----------
+from secrets import qobuz_email, qobuz_pwd
+# --------------------------
+
+logger = logging.getLogger(__name__)
 
 
 class QobuzDL:
@@ -13,7 +20,8 @@ class QobuzDL:
         downloads_db=None,
         config=None
     ):
-        pass
+        client = QobuzClient()
+        client.login(qobuz_email, qobuz_pwd)
 
     def handle_url(self, url):
         # should be able to handle urls cross platform
