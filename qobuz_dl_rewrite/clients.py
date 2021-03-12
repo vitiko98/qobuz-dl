@@ -22,6 +22,10 @@ logger = logging.getLogger(__name__)
 QOBUZ_BASE = "https://www.qobuz.com/api.json/0.2/"
 AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:83.0) Gecko/20100101 Firefox/83.0"
 
+QOBUZ_FEATURED_KEYS = ['most-streamed', 'recent-releases', 'best-sellers',
+                       'press-awards', 'ideal-discography', 'editor-picks',
+                       'most-featured', 'qobuzissims', 'new-releases', 'new-releases-full']
+
 # Tidal
 TIDAL_Q_IDS = {
     4: tidalapi.Quality.low,       # AAC
@@ -35,6 +39,8 @@ DEEZER_BASE = "https://api.deezer.com"
 DEEZER_DL = "http://dz.loaderapp.info/deezer"
 DEEZER_Q_IDS = {4: 128, 5: 320, 6: 1411}
 
+
+# ----------- Abstract Classes -----------------
 
 class ClientInterface(ABC):
     """Common API for clients of all platforms.
@@ -87,6 +93,8 @@ class SecureClientInterface(ClientInterface):
         """
         pass
 
+
+# ------------- Clients -----------------
 
 class QobuzClient(SecureClientInterface):
     # ------- Public Methods -------------
@@ -163,6 +171,7 @@ class QobuzClient(SecureClientInterface):
 
     # TODO: Maybe a way of reducing the if statements (?)
     # TODO: prepend a `_` before private methods
+
     def _api_call(self, epoint, **kwargs):
         if epoint == "user/login":
             params = {
@@ -333,13 +342,7 @@ class QobuzClient(SecureClientInterface):
         :param query: a query from the available queries
         :param limit: max number of results
         """
-
-        # maybe move to top of file as a constant?
-        valid_queries = ['most-streamed', 'recent-releases', 'best-sellers', 'press-awards',
-                         'ideal-discography', 'editor-picks', 'most-featured', 'qobuzissims',
-                         'new-releases', 'new-releases-full']
-
-        assert query in valid_queries, f'query "{query}" is invalid. choose from {valid_queries}'
+        assert query in QOBUZ_FEATURED_KEYS, f'query "{query}" is invalid.'
 
         return self._api_call('album/getFeatured', limit=limit, type=query)
 
