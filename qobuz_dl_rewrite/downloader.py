@@ -7,6 +7,7 @@ import requests
 from mutagen.flac import FLAC, Picture
 from mutagen.id3 import APIC, ID3, ID3NoHeaderError
 
+from .client import ClientInterface
 from .constants import EXT, FLAC_MAX_BLOCKSIZE
 from .exceptions import InvalidQuality, NonStreamable
 from .metadata import TrackMetadata
@@ -15,37 +16,41 @@ from .util import quality_id, safe_get, tqdm_download
 logger = logging.getLogger(__name__)
 
 
-# TODO: fix issue with the ClientInterface types
 class Track:
     """Represents a downloadable track returned by the qobuz api.
 
-        Loading metadata as a single track:
-        >>> t = Track(client, id='20252078')
-        >>> t.load_meta()  # load metadata from api
+    Loading metadata as a single track:
+    >>> t = Track(client, id='20252078')
+    >>> t.load_meta()  # load metadata from api
 
-        Loading metadata as part of an Album:
-        >>> t = Track.from_album_meta(api_track_dict, client)
+    Loading metadata as part of an Album:
+    >>> t = Track.from_album_meta(api_track_dict, client)
 
-        where `api_track_dict` is a track entry in an album tracklist.
+    where `api_track_dict` is a track entry in an album tracklist.
 
-        Downloading and tagging:
-        >>> t.download()
-        >>> t.tag()
-        """
+    Downloading and tagging:
+    >>> t.download()
+    >>> t.tag()
+    """
+
     def __init__(
         self,
-        client,
+        client: ClientInterface,
         **kwargs,
     ):
         """Create a track object.
 
+        The only required parameter is client, but passing at an id is
+        highly recommended. Every value in kwargs will be set as an attribute
+        of the object. (TODO: make this safer)
+
         :param track_id: track id returned by Qobuz API
         :type track_id: Optional[Union[str, int]]
         :param client: qopy client
-        :type client: Optional
+        :type client: ClientInterface
         :param meta: TrackMetadata object
         :type meta: Optional[TrackMetadata]
-        :param kwargs:
+        :param kwargs: id, filepath_format, meta, quality, folder
         """
         self.client = client
         self.__dict__.update(kwargs)
@@ -62,12 +67,15 @@ class Track:
             self.meta = kwargs["meta"]
         else:
             self.meta = None
+            # `load_meta` must be called at some point
             logger.debug("Track: meta not provided")
 
     def load_meta(self):
         """Send a request to the client to get metadata for this Track."""
-        track_meta = self.client.get(self.id, media_type='track')
-        self.meta = TrackMetadata(track=track_meta)
+        assert hasattr(self, "id"), "id must be set before loading metadata"
+
+        track_meta = self.client.get(self.id, media_type="track")
+        self.meta = TrackMetadata(track=track_meta)  # meta dict -> TrackMetadata object
 
     def download(
         self,
@@ -80,15 +88,16 @@ class Track:
         :param quality: (5, 6, 7, 27)
         :type quality: int
         :param folder: folder to download the files to
-        :type folder: Union[str, os.PathLike]
+        :type folder: Optional[Union[str, os.PathLike]]
         :param progress_bar: turn on/off progress bar
         :type progress_bar: bool
         """
         assert not self.__is_downloaded
         self.quality, self.folder = quality or self.quality, folder or self.folder
 
-        dl_info = self.client.get_file_url(self.id, quality)
+        dl_info = self.client.get_file_url(self.id, quality)  # dict
         if dl_info.get("sample") or not dl_info.get("sampling_rate"):
+            # because self.__is_downloaded is still False, track won't be tagged
             logger.debug("Track is a sample: %s", dl_info)
             return
 
@@ -104,12 +113,19 @@ class Track:
         tqdm_download(dl_info["url"], self.temp_file)  # downloads file
         os.rename(self.temp_file, self.final_path)
 
-        self.__is_downloaded = True  # internal state
+        self.__is_downloaded = True
 
     def format_final_path(self) -> str:
-        """Return the final filepath of the downloaded file."""
+        """Return the final filepath of the downloaded file.
+
+        This uses the `get_formatter` method of TrackMetadata, which returns
+        a dict with the keys allowed in formatter strings, and their values in
+        the TrackMetadata object.
+
+        EXT[key] returns the file extension based on quality id.
+        """
         if not hasattr(self, "final_path"):
-            formatter = self.meta.get_formatter()  # dict with keys in constants.FORMATTER_KEYS
+            formatter = self.meta.get_formatter()
             filename = self.track_file_format.format(**formatter)
             self.final_path = os.path.join(self.folder, filename) + EXT[self.quality]
 
@@ -118,12 +134,14 @@ class Track:
         return self.final_path
 
     @classmethod
-    def from_album_meta(cls, album: dict, pos: int, client):
-        """Return a new Track object from album metadata.
+    def from_album_meta(cls, album: dict, pos: int, client: ClientInterface):
+        """Return a new Track object initialized with info from the album dicts
+        returned by the "album/get" API requests.
 
         :param album: album metadata returned by API
         :param pos: index of the track
         :param client: qopy client object
+        :type client: ClientInterface
         :raises IndexError
         """
         track = album.get("tracks", {}).get("items", [])[pos]
@@ -131,10 +149,17 @@ class Track:
         meta.add_track_meta(album["tracks"]["items"][pos])
         return cls(client=client, meta=meta, id=track["id"])
 
-    def tag(self, album_meta=None, cover=None):
-        """Tag the track.
+    def tag(self, album_meta: dict = None, cover: Union[Picture, APIC] = None):
+        """Tag the track using the stored metadata.
 
-        :param extra_meta: extra metadata that should be applied
+        The info stored in the TrackMetadata object (self.meta) can be updated
+        with album metadata if necessary. The cover must be a mutagen cover-type
+        object that already has the bytes loaded.
+
+        :param album_meta: album metadata to update Track with
+        :type album_meta: dict
+        :param cover: initialized mutagen cover object
+        :type cover: Union[Picture, APIC]
         """
         assert isinstance(self.meta, TrackMetadata), "meta must be TrackMetadata"
         if not self.__is_downloaded:
@@ -145,28 +170,29 @@ class Track:
 
         if album_meta is not None:
             self.meta.add_album_meta(album_meta)  # extend meta with album info
-            self.cover_urls = album_meta["image"]
-            logger.debug(f"covers: {album_meta['image']}")
 
-        # TODO: add compatibility with MP4 container
         if self.quality in (6, 7, 27):
             container = "flac"
-            logger.debug("Tagging file with %s", container)
+            logger.debug("Tagging file with %s container", container)
             audio = FLAC(self.final_path)
         elif self.quality == 5:
             container = "mp3"
-            logger.debug("Tagging file with %s", container)
+            logger.debug("Tagging file with %s container", container)
             try:
                 audio = ID3(self.final_path)
             except ID3NoHeaderError:
                 audio = ID3()
+        elif self.quality == 4:  # tidal and deezer
+            # TODO: add compatibility with MP4 container
+            raise NotImplementedError("Qualities < 320kbps not implemented")
         else:
             raise InvalidQuality(f'Invalid quality: "{self.quality}"')
 
+        # automatically generate key, value pairs for a given container
         for k, v in self.meta.tags(container=container):
             audio[k] = v
 
-        assert cover is not None  # temporary
+        assert cover is not None  # remove this later with no_embed option
         if container == "flac":
             audio.add_picture(cover)
             audio.save()
@@ -210,7 +236,23 @@ class Track:
 
 
 class Tracklist(list):
-    """A base class for tracklist-like objects."""
+    """A base class for tracklist-like objects.
+
+    Implements methods to give it dict-like behavior. If a Tracklist
+    subclass is subscripted with [s: str], it will return an attribute s.
+    If it is subscripted with [i: int] it will return the i'th track in
+    the tracklist.
+
+    >>> tlist = Tracklist()
+    >>> tlist.tracklistname = 'my tracklist'
+    >>> tlist.append('first track')
+    >>> tlist[0]
+    'first track'
+    >>> tlist['tracklistname']
+    'my tracklist'
+    >>> tlist[2]
+    IndexError
+    """
 
     def __getitem__(self, key):
         if isinstance(key, str):
@@ -238,7 +280,7 @@ class Tracklist(list):
                 return default
 
         if isinstance(key, int):
-            if key < len(self):
+            if 0 <= key < len(self):
                 return super().__getitem__(key)
             else:
                 return default
@@ -270,7 +312,7 @@ class Album(Tracklist):
             self.load_meta()
 
     def load_meta(self):
-        self.meta = self.client.get(self.id, "album")
+        self.meta = self.client.get(self.id, media_type="album")
         self.title = self.meta.get("title")
         self.version = self.meta.get("version")
         self.cover_urls = self.meta.get("image")
@@ -282,9 +324,14 @@ class Album(Tracklist):
         self._load_tracks()
 
     def _load_tracks(self):
-        """Load tracks from the album metadata."""
-        # theres probably a cleaner way to do this
-        for i in range(len(self.meta["tracks"]["items"])):
+        """Given an album metadata dict returned by the API, append all of its
+        tracks to `self`.
+
+        This uses a classmethod to convert an item into a Track object, which
+        stores the metadata inside a TrackMetadata object.
+        """
+        for i in range(self.meta["tracks"]["total"]):
+            # append method inherited from superclass list
             self.append(
                 Track.from_album_meta(album=self.meta, pos=i, client=self.client)
             )
@@ -327,13 +374,16 @@ class Album(Tracklist):
                 "quality": 6,
             }
         else:
-            raise ValueError("invalid value for ")
+            raise ValueError(f"invalid source '{source}'")
 
+        # equivalent to Album(client=client, **info)
         return cls(client=client, **info)
 
     @property
     def title(self) -> str:
         """Return the title of the album.
+
+        It is formatted so that "version" keys are included.
 
         :rtype: str
         """
@@ -346,6 +396,10 @@ class Album(Tracklist):
 
     @title.setter
     def title(self, val):
+        """Sets the internal _title attribute to the given value.
+
+        :param val: title to set
+        """
         self._title = val
 
     def download(
@@ -355,7 +409,7 @@ class Album(Tracklist):
         progress_bar: bool = True,
         tag_tracks: bool = True,
     ):
-        """Download the entire album.
+        """Download all of the tracks in the album.
 
         :param quality: (5, 6, 7, 27)
         :type quality: int
@@ -382,32 +436,50 @@ class Album(Tracklist):
 
             tqdm_download(cover_url, cover_path)
 
-        # we just create a single cover object and use them for all tracks
-        if quality in (6, 7, 27) and cover_path:
-            if (s := os.path.getsize(cover_path)) > FLAC_MAX_BLOCKSIZE:
-                raise Exception(f"cover art size ({s}) is too large")
-
-            cover = Picture()  # FLAC cover art object
-        elif quality == 5:
-            cover = APIC()  # ID3 (MP3) cover art object
-        else:
-            raise InvalidQuality(f"Invalid quality: {quality}")
-
-        if cover_path:
-            cover.type = 3
-            cover.mime = "image/jpeg"
-            with open(cover_path, "rb") as img:
-                cover.data = img.read()
+        # create a single cover object and use them for all tracks
+        cover = self.get_cover_obj(cover_path, quality)
 
         for track in self:
-            logger.debug("Downloading track to %s with %s", folder, quality)
+            logger.debug("Downloading track to %s with quality=%s", folder, quality)
             track.download(quality, folder, progress_bar)
             if tag_tracks:
                 logger.debug("Tagging track")
                 track.tag(album_meta=self.meta, cover=cover)
 
+    def get_cover_obj(self, cover_path: str, quality: int) -> Union[Picture, APIC]:
+        """Given the path to an image and a quality id, return an initialized
+        cover object that can be used for every track in the album.
+
+        :param cover_path:
+        :type cover_path: str
+        :param quality:
+        :type quality: int
+        :rtype: Union[Picture, APIC]
+        """
+        cover_type = {5: APIC, 6: Picture, 7: Picture, 27: Picture}
+
+        cover = cover_type.get(quality)
+        if cover is Picture:
+            if os.path.getsize(cover_path) > FLAC_MAX_BLOCKSIZE:
+                raise Exception("Cover art too large (> 16.7 MB)")
+        elif cover is None:
+            raise InvalidQuality(f"Quality {quality} not allowed")
+
+        cover_obj = cover()
+        cover_obj.type = 3
+        cover_obj.mime = "image/jpeg"
+        with open(cover_path, "rb") as img:
+            cover_obj.data = img.read()
+
+        return cover_obj
+
     def __repr__(self) -> str:
-        return f"Album: {self.albumartist} - {self.title}"
+        """Return a string representation of this Album object.
+        Useful for pprint and json.dumps.
+
+        :rtype: str
+        """
+        return f"<Album: {self.albumartist} - {self.title}>"
 
 
 class Playlist(Tracklist):

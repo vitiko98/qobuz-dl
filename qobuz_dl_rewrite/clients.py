@@ -1,6 +1,3 @@
-# ------- testing
-import sys
-# -----------
 import hashlib
 import logging
 import time
@@ -97,7 +94,6 @@ class QobuzClient(SecureClientInterface):
         :param kwargs: include `app_id` and `secrets` to save a lot of time
         """
         if (kwargs.get("app_id") or kwargs.get("secrets")) is None:
-            sys.exit()
             logger.info("app_id and secrets not provided, fetching tokens")
             spoofer = Spoofer()
             kwargs["app_id"] = spoofer.get_app_id()

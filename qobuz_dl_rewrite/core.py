@@ -14,7 +14,7 @@ from .downloader import Album, Artist, Playlist
 logger = logging.getLogger(__name__)
 
 
-MEDIA_CLASS = {"album": Album, 'playlist': Playlist, 'artist': Artist}
+MEDIA_CLASS = {"album": Album, "playlist": Playlist, "artist": Artist}
 
 
 class QobuzDL:
