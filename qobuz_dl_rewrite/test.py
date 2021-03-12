@@ -11,8 +11,6 @@ from qobuz_dl_rewrite.clients import (
 )
 
 
-qobuz_email, qobuz_pwd = "nathanthomas707@gmail.com", "riqgUp-qoxror-9risdo"
-
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 
