@@ -17,8 +17,21 @@ logger = logging.getLogger(__name__)
 
 # TODO: fix issue with the ClientInterface types
 class Track:
-    """Represents a downloadable track returned by the qobuz api."""
+    """Represents a downloadable track returned by the qobuz api.
 
+        Loading metadata as a single track:
+        >>> t = Track(client, id='20252078')
+        >>> t.load_meta()  # load metadata from api
+
+        Loading metadata as part of an Album:
+        >>> t = Track.from_album_meta(api_track_dict, client)
+
+        where `api_track_dict` is a track entry in an album tracklist.
+
+        Downloading and tagging:
+        >>> t.download()
+        >>> t.tag()
+        """
     def __init__(
         self,
         client,
@@ -51,6 +64,11 @@ class Track:
             self.meta = None
             logger.debug("Track: meta not provided")
 
+    def load_meta(self):
+        """Send a request to the client to get metadata for this Track."""
+        track_meta = self.client.get(self.id, media_type='track')
+        self.meta = TrackMetadata(track=track_meta)
+
     def download(
         self,
         quality: int = 7,
@@ -68,8 +86,8 @@ class Track:
         """
         assert not self.__is_downloaded
         self.quality, self.folder = quality or self.quality, folder or self.folder
-        dl_info = self.client.get_file_url(self.id, quality)
 
+        dl_info = self.client.get_file_url(self.id, quality)
         if dl_info.get("sample") or not dl_info.get("sampling_rate"):
             logger.debug("Track is a sample: %s", dl_info)
             return
@@ -84,14 +102,14 @@ class Track:
             return
 
         tqdm_download(dl_info["url"], self.temp_file)  # downloads file
-        self.__is_downloaded = True
-
         os.rename(self.temp_file, self.final_path)
+
+        self.__is_downloaded = True  # internal state
 
     def format_final_path(self) -> str:
         """Return the final filepath of the downloaded file."""
         if not hasattr(self, "final_path"):
-            formatter = self.meta.get_formatter()
+            formatter = self.meta.get_formatter()  # dict with keys in constants.FORMATTER_KEYS
             filename = self.track_file_format.format(**formatter)
             self.final_path = os.path.join(self.folder, filename) + EXT[self.quality]
 
@@ -309,7 +327,7 @@ class Album(Tracklist):
                 "quality": 6,
             }
         else:
-            raise ValueError
+            raise ValueError("invalid value for ")
 
         return cls(client=client, **info)
 
