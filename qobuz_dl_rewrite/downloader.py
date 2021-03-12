@@ -2,6 +2,7 @@ import logging
 import os
 from tempfile import gettempdir
 from typing import Optional, Union
+import requests
 
 from mutagen.flac import FLAC, Picture
 from mutagen.id3 import APIC, ID3, ID3NoHeaderError
@@ -121,7 +122,7 @@ class Track:
         assert self.__is_downloaded, "file must be downloaded before tagging"
 
         if album_meta is not None:
-            self.meta.add_album_meta(album_meta)
+            self.meta.add_album_meta(album_meta)  # extend meta with album info
             self.cover_urls = album_meta["image"]
             logger.debug(f"covers: {album_meta['image']}")
 
@@ -343,21 +344,29 @@ class Album(Tracklist):
         os.makedirs(folder, exist_ok=True)
         logger.debug("Directory created: %s", folder)
 
+        # choose optimal cover size
         cover_path = None
-        # download large version for now
         if self.cover_urls is not None:
             cover_path = os.path.join(folder, "cover.jpg")
-            cover_url = self.cover_urls["small"]
+            if quality <= 5:  # presumably mp3 people want to save space
+                cover_url = self.cover_urls['small']
+            else:
+                r = requests.head(self.cover_urls['large'])
+                if int(r.headers['Content-Length']) > 5 * 10**6:  # 5MB
+                    cover_url = self.cover_urls['small']
+                else:
+                    cover_url = self.cover_urls['large']
+
             tqdm_download(cover_url, cover_path)
 
+        # we just create a single cover object and use them for all tracks
         if quality in (6, 7, 27) and cover_path:
-            # TODO: switch to small cover image if file is too large
             if (s := os.path.getsize(cover_path)) > FLAC_MAX_BLOCKSIZE:
                 raise Exception(f"cover art size ({s}) is too large")
 
-            cover = Picture()
+            cover = Picture()  # FLAC cover art object
         elif quality == 5:
-            cover = APIC()
+            cover = APIC()  # ID3 (MP3) cover art object
         else:
             raise InvalidQuality(f"Invalid quality: {quality}")
 
