@@ -380,6 +380,49 @@ class QobuzClient(SecureClientInterface):
         if not hasattr(self, "sec"):
             raise InvalidAppSecretError(f"Invalid secrets: {self.secrets}")
 
+    # ---------- Not Tested -------------
+    def _api_get(self, media_type, **kwargs):
+        params = {
+            "app_id": self.id,
+            f"{media_type}_id": kwargs.get("id"),
+            "limit": 500 or kwargs.get("limit"),
+            "offset": kwargs.get("offset"),
+        }
+        extras = {
+            "artist": "albums",
+            "playlist": "tracks",
+            "label": "albums",
+        }
+
+        if media_type in extras:
+            params.update({"extras": extras[media_type]})
+
+        epoint = f"{media_type}/get"
+
+        status_code, response = self._api_request(epoint, params)
+        return response
+
+    def _api_login(self, email, pwd):
+        params = {
+            "email": email,
+            "password": pwd,
+            "app_id": self.id,
+        }
+        epoint = 'user/login'
+        status_code, resp = self._api_request(epoint, params)
+
+        if status_code == 401:
+            raise AuthenticationError("Invalid credentials from params %s" % params)
+        elif status_code == 400:
+            raise InvalidAppIdError("Invalid app id from params %s" % params)
+        else:
+            logger.info("Logged in to Qobuz")
+
+    def _api_request(self, epoint, params):
+        r = self.session.get(f"{QOBUZ_BASE}/{epoint}", params=params)
+        r.raise_for_status()
+        return r.json(), r.status_code
+
 
 class DeezerClient(ClientInterface):
     def __init__(self):
