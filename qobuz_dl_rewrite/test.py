@@ -10,6 +10,7 @@ from qobuz_dl_rewrite.clients import (
     TidalClient,
 )
 
+qobuz_email, qobuz_pwd = None, None
 
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
