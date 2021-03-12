@@ -88,3 +88,9 @@ COPYRIGHT = "\u2117"
 PHON_COPYRIGHT = "\u00a9"
 FLAC_MAX_BLOCKSIZE = 16777215  # 16.7 MB
 FORMATTER_KEYS = ("title", "album", "albumartist", "artist", "year", "tracknumber")
+
+QOBUZ_URL_REGEX = (
+    r"(?:https:\/\/(?:w{3}|open|play)\.qobuz\.com)?"
+    r"(?:\/[a-z]{2}-[a-z]{2})?\/(album|artist|track|playlist|label)(?:"
+    r"\/[-\w\d]+)?\/([\w\d]+)"
+)

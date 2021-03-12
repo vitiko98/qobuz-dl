@@ -2,8 +2,8 @@ import logging
 import os
 from tempfile import gettempdir
 from typing import Optional, Union
-import requests
 
+import requests
 from mutagen.flac import FLAC, Picture
 from mutagen.id3 import APIC, ID3, ID3NoHeaderError
 
@@ -119,7 +119,11 @@ class Track:
         :param extra_meta: extra metadata that should be applied
         """
         assert isinstance(self.meta, TrackMetadata), "meta must be TrackMetadata"
-        assert self.__is_downloaded, "file must be downloaded before tagging"
+        if not self.__is_downloaded:
+            logger.info(
+                "Track %s not tagged because it was not downloaded", self["title"]
+            )
+            return
 
         if album_meta is not None:
             self.meta.add_album_meta(album_meta)  # extend meta with album info
@@ -169,14 +173,14 @@ class Track:
         :param key:
         :param val:
         """
-        self[key] = val
+        self.__setitem__(key, val)
 
     def __getitem__(self, key):
         """Dict-like interface for Track metadata.
 
         :param key:
         """
-        return self.meta[key]
+        return getattr(self.meta, key)
 
     def __setitem__(self, key, val):
         """Dict-like interface for Track metadata.
@@ -184,7 +188,7 @@ class Track:
         :param key:
         :param val:
         """
-        self.meta[key] = val
+        setattr(self.meta, key, val)
 
 
 class Tracklist(list):
@@ -252,8 +256,9 @@ class Album(Tracklist):
         self.title = self.meta.get("title")
         self.version = self.meta.get("version")
         self.cover_urls = self.meta.get("image")
+        self.streamable = self.meta.get("streamable")
 
-        if not self["streamable"]:
+        if not self.get("streamable"):
             raise NonStreamable(f"This album is not streamable ({self.id} ID)")
 
         self._load_tracks()
@@ -344,18 +349,18 @@ class Album(Tracklist):
         os.makedirs(folder, exist_ok=True)
         logger.debug("Directory created: %s", folder)
 
-        # choose optimal cover size
+        # choose optimal cover size and download it
         cover_path = None
         if self.cover_urls is not None:
             cover_path = os.path.join(folder, "cover.jpg")
             if quality <= 5:  # presumably mp3 people want to save space
-                cover_url = self.cover_urls['small']
+                cover_url = self.cover_urls["small"]
             else:
-                r = requests.head(self.cover_urls['large'])
-                if int(r.headers['Content-Length']) > 5 * 10**6:  # 5MB
-                    cover_url = self.cover_urls['small']
+                img = requests.head(self.cover_urls["large"])
+                if int(img.headers["Content-Length"]) > 5 * 10 ** 6:  # 5MB
+                    cover_url = self.cover_urls["small"]
                 else:
-                    cover_url = self.cover_urls['large']
+                    cover_url = self.cover_urls["large"]
 
             tqdm_download(cover_url, cover_path)
 
@@ -384,7 +389,7 @@ class Album(Tracklist):
                 track.tag(album_meta=self.meta, cover=cover)
 
     def __repr__(self) -> str:
-        return f"Album: {self.albumartist} {self.title}"
+        return f"Album: {self.albumartist} - {self.title}"
 
 
 class Playlist(Tracklist):

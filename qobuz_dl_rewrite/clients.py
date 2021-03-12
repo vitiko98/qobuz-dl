@@ -1,3 +1,6 @@
+# ------- testing
+import sys
+# -----------
 import hashlib
 import logging
 import time
@@ -93,7 +96,8 @@ class QobuzClient(SecureClientInterface):
         :type pwd: str
         :param kwargs: include `app_id` and `secrets` to save a lot of time
         """
-        if kwargs.get("app_id") or kwargs.get("secrets") is None:
+        if (kwargs.get("app_id") or kwargs.get("secrets")) is None:
+            sys.exit()
             logger.info("app_id and secrets not provided, fetching tokens")
             spoofer = Spoofer()
             kwargs["app_id"] = spoofer.get_app_id()
@@ -115,6 +119,9 @@ class QobuzClient(SecureClientInterface):
         logger.debug("setting up config")
         self._cfg_setup()
         logger.debug("ready to use")
+
+        if kwargs.get("save_secrets"):
+            return self.id, self.secrets
 
     def search(self, query: str, media_type: str = "album", limit: int = 500):
         if media_type.endswith("s"):

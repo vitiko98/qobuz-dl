@@ -30,7 +30,7 @@ def quality_id(bit_depth: int, sampling_rate: int):
     :param sampling_rate: sampling rate in kHz
     :type sampling_rate: int
     """
-    if bit_depth or sampling_rate is None:  # is lossy
+    if (bit_depth or sampling_rate) is None:  # is lossy
         return 5
     if bit_depth == 16:
         return 6

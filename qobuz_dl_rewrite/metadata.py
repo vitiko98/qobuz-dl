@@ -1,7 +1,7 @@
 import json
 import logging
 import re
-from typing import Generator, Optional, Union, Tuple
+from typing import Generator, Optional, Tuple, Union
 
 from .constants import (
     COPYRIGHT,
@@ -64,7 +64,7 @@ class TrackMetadata:
         self.tracknumber = None
         self.discnumber = None
 
-        if track and album is None:
+        if (track and album) is None:
             return
 
         if track is not None:
