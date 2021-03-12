@@ -24,8 +24,8 @@ AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:83.0) Gecko/20100101 Firef
 
 # Tidal
 TIDAL_Q_IDS = {
-    4: tidalapi.Quality.low,  # AAC
-    5: tidalapi.Quality.high,  # AAC
+    4: tidalapi.Quality.low,       # AAC
+    5: tidalapi.Quality.high,      # AAC
     6: tidalapi.Quality.lossless,  # Lossless, but it also could be MQA
 }
 
@@ -37,12 +37,14 @@ DEEZER_Q_IDS = {4: 128, 5: 320, 6: 1411}
 
 
 class ClientInterface(ABC):
-    """Common API for clients of all platforms. Do not directly use this
-    class; use a subclass.
+    """Common API for clients of all platforms.
+
+    This is an Abstract Base Class. It cannot be instantiated;
+    it is merely a template.
     """
 
     @abstractmethod
-    def search(self, query: str, type_="album"):
+    def search(self, query: str, media_type="album"):
         """Search API for query.
 
         :param query:
@@ -52,7 +54,7 @@ class ClientInterface(ABC):
         pass
 
     @abstractmethod
-    def get(self, meta_id, type_="album"):
+    def get(self, meta_id, media_type="album"):
         """Get metadata.
 
         :param meta_id:
@@ -71,7 +73,11 @@ class ClientInterface(ABC):
 
 class SecureClientInterface(ClientInterface):
     """Identical to a ClientInterface except for a login
-    method."""
+    method.
+
+    This is an Abstract Base Class. It cannot be instantiated;
+    it is merely a template.
+    """
 
     @abstractmethod
     def login(self, **kwargs):
@@ -87,11 +93,15 @@ class QobuzClient(SecureClientInterface):
     def login(self, email: str, pwd: str, **kwargs):
         """Authenticate the QobuzClient. Must have a paid membership.
 
+        If `app_id` and `secrets` are not provided, this will run the
+        Spoofer script, which retrieves them. This will take some time,
+        so it is recommended to cache them somewhere for reuse.
+
         :param email: email for the qobuz account
         :type email: str
         :param pwd: password for the qobuz account
         :type pwd: str
-        :param kwargs: include `app_id` and `secrets` to save a lot of time
+        :param kwargs: app_id, secrets, return_secrets
         """
         if (kwargs.get("app_id") or kwargs.get("secrets")) is None:
             logger.info("app_id and secrets not provided, fetching tokens")
@@ -116,7 +126,8 @@ class QobuzClient(SecureClientInterface):
         self._cfg_setup()
         logger.debug("ready to use")
 
-        if kwargs.get("save_secrets"):
+        # used for caching app_id and secrets
+        if kwargs.get("return_secrets"):
             return self.id, self.secrets
 
     def search(self, query: str, media_type: str = "album", limit: int = 500):
@@ -128,6 +139,7 @@ class QobuzClient(SecureClientInterface):
             "artist": self.search_artists,
             "playlist": self.search_playlists,
             "track": self.search_tracks,
+            "featured": self.get_featured_albums,
         }
 
         search_func = f_map[media_type]
@@ -184,6 +196,12 @@ class QobuzClient(SecureClientInterface):
                 "offset": kwargs.get("offset"),
                 "extra": "albums",
             }
+        elif epoint == "album/getFeatured":
+            params = {
+                "limit": 500,
+                "offset": kwargs.get("offset"),
+                "type": kwargs.get("type"),
+            }
         elif epoint == "userLibrary/getAlbumsList":
             unix = time.time()
             r_sig = "userLibrarygetAlbumsList" + str(unix) + kwargs["sec"]
@@ -214,13 +232,6 @@ class QobuzClient(SecureClientInterface):
                 "track_id": track_id,
                 "format_id": fmt_id,
                 "intent": "stream",
-            }
-        elif epoint == "album/getFeatured":
-            unix = time.time()
-            params = {
-                "limit": 500,
-                "offset": kwargs.get("offset"),
-                "type": kwargs.get("type"),
             }
         else:
             params = kwargs
@@ -302,6 +313,35 @@ class QobuzClient(SecureClientInterface):
 
     def search_tracks(self, query, limit):
         return self._api_call("track/search", query=query, limit=limit)
+
+    def get_featured_albums(self, query: str, limit: int):
+        """Get featured albums.
+
+        Available queries:
+
+            * most-streamed
+            * recent-releases
+            * best-sellers
+            * press-awards
+            * ideal-discography
+            * editor-picks
+            * most-featured
+            * qobuzissims
+            * new-releases
+            * new-releases-full
+
+        :param query: a query from the available queries
+        :param limit: max number of results
+        """
+
+        # maybe move to top of file as a constant?
+        valid_queries = ['most-streamed', 'recent-releases', 'best-sellers', 'press-awards',
+                         'ideal-discography', 'editor-picks', 'most-featured', 'qobuzissims',
+                         'new-releases', 'new-releases-full']
+
+        assert query in valid_queries, f'query "{query}" is invalid. choose from {valid_queries}'
+
+        return self._api_call('album/getFeatured', limit=limit, type=query)
 
     def get_favorite_albums(self, offset, limit):
         return self._api_call(
