@@ -318,6 +318,7 @@ def download_id_by_type(
                 )
                 return
             track_attr = {
+                "album": meta["album"]["title"],
                 "artist": meta["album"]["artist"]["name"],
                 "tracktitle": track_title,
                 "year": meta["album"]["release_date_original"].split("-")[0],
