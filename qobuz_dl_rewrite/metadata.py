@@ -64,8 +64,8 @@ class TrackMetadata:
         self.tracknumber = None
         self.discnumber = None
 
-        # if not (track and album):
-        #    return
+        if not (track and album):
+            return
 
         if track is not None:
             self.add_track_meta(track)
