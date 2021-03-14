@@ -442,7 +442,7 @@ class Album(Tracklist):
     def download(
         self,
         quality: int = 7,
-        folder: Union[str, os.PathLike] = "downloads",
+        folder: Union[str, os.PathLike] = "download",
         progress_bar: bool = True,
         tag_tracks: bool = True,
         cover_key: str = "large",

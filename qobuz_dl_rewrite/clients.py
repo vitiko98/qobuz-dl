@@ -2,7 +2,7 @@ import hashlib
 import logging
 import time
 from abc import ABC, abstractmethod
-from typing import Generator, Tuple, Union
+from typing import Generator, Optional, Tuple, Union
 
 import requests
 import tidalapi
@@ -484,13 +484,15 @@ class DeezerClient(ClientInterface):
     def __init__(self):
         self.session = requests.Session()
 
-    def search(self, query: str, media_type: str = "album"):
+    def search(self, query: str, media_type: str = "album", limit: int = 200):
         """Search API for query.
 
         :param query:
         :type query: str
-        :param type_:
-        :type type_: str
+        :param media_type:
+        :type media_type: str
+        :param limit:
+        :type limit: int
         """
         # TODO: more robust url sanitize
         query = query.replace(" ", "+")
@@ -498,6 +500,7 @@ class DeezerClient(ClientInterface):
         if media_type.endswith("s"):
             media_type = media_type[:-1]
 
+        # TODO: use limit parameter
         response = self.session.get(f"{DEEZER_BASE}/search/{media_type}?q={query}")
         response.raise_for_status()
 
