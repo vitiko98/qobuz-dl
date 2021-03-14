@@ -176,118 +176,7 @@ class QobuzClient(SecureClientInterface):
 
     # ---------- Private Methods ---------------
 
-    # Credits to Sorrow446 for these methods
-
-    # TODO: Maybe a way of reducing the if statements (?)
-    # TODO: prepend a `_` before private methods
-
-    def _api_call(self, epoint, **kwargs):
-        if epoint == "user/login":
-            params = {
-                "email": kwargs.get("email"),
-                "password": kwargs.get("pwd"),
-                "app_id": self.id,
-            }
-        elif epoint == "track/get":
-            params = {"track_id": kwargs.get("id")}
-        elif epoint == "album/get":
-            params = {"album_id": kwargs.get("id")}
-        elif epoint == "playlist/get":
-            params = {
-                "extra": "tracks",
-                "playlist_id": kwargs.get("id"),
-                "limit": 500,
-                "offset": kwargs.get("offset"),
-            }
-        elif epoint == "artist/get":
-            params = {
-                "app_id": self.id,
-                "artist_id": kwargs.get("id"),
-                "limit": 500,
-                "offset": kwargs.get("offset"),
-                "extra": "albums",
-            }
-        elif epoint == "label/get":
-            params = {
-                "label_id": kwargs.get("id"),
-                "limit": 500,
-                "offset": kwargs.get("offset"),
-                "extra": "albums",
-            }
-        elif epoint == "album/getFeatured":
-            params = {
-                "limit": 500,
-                "offset": kwargs.get("offset"),
-                "type": kwargs.get("type"),
-            }
-        elif epoint == "userLibrary/getAlbumsList":
-            unix = time.time()
-            r_sig = "userLibrarygetAlbumsList" + str(unix) + kwargs["sec"]
-            r_sig_hashed = hashlib.md5(r_sig.encode("utf-8")).hexdigest()
-            params = {
-                "app_id": self.id,
-                "user_auth_token": self.uat,
-                "request_ts": unix,
-                "request_sig": r_sig_hashed,
-            }
-        elif epoint == "track/getFileUrl":
-            unix = time.time()
-
-            track_id = kwargs.get("id")
-            fmt_id = kwargs.get("fmt_id", 6)  # 6 as default
-
-            if int(fmt_id) not in (5, 6, 7, 27):  # Needed?
-                raise InvalidQuality("Invalid quality id: choose between 5, 6, 7 or 27")
-
-            r_sig = f"trackgetFileUrlformat_id{fmt_id}intentstreamtrack_id{track_id}{unix}{self.sec}"
-            logger.debug("Raw request signature: %s", r_sig)
-            r_sig_hashed = hashlib.md5(r_sig.encode("utf-8")).hexdigest()
-            logger.debug("Hashed request signature: %s", r_sig_hashed)
-
-            params = {
-                "request_ts": unix,
-                "request_sig": r_sig_hashed,
-                "track_id": track_id,
-                "format_id": fmt_id,
-                "intent": "stream",
-            }
-        else:
-            params = kwargs
-
-        logging.debug(f"calling api endpoint {epoint} with params {params}")
-        r = self.session.get(f"{QOBUZ_BASE}/{epoint}", params=params)
-
-        if epoint == "user/login":
-            if r.status_code == 401:
-                raise AuthenticationError("Invalid credentials from params %s" % params)
-            elif r.status_code == 400:
-                raise InvalidAppIdError("Invalid app id from params %s" % params)
-            else:
-                logger.info("Logged in to Qobuz")
-
-        elif epoint in ["track/getFileUrl", "userLibrary/getAlbumsList"]:
-            if r.status_code == 400:
-                raise InvalidAppSecretError(
-                    "Invalid app secret from params %s" % params
-                )
-
-        r.raise_for_status()  # Needed?
-
-        return r.json()
-
-    def _auth(self, email, pwd):
-        usr_info = self._api_call("user/login", email=email, pwd=pwd)
-
-        if not usr_info["user"]["credential"]["parameters"]:
-            raise IneligibleError("Free accounts are not eligible to download tracks.")
-
-        self.uat = usr_info["user_auth_token"]
-
-        self.session.headers.update({"X-User-Auth-Token": self.uat})
-
-        self.label = usr_info["user"]["credential"]["parameters"]["short_label"]
-
-        # logger.info(f"Membership: {self.label}")
+    # Credit to Sorrow446 for the original methods
 
     # Needs more testing and debugging
     # TODO: rewrite for new functions
@@ -306,34 +195,6 @@ class QobuzClient(SecureClientInterface):
                 yield j
                 total -= 500
             offset += 500
-
-    def get_album_meta(self, id):
-        return self._api_call("album/get", id=id)
-
-    def get_track_meta(self, id):
-        return self._api_call("track/get", id=id)
-
-    def get_artist_meta(self, id) -> Generator:
-        return self._multi_meta("artist/get", "albums_count", id, None)
-
-    def get_plist_meta(self, id) -> Generator:
-        logging.info("in get plist meta")
-        return self._multi_meta("playlist/get", "tracks_count", id, None)
-
-    def get_label_meta(self, id) -> Generator:
-        return self._multi_meta("label/get", "albums_count", id, None)
-
-    def search_albums(self, query, limit):
-        return self._api_call("album/search", query=query, limit=limit)
-
-    def search_artists(self, query, limit):
-        return self._api_call("artist/search", query=query, limit=limit)
-
-    def search_playlists(self, query, limit):
-        return self._api_call("playlist/search", query=query, limit=limit)
-
-    def search_tracks(self, query, limit):
-        return self._api_call("track/search", query=query, limit=limit)
 
     def get_featured_albums(self, query: str, limit: int):
         """Get featured albums.
@@ -396,11 +257,9 @@ class QobuzClient(SecureClientInterface):
     # ---------- NEW FUNCTIONS -------------
     def _api_get(self, media_type, **kwargs):
         item_id = kwargs.get("id")
-        assert item_id is not None, "must provide id"
 
         params = {
             "app_id": self.id,
-            f"{media_type}_id": item_id,
             "limit": kwargs.get("limit", 500),
             "offset": kwargs.get("offset", 0),
         }
@@ -410,6 +269,9 @@ class QobuzClient(SecureClientInterface):
             "label": "albums",  # not tested
         }
 
+        if media_type in ("track", "album", "playlist", "label", "artist"):
+            params.update({f"{media_type}_id": item_id})
+
         if extras.get(media_type):
             params.update({"extra": extras[media_type]})
 
@@ -417,6 +279,20 @@ class QobuzClient(SecureClientInterface):
 
         response, status_code = self._api_request(epoint, params)
         return response
+
+    # should I remove this? login now uses _get_file_url
+    def _api_user_library_get(self, media_type, **kwargs):
+        epoint = "userLibrary/getAlbumsList"
+        unix = time.time()
+        r_sig = "userLibrarygetAlbumsList" + str(unix) + kwargs["sec"]
+        r_sig_hashed = hashlib.md5(r_sig.encode("utf-8")).hexdigest()
+        params = {
+            "app_id": self.id,
+            "user_auth_token": self.uat,
+            "request_ts": unix,
+            "request_sig": r_sig_hashed,
+        }
+        response, status_code = self._api_request(epoint, params)
 
     def _api_search(self, query, media_type, limit=500):
         params = {

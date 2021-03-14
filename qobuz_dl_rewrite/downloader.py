@@ -127,15 +127,13 @@ class Track:
         This uses the `get_formatter` method of TrackMetadata, which returns
         a dict with the keys allowed in formatter strings, and their values in
         the TrackMetadata object.
-
-        EXT[key] returns the file extension based on quality id.
         """
         if not hasattr(self, "final_path"):
             formatter = self.meta.get_formatter()
             filename = self.track_file_format.format(**formatter)
             self.final_path = (
                 os.path.join(self.folder, sanitize_filename(filename))[:250]
-                + EXT[self.quality]
+                + EXT[self.quality]  # file extension dict
             )
 
         logger.debug("Formatted path: %s", self.final_path)
