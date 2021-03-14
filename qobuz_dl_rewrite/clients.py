@@ -128,49 +128,31 @@ class QobuzClient(SecureClientInterface):
             kwargs["app_id"] = spoofer.get_app_id()
             kwargs["secrets"] = spoofer.get_secrets()
 
-        self.id = str(kwargs["app_id"])  # Ensure it is a string
+        self.app_id = str(kwargs["app_id"])  # Ensure it is a string
         self.secrets = kwargs["secrets"]
 
         self.session = requests.Session()
         self.session.headers.update(
             {
                 "User-Agent": AGENT,
-                "X-App-Id": self.id,
+                "X-App-Id": self.app_id,
             }
         )
 
-        self._auth(email, pwd)
-        self._cfg_setup()
+        self._api_login(email, pwd)
+        logger.debug("Logged into Qobuz")
+        self._validate_secrets()
         logger.debug("Qobuz client is ready to use")
 
         # used for caching app_id and secrets
         if kwargs.get("return_secrets"):
-            return self.id, self.secrets
+            return self.app_id, self.secrets
 
     def search(self, query: str, media_type: str = "album", limit: int = 500):
-        if media_type.endswith("s"):
-            media_type = media_type[:-1]
+        return self._api_search(query, media_type, limit)
 
-        f_map = {
-            "album": self.search_albums,
-            "artist": self.search_artists,
-            "playlist": self.search_playlists,
-            "track": self.search_tracks,
-            "featured": self.get_featured_albums,
-        }
-
-        search_func = f_map[media_type]
-        return search_func(query, limit=limit)
-
-    def get(self, meta_id: Union[str, int], media_type: str = "album"):
-        f_map = {
-            "album": self.get_album_meta,
-            "artist": self.get_artist_meta,
-            "playlist": self.get_plist_meta,
-            "track": self.get_track_meta,
-        }
-        return f_map[media_type](meta_id)
-
+    def get(self, item_id: Union[str, int], media_type: str = "album"):
+        return self._api_get(media_type, item_id=item_id)
 
     # ---------- Private Methods ---------------
 
@@ -194,20 +176,20 @@ class QobuzClient(SecureClientInterface):
                 total -= 500
             offset += 500
 
-    def _cfg_setup(self):
+    def _validate_secrets(self):
         for secret in self.secrets:
             if self._test_secret(secret):
                 self.sec = secret
-                logger.debug("Working secret and app_id: %s - %s", secret, self.id)
+                logger.debug("Working secret and app_id: %s - %s", secret, self.app_id)
                 break
         if not hasattr(self, "sec"):
             raise InvalidAppSecretError(f"Invalid secrets: {self.secrets}")
 
     def _api_get(self, media_type, **kwargs):
-        item_id = kwargs.get("id")
+        item_id = kwargs.get("item_id")
 
         params = {
-            "app_id": self.id,
+            "app_id": self.app_id,
             f"{media_type}_id": item_id,
             "limit": kwargs.get("limit", 500),
             "offset": kwargs.get("offset", 0),
@@ -233,7 +215,7 @@ class QobuzClient(SecureClientInterface):
         r_sig = "userLibrarygetAlbumsList" + str(unix) + kwargs["sec"]
         r_sig_hashed = hashlib.md5(r_sig.encode("utf-8")).hexdigest()
         params = {
-            "app_id": self.id,
+            "app_id": self.app_id,
             "user_auth_token": self.uat,
             "request_ts": unix,
             "request_sig": r_sig_hashed,
@@ -267,15 +249,15 @@ class QobuzClient(SecureClientInterface):
         params = {
             "email": email,
             "password": pwd,
-            "app_id": self.id,
+            "app_id": self.app_id,
         }
         epoint = "user/login"
         resp, status_code = self._api_request(epoint, params)
 
         if status_code == 401:
-            raise AuthenticationError("Invalid credentials from params %s" % params)
+            raise AuthenticationError(f"Invalid credentials from params {params}")
         elif status_code == 400:
-            raise InvalidAppIdError("Invalid app id from params %s" % params)
+            raise InvalidAppIdError(f"Invalid app id from params {params}")
         else:
             logger.info("Logged in to Qobuz")
 
