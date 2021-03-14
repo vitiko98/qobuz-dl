@@ -1,3 +1,5 @@
+from typing import Optional
+
 import requests
 from tqdm import tqdm
 
@@ -21,16 +23,16 @@ def safe_get(d: dict, *keys, default=None):
     return res
 
 
-def quality_id(bit_depth: int, sampling_rate: int):
+def quality_id(bit_depth: Optional[int], sampling_rate: Optional[int]):
     """Return a quality id in (5, 6, 7, 27) from bit depth and
     sampling rate. If None is provided, mp3/lossy is assumed.
 
-    :param bit_depth: bit depth of track
-    :type bit_depth: int
-    :param sampling_rate: sampling rate in kHz
-    :type sampling_rate: int
+    :param bit_depth:
+    :type bit_depth: Optional[int]
+    :param sampling_rate:
+    :type sampling_rate: Optional[int]
     """
-    if (bit_depth or sampling_rate) is None:  # is lossy
+    if not (bit_depth or sampling_rate):  # is lossy
         return 5
     if bit_depth == 16:
         return 6

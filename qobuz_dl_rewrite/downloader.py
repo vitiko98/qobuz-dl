@@ -2,7 +2,7 @@ import logging
 import os
 import shutil
 from tempfile import gettempdir
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 import requests
 from mutagen.flac import FLAC, Picture
@@ -98,10 +98,14 @@ class Track:
         self.quality, self.folder = quality or self.quality, folder or self.folder
 
         dl_info = self.client.get_file_url(self.id, quality)  # dict
-        if dl_info.get("sample") or not dl_info.get("sampling_rate"):
-            # because self.__is_downloaded is still False, track won't be tagged
+
+        if not (dl_info.get("url") or dl_info.get("sampling_rate")) or dl_info.get(
+            "sample"
+        ):
             logger.debug("Track is a sample: %s", dl_info)
             return
+
+        logger.debug("Downloadable URL found: %s", dl_info["url"])
 
         self.temp_file = os.path.join(gettempdir(), "~qdl_track.tmp")
 
@@ -259,198 +263,35 @@ class Tracklist(list):
     IndexError
     """
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: Union[str, int]):
         if isinstance(key, str):
             return getattr(self, key)
 
         if isinstance(key, int):
             return super().__getitem__(key)
 
-        raise TypeError(f"Bad type for key. Expected str or int, found {type(key)}")
-
-    def __setitem__(self, key, val):
+    def __setitem__(self, key: Union[str, int], val: Any):
         if isinstance(key, str):
             setattr(self, key, val)
 
         if isinstance(key, int):
             super().__setitem__(key, val)
 
-        raise TypeError(f"Bad type for value. Expected str or int, found {type(val)}")
-
-    def get(self, key, default=None):
+    def get(self, key: Union[str, int], default: Optional[Any]):
         if isinstance(key, str):
             if hasattr(self, key):
                 return getattr(self, key)
-            else:
-                return default
+
+            return default
 
         if isinstance(key, int):
             if 0 <= key < len(self):
                 return super().__getitem__(key)
-            else:
-                return default
 
-        raise TypeError(f"Bad type for key. Expected str or int, found {type(key)}")
+            return default
 
     def set(self, key, val):
         self.__setitem__(key, val)
-
-
-class Album(Tracklist):
-    """Represents a downloadable Qobuz album."""
-
-    def __init__(self, client, **kwargs):
-        """Create a new Album object.
-
-        :param client: a qopy client instance
-        :param album_id: album id returned by qobuz api
-        :type album_id: Union[str, int]
-        :param kwargs:
-        """
-        self.client = client
-
-        for k, v in kwargs.items():
-            setattr(self, k, v)
-
-        # to improve from_api method speed
-        if kwargs.get("load_on_init"):
-            self.load_meta()
-
-    def load_meta(self):
-        self.meta = self.client.get(self.id, media_type="album")
-        self.title = self.meta.get("title")
-        self.version = self.meta.get("version")
-        self.cover_urls = self.meta.get("image")
-        self.streamable = self.meta.get("streamable")
-
-        if not self.get("streamable"):
-            raise NonStreamable(f"This album is not streamable ({self.id} ID)")
-
-        self._load_tracks()
-
-    def _load_tracks(self):
-        """Given an album metadata dict returned by the API, append all of its
-        tracks to `self`.
-
-        This uses a classmethod to convert an item into a Track object, which
-        stores the metadata inside a TrackMetadata object.
-        """
-        for i in range(self.meta["tracks"]["total"]):
-            # append method inherited from superclass list
-            self.append(
-                Track.from_album_meta(album=self.meta, pos=i, client=self.client)
-            )
-
-    @classmethod
-    def from_api(cls, item: dict, client, source: str = "qobuz"):
-        """Create an Album object from the api response of Qobuz, Tidal,
-        or Deezer.
-
-        :param resp: response dict
-        :type resp: dict
-        :param source: in ('qobuz', 'deezer', 'tidal')
-        :type source: str
-        """
-        if source == "qobuz":
-            # only collect minimal information for identification purposes
-            info = {
-                "title": item.get("title"),
-                "albumartist": item.get("artist", {}).get("name")
-                or item.get("performer", {}).get("name"),  # KeyError
-                "id": item.get("id"),  # this is the important part
-                "version": item.get("version"),  # KeyError
-                "url": item.get("url"),
-                "quality": quality_id(
-                    item["maximum_bit_depth"], item["maximum_sampling_rate"]
-                ),  # KeyError safe?
-                "streamable": item.get("streamable", False),
-            }
-        elif source == "tidal":
-            info = {
-                "title": item.name,
-                "id": item.id,
-                "albumartist": item.artist.name,
-            }
-        elif source == "deezer":
-            info = {
-                "title": item.get("title"),
-                "albumartist": item.get("artist", {}).get("name"),
-                "id": item.get("id"),
-                "url": item.get("link"),
-                "quality": 6,
-            }
-        else:
-            raise ValueError(f"invalid source '{source}'")
-
-        # equivalent to Album(client=client, **info)
-        return cls(client=client, **info)
-
-    @property
-    def title(self) -> str:
-        """Return the title of the album.
-
-        It is formatted so that "version" keys are included.
-
-        :rtype: str
-        """
-        album_title = self._title
-        if self.get("version"):
-            if self.version.lower() not in album_title.lower():
-                album_title = f"{album_title} ({self.version})"
-
-        return album_title
-
-    @title.setter
-    def title(self, val):
-        """Sets the internal _title attribute to the given value.
-
-        :param val: title to set
-        """
-        self._title = val
-
-    def download(
-        self,
-        quality: int = 7,
-        folder: Union[str, os.PathLike] = "downloads",
-        progress_bar: bool = True,
-        tag_tracks: bool = True,
-    ):
-        """Download all of the tracks in the album.
-
-        :param quality: (5, 6, 7, 27)
-        :type quality: int
-        :param folder: the folder to download the album to
-        :type folder: Union[str, os.PathLike]
-        :param progress_bar: turn on/off a tqdm progress bar
-        :type progress_bar: bool
-        """
-        os.makedirs(folder, exist_ok=True)
-        logger.debug("Directory created: %s", folder)
-
-        # choose optimal cover size and download it
-        cover_path = None
-        if self.cover_urls:  # Could be []
-            cover_path = os.path.join(folder, "cover.jpg")
-            if quality <= 5:  # presumably mp3 people want to save space
-                cover_url = self.cover_urls["small"]
-            else:
-                img = requests.head(self.cover_urls["large"])
-                if int(img.headers["Content-Length"]) > 5 * 10 ** 6:  # 5MB
-                    cover_url = self.cover_urls["small"]
-                else:
-                    cover_url = self.cover_urls["large"]
-
-            tqdm_download(cover_url, cover_path)
-
-        # create a single cover object and use them for all tracks
-        cover = self.get_cover_obj(cover_path, quality)
-
-        for track in self:
-            logger.debug("Downloading track to %s with quality=%s", folder, quality)
-            track.download(quality, folder, progress_bar)
-            if tag_tracks:
-                logger.debug("Tagging track")
-                track.tag(album_meta=self.meta, cover=cover)
 
     @staticmethod
     def get_cover_obj(cover_path: str, quality: int) -> Union[Picture, APIC]:
@@ -483,18 +324,326 @@ class Album(Tracklist):
 
         return cover_obj
 
+
+class Album(Tracklist):
+    """Represents a downloadable Qobuz album."""
+
+    def __init__(self, client, **kwargs):
+        """Create a new Album object.
+
+        :param client: a qopy client instance
+        :param album_id: album id returned by qobuz api
+        :type album_id: Union[str, int]
+        :param kwargs:
+        """
+        self.client = client
+
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+        # to improve from_api method speed
+        if kwargs.get("load_on_init"):
+            self.load_meta()
+
+    def load_meta(self):
+        self.meta = self.client.get(self.id, media_type="album")
+        self.title = self.meta.get("title")
+        self._artist = self.meta.get("artist") or self.meta.get("performer")
+        self.albumartist = self._artist.get("name")
+        self.version = self.meta.get("version")
+        self.cover_urls = self.meta.get("image")
+        self.streamable = self.meta.get("streamable")
+
+        if not self.get("streamable", False):
+            raise NonStreamable(f"This album is not streamable ({self.id} ID)")
+
+        self._load_tracks()
+
+    def _load_tracks(self):
+        """Given an album metadata dict returned by the API, append all of its
+        tracks to `self`.
+
+        This uses a classmethod to convert an item into a Track object, which
+        stores the metadata inside a TrackMetadata object.
+        """
+        for i in range(self.meta.get("tracks", {}).get("total", [])):
+            # append method inherited from superclass list
+            self.append(
+                Track.from_album_meta(album=self.meta, pos=i, client=self.client)
+            )
+
+    @classmethod
+    def from_api(cls, item: dict, client, source: str = "qobuz"):
+        """Create an Album object from the api response of Qobuz, Tidal,
+        or Deezer.
+
+        :param resp: response dict
+        :type resp: dict
+        :param source: in ('qobuz', 'deezer', 'tidal')
+        :type source: str
+        """
+        if source == "qobuz":
+            # only collect minimal information for identification purposes
+            info = {
+                "title": item.get("title"),
+                "albumartist": item.get("artist", {}).get("name")
+                or item.get("performer", {}).get("name"),  # KeyError
+                "id": item.get("id"),  # this is the important part
+                "version": item.get("version"),  # KeyError
+                "url": item.get("url"),
+                "quality": quality_id(
+                    item.get("maximum_bit_depth"), item.get("maximum_sampling_rate")
+                ),
+                "streamable": item.get("streamable", False),
+            }
+        elif source == "tidal":
+            info = {
+                "title": item.name,
+                "id": item.id,
+                "albumartist": item.artist.name,
+            }
+        elif source == "deezer":
+            info = {
+                "title": item.get("title"),
+                "albumartist": item.get("artist", {}).get("name"),
+                "id": item.get("id"),
+                "url": item.get("link"),
+                "quality": 6,
+            }
+        else:
+            raise ValueError(f"invalid source '{source}'")
+
+        # equivalent to Album(client=client, **info)
+        return cls(client=client, **info)
+
+    @property
+    def title(self) -> str:
+        """Return the title of the album.
+
+        It is formatted so that "version" keys are included.
+
+        :rtype: str
+        """
+        album_title = self._title
+        if self.get("version", False):  # Avoid TypeError
+            if self.version.lower() not in album_title.lower():
+                album_title = f"{album_title} ({self.version})"
+
+        return album_title
+
+    @title.setter
+    def title(self, val):
+        """Sets the internal _title attribute to the given value.
+
+        :param val: title to set
+        """
+        self._title = val
+
+    def download(
+        self,
+        quality: int = 7,
+        folder: Union[str, os.PathLike] = "downloads",
+        progress_bar: bool = True,
+        tag_tracks: bool = True,
+        cover_key: str = "large",
+    ):
+        """Download all of the tracks in the album.
+
+        :param quality: (5, 6, 7, 27)
+        :type quality: int
+        :param folder: the folder to download the album to
+        :type folder: Union[str, os.PathLike]
+        :param progress_bar: turn on/off a tqdm progress bar
+        :type progress_bar: bool
+        """
+        os.makedirs(folder, exist_ok=True)
+        logger.debug("Directory created: %s", folder)
+
+        # choose optimal cover size and download it
+        cover = None
+        cover_path = os.path.join(folder, "cover.jpg")
+
+        if os.path.isfile(cover_path):
+            logger.debug("Cover already downloaded: %s. Skipping", cover_path)
+
+        else:
+            if self.cover_urls:  # Could be []
+                cover_url = self.cover_urls.get(cover_key)
+
+                img = requests.head(cover_url)
+
+                if int(img.headers["Content-Length"]) > 5 * 10 ** 6:  # 5MB
+                    logger.debug("Requested key (%s) size is too large. Falling back")
+                    cover_url = self.cover_urls.get("small")
+
+                tqdm_download(cover_url, cover_path)
+
+        # create a single cover object and use them for all tracks
+        # TODO: avoid this method if embeded covers are not requested
+        cover = self.get_cover_obj(cover_path, quality)
+
+        for track in self:
+            logger.debug("Downloading track to %s with quality %s", folder, quality)
+            track.download(quality, folder, progress_bar)
+            if tag_tracks:
+                logger.debug("Tagging track")
+                track.tag(album_meta=self.meta, cover=cover)
+
     def __repr__(self) -> str:
         """Return a string representation of this Album object.
         Useful for pprint and json.dumps.
 
         :rtype: str
         """
-        return f"<Album: {self.albumartist} - {self.title}>"
+        # Avoid AttributeError if load_on_init key is not set
+        if hasattr(self, "albumartist"):
+            return f"<Album: {self.albumartist} - {self.title}>"
+
+        return f"<Album: V/A - {self.title}>"
 
 
 class Playlist(Tracklist):
-    pass
+    """Represents a downloadable Qobuz playlisy."""
+
+    def __init__(self, client, **kwargs):
+        """Create a new Playlist object.
+
+        :param client: a qopy client instance
+        :param album_id: playlist id returned by qobuz api
+        :type album_id: Union[str, int]
+        :param kwargs:
+        """
+        self.client = client
+
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+        # to improve from_api method speed
+        if kwargs.get("load_on_init"):
+            self.load_meta()
+
+    def load_meta(self):
+        self.meta = list(self.client.get(self.id, media_type="playlist"))[
+            0
+        ]  # generator
+        self.name = self.meta.get("name")
+
+        self._load_albums()
+
+    def _load_albums(self):
+        """Given an album metadata dict returned by the API, append all of its
+        tracks to `self`.
+
+        This uses a classmethod to convert an item into a Track object, which
+        stores the metadata inside a TrackMetadata object.
+        """
+        for track in self.meta.get("tracks", {}).get("items", []):
+            logger.debug("Appending track: %s", track.get("title"))
+            self.append(Track(self.client, id=track.get("id")))
+
+    @classmethod
+    def from_api(cls, item: dict, client, source: str = "qobuz"):
+        """Create an Artist object from the api response of Qobuz, Tidal,
+        or Deezer.
+
+        :param resp: response dict
+        :type resp: dict
+        :param source: in ('qobuz', 'deezer', 'tidal')
+        :type source: str
+        """
+        if source in ("qobuz", "deezer"):
+            info = {
+                "name": item.get("name"),
+                "id": item.get("id"),
+            }
+        elif source == "tidal":
+            info = {
+                "name": item.name,
+                "id": item.id,
+            }
+        else:
+            raise ValueError(f"invalid source '{source}'")
+
+        # equivalent to Album(client=client, **info)
+        return cls(client=client, **info)
+
+    def __repr__(self) -> str:
+        """Return a string representation of this Playlist object.
+        Useful for pprint and json.dumps.
+
+        :rtype: str
+        """
+        return f"<Playlist: {self.name}>"
 
 
 class Artist(Tracklist):
-    pass
+    """Represents a downloadable Qobuz artist."""
+
+    def __init__(self, client, **kwargs):
+        """Create a new Artist object.
+
+        :param client: a qopy client instance
+        :param album_id: artist id returned by qobuz api
+        :type album_id: Union[str, int]
+        :param kwargs:
+        """
+        self.client = client
+
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+        # to improve from_api method speed
+        if kwargs.get("load_on_init"):
+            self.load_meta()
+
+    def load_meta(self):
+        self.meta = list(self.client.get(self.id, media_type="artist"))[0]  # generator
+        self.name = self.meta.get("name")
+
+        self._load_albums()
+
+    def _load_albums(self):
+        """Given an album metadata dict returned by the API, append all of its
+        tracks to `self`.
+
+        This uses a classmethod to convert an item into a Track object, which
+        stores the metadata inside a TrackMetadata object.
+        """
+        for album in self.meta.get("albums", {}).get("items", []):
+            logger.debug("Appending album: %s", album.get("title"))
+            # album["load_on_init"] = True
+            self.append(Album(self.client, **album))
+
+    @classmethod
+    def from_api(cls, item: dict, client, source: str = "qobuz"):
+        """Create an Artist object from the api response of Qobuz, Tidal,
+        or Deezer.
+
+        :param resp: response dict
+        :type resp: dict
+        :param source: in ('qobuz', 'deezer', 'tidal')
+        :type source: str
+        """
+        if source in ("qobuz", "deezer"):
+            info = {
+                "name": item.get("name"),
+                "id": item.get("id"),
+            }
+        elif source == "tidal":
+            info = {
+                "name": item.name,
+                "id": item.id,
+            }
+        else:
+            raise ValueError(f"invalid source '{source}'")
+
+        # equivalent to Album(client=client, **info)
+        return cls(client=client, **info)
+
+    def __repr__(self) -> str:
+        """Return a string representation of this Artist object.
+        Useful for pprint and json.dumps.
+
+        :rtype: str
+        """
+        return f"<Artist: {self.name}>"
