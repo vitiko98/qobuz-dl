@@ -108,6 +108,8 @@ class TrackMetadata:
             logger.debug("Work found: %s", track["work"])
             self.title = f"{track['work']}: {self.title}"
 
+        self.composer = track.get("composer", {}).get("name")
+
         self.tracknumber = str(track.get("track_number", 1))
         self.discnumber = str(track.get("media_number", 1))
         try:

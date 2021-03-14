@@ -1,11 +1,13 @@
 import logging
 import os
+import shutil
 from tempfile import gettempdir
 from typing import Optional, Union
 
 import requests
 from mutagen.flac import FLAC, Picture
 from mutagen.id3 import APIC, ID3, ID3NoHeaderError
+from pathvalidate import sanitize_filename
 
 from .clients import ClientInterface
 from .constants import EXT, FLAC_MAX_BLOCKSIZE
@@ -111,7 +113,7 @@ class Track:
             return
 
         tqdm_download(dl_info["url"], self.temp_file)  # downloads file
-        os.rename(self.temp_file, self.final_path)
+        shutil.move(self.temp_file, self.final_path)
 
         self.__is_downloaded = True
 
@@ -127,7 +129,10 @@ class Track:
         if not hasattr(self, "final_path"):
             formatter = self.meta.get_formatter()
             filename = self.track_file_format.format(**formatter)
-            self.final_path = os.path.join(self.folder, filename) + EXT[self.quality]
+            self.final_path = (
+                os.path.join(self.folder, sanitize_filename(filename))[:250]
+                + EXT[self.quality]
+            )
 
         logger.debug("Formatted path: %s", self.final_path)
 
@@ -424,7 +429,7 @@ class Album(Tracklist):
 
         # choose optimal cover size and download it
         cover_path = None
-        if self.cover_urls is not None:
+        if self.cover_urls:  # Could be []
             cover_path = os.path.join(folder, "cover.jpg")
             if quality <= 5:  # presumably mp3 people want to save space
                 cover_url = self.cover_urls["small"]
