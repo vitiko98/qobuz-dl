@@ -328,7 +328,7 @@ class Tracklist(list):
 class Album(Tracklist):
     """Represents a downloadable Qobuz album."""
 
-    def __init__(self, client, **kwargs):
+    def __init__(self, client: ClientInterface, **kwargs):
         """Create a new Album object.
 
         :param client: a qopy client instance
@@ -373,7 +373,7 @@ class Album(Tracklist):
             )
 
     @classmethod
-    def from_api(cls, item: dict, client, source: str = "qobuz"):
+    def from_api(cls, item: dict, client: ClientInterface, source: str = "qobuz"):
         """Create an Album object from the api response of Qobuz, Tidal,
         or Deezer.
 
@@ -503,9 +503,9 @@ class Album(Tracklist):
 
 
 class Playlist(Tracklist):
-    """Represents a downloadable Qobuz playlisy."""
+    """Represents a downloadable Qobuz playlist."""
 
-    def __init__(self, client, **kwargs):
+    def __init__(self, client: ClientInterface, **kwargs):
         """Create a new Playlist object.
 
         :param client: a qopy client instance
@@ -531,12 +531,6 @@ class Playlist(Tracklist):
         self._load_tracks()
 
     def _load_tracks(self):
-        """Given an album metadata dict returned by the API, append all of its
-        tracks to `self`.
-
-        This uses a classmethod to convert an item into a Track object, which
-        stores the metadata inside a TrackMetadata object.
-        """
         for track in self.meta.get("tracks", {}).get("items", []):
             logger.debug("Appending track: %s", track.get("title"))
             self.append(Track(self.client, id=track.get("id")))
@@ -544,7 +538,7 @@ class Playlist(Tracklist):
         logger.debug(f"Loaded {len(self)} tracks from playlist {self.name}")
 
     @classmethod
-    def from_api(cls, item: dict, client, source: str = "qobuz"):
+    def from_api(cls, item: dict, client: ClientInterface, source: str = "qobuz"):
         """Create a Playlist object from the api response of Qobuz, Tidal,
         or Deezer.
 
@@ -581,7 +575,7 @@ class Playlist(Tracklist):
 class Artist(Tracklist):
     """Represents a downloadable Qobuz artist."""
 
-    def __init__(self, client, **kwargs):
+    def __init__(self, client: ClientInterface, **kwargs):
         """Create a new Artist object.
 
         :param client: a qopy client instance
@@ -607,18 +601,12 @@ class Artist(Tracklist):
         self.name = self.meta.get("name")
 
     def _load_albums(self):
-        """Given an album metadata dict returned by the API, append all of its
-        tracks to `self`.
-
-        This uses a classmethod to convert an item into a Track object, which
-        stores the metadata inside a TrackMetadata object.
-        """
         for album in self.meta.get("albums", {}).get("items", []):
             logger.debug("Appending album: %s", album.get("title"))
             self.append(Album(self.client, **album))
 
     @classmethod
-    def from_api(cls, item: dict, client, source: str = "qobuz"):
+    def from_api(cls, item: dict, client: ClientInterface, source: str = "qobuz"):
         """Create an Artist object from the api response of Qobuz, Tidal,
         or Deezer.
 
