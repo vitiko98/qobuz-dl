@@ -171,8 +171,6 @@ class QobuzClient(SecureClientInterface):
         }
         return f_map[media_type](meta_id)
 
-    def get_file_url(self, meta_id: Union[str, int], quality: int = 7):
-        return self._api_call("track/getFileUrl", id=meta_id, fmt_id=quality)
 
     # ---------- Private Methods ---------------
 
@@ -196,70 +194,21 @@ class QobuzClient(SecureClientInterface):
                 total -= 500
             offset += 500
 
-    def get_featured_albums(self, query: str, limit: int):
-        """Get featured albums.
-
-        Available queries:
-
-            * most-streamed
-            * recent-releases
-            * best-sellers
-            * press-awards
-            * ideal-discography
-            * editor-picks
-            * most-featured
-            * qobuzissims
-            * new-releases
-            * new-releases-full
-
-        :param query: a query from the available queries
-        :param limit: max number of results
-        """
-        assert query in QOBUZ_FEATURED_KEYS, f'query "{query}" is invalid.'
-
-        return self._api_call("album/getFeatured", limit=limit, type=query)
-
-    def get_favorite_albums(self, offset, limit):
-        return self._api_call(
-            "favorite/getUserFavorites", type="albums", offset=offset, limit=limit
-        )
-
-    def get_favorite_tracks(self, offset, limit):
-        return self._api_call(
-            "favorite/getUserFavorites", type="tracks", offset=offset, limit=limit
-        )
-
-    def get_favorite_artists(self, offset, limit):
-        return self._api_call(
-            "favorite/getUserFavorites", type="artists", offset=offset, limit=limit
-        )
-
-    def get_user_playlists(self, limit):
-        return self._api_call("playlist/getUserPlaylists", limit=limit)
-
-    def test_secret(self, sec):
-        try:
-            self._api_call("userLibrary/getAlbumsList", sec=sec)
-            return True
-        except InvalidAppSecretError as error:
-            logger.debug("Test for %s secret didn't work: %s", sec, error)
-            return False
-
     def _cfg_setup(self):
         for secret in self.secrets:
-            if self.test_secret(secret):
+            if self._test_secret(secret):
                 self.sec = secret
                 logger.debug("Working secret and app_id: %s - %s", secret, self.id)
                 break
         if not hasattr(self, "sec"):
             raise InvalidAppSecretError(f"Invalid secrets: {self.secrets}")
 
-    # ---------- NEW FUNCTIONS -------------
     def _api_get(self, media_type, **kwargs):
         item_id = kwargs.get("id")
 
         params = {
             "app_id": self.id,
+            f"{media_type}_id": item_id,
             "limit": kwargs.get("limit", 500),
             "offset": kwargs.get("offset", 0),
         }
@@ -269,10 +218,7 @@ class QobuzClient(SecureClientInterface):
             "label": "albums",  # not tested
         }
 
-        if media_type in ("track", "album", "playlist", "label", "artist"):
-            params.update({f"{media_type}_id": item_id})
-
-        if extras.get(media_type):
+        if media_type in extras:
             params.update({"extra": extras[media_type]})
 
         epoint = f"{media_type}/get"
@@ -280,7 +226,7 @@ class QobuzClient(SecureClientInterface):
         response, status_code = self._api_request(epoint, params)
         return response
 
-    # should I remove this? login now uses _get_file_url
+    # should I remove this? _test_secret now uses _get_file_url
     def _api_user_library_get(self, media_type, **kwargs):
         epoint = "userLibrary/getAlbumsList"
         unix = time.time()
@@ -299,7 +245,20 @@ class QobuzClient(SecureClientInterface):
             "query": query,
             "limit": limit,
         }
-        epoint = f"{media_type}/search"
+        # TODO: move featured, favorites, and playlists into _api_get later
+        if media_type == 'featured':
+            assert query in QOBUZ_FEATURED_KEYS, f'query "{query}" is invalid.'
+            params.update({"type": media_type})
+            epoint = "album/getFeatured"
+        elif query == 'user-favorites':
+            assert query in ("track", "artist", "album")
+            params.update({"type": f"{media_type}s"})
+            epoint = "favorite/getUserFavorites"
+        elif query == 'user-playlists':
+            epoint = "playlist/getUserPlaylists"
+        else:
+            epoint = f"{media_type}/search"
+
         response, status_code = self._api_request(epoint, params)
         return response
 

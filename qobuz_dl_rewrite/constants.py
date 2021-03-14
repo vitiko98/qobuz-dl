@@ -15,6 +15,26 @@ QUALITY_DESC = {
     27: "24bit/192kHz",
 }
 
+# Docstring saved for later use, ignore
+"""Get featured albums.
+
+Available queries:
+
+    * most-streamed
+    * recent-releases
+    * best-sellers
+    * press-awards
+    * ideal-discography
+    * editor-picks
+    * most-featured
+    * qobuzissims
+    * new-releases
+    * new-releases-full
+
+:param query: a query from the available queries
+:param limit: max number of results
+"""
+
 
 __MP4_KEYS = [
     "\xa9nam",
