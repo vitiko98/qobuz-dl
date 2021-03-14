@@ -19,7 +19,7 @@ from .spoofbuz import Spoofer
 logger = logging.getLogger(__name__)
 
 # Qobuz
-QOBUZ_BASE = "https://www.qobuz.com/api.json/0.2/"
+QOBUZ_BASE = "https://www.qobuz.com/api.json/0.2"
 AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:83.0) Gecko/20100101 Firefox/83.0"
 
 QOBUZ_FEATURED_KEYS = [
@@ -33,6 +33,11 @@ QOBUZ_FEATURED_KEYS = [
     "qobuzissims",
     "new-releases",
     "new-releases-full",
+    "harmonia-mundi",
+    "universal-classic",
+    "universal-jazz",
+    "universal-jeunesse",
+    "universal-chanson",
 ]
 
 # Tidal
@@ -70,7 +75,7 @@ class ClientInterface(ABC):
         pass
 
     @abstractmethod
-    def get(self, meta_id, media_type="album"):
+    def get(self, item_id, media_type="album"):
         """Get metadata.
 
         :param meta_id:
@@ -79,7 +84,7 @@ class ClientInterface(ABC):
         pass
 
     @abstractmethod
-    def get_file_url(self, track_id):
+    def get_file_url(self, track_id, quality=6):
         """Get the direct download url for a file.
 
         :param track_id: id of the track
@@ -154,27 +159,25 @@ class QobuzClient(SecureClientInterface):
     def get(self, item_id: Union[str, int], media_type: str = "album"):
         return self._api_get(media_type, item_id=item_id)
 
+    def get_file_url(self, item_id, quality=6):
+        return self._api_get_file_url(item_id, quality=quality)
+
     # ---------- Private Methods ---------------
 
     # Credit to Sorrow446 for the original methods
 
-    # Needs more testing and debugging
-    # TODO: rewrite for new functions
-    def _multi_meta(self, epoint: str, key: str, meta_id: Union[str, int], type_: str):
-        total = 1
-        offset = 0
-        while total > 0:
-            if type_ in ("tracks", "albums"):
-                j = self._api_call(epoint, id=meta_id, offset=offset, type=type)[type]
-            else:
-                j = self._api_call(epoint, id=meta_id, offset=offset, type=type)
-            if offset == 0:
-                yield j
-                total = j[key] - 500
-            else:
-                yield j
-                total -= 500
-            offset += 500
+    def _gen_pages(self, epoint: str, params):
+        page, status_code = self._api_request(epoint, params)
+        total = page["albums"]["total"]
+        limit = page["albums"]["limit"]
+        offset = page["albums"]["offset"]
+        params.update({"limit": limit})
+        yield page
+        while (offset + limit) < total:
+            offset += limit
+            params.update({"offset": offset})
+            page, status_code = self._api_request(epoint, params)
+            yield page
 
     def _validate_secrets(self):
         for secret in self.secrets:
@@ -208,41 +211,30 @@ class QobuzClient(SecureClientInterface):
         response, status_code = self._api_request(epoint, params)
         return response
 
-    # should I remove this? _test_secret now uses _get_file_url
-    def _api_user_library_get(self, media_type, **kwargs):
-        epoint = "userLibrary/getAlbumsList"
-        unix = time.time()
-        r_sig = "userLibrarygetAlbumsList" + str(unix) + kwargs["sec"]
-        r_sig_hashed = hashlib.md5(r_sig.encode("utf-8")).hexdigest()
-        params = {
-            "app_id": self.app_id,
-            "user_auth_token": self.uat,
-            "request_ts": unix,
-            "request_sig": r_sig_hashed,
-        }
-        response, status_code = self._api_request(epoint, params)
-
-    def _api_search(self, query, media_type, limit=500):
+    def _api_search(self, query, media_type, limit=500) -> Generator:
         params = {
             "query": query,
             "limit": limit,
         }
         # TODO: move featured, favorites, and playlists into _api_get later
-        if media_type == 'featured':
+        if media_type == "featured":
             assert query in QOBUZ_FEATURED_KEYS, f'query "{query}" is invalid.'
-            params.update({"type": media_type})
+            params.update({"type": query})
+            del params["query"]
             epoint = "album/getFeatured"
-        elif query == 'user-favorites':
+
+        elif query == "user-favorites":
             assert query in ("track", "artist", "album")
             params.update({"type": f"{media_type}s"})
             epoint = "favorite/getUserFavorites"
-        elif query == 'user-playlists':
+
+        elif query == "user-playlists":
             epoint = "playlist/getUserPlaylists"
+
         else:
             epoint = f"{media_type}/search"
 
-        response, status_code = self._api_request(epoint, params)
-        return response
+        return self._gen_pages(epoint, params)
 
     def _api_login(self, email, pwd):
         # usr_info = self._api_call("user/login", email=email, pwd=pwd)
@@ -295,7 +287,6 @@ class QobuzClient(SecureClientInterface):
     def _api_request(self, epoint, params) -> Tuple[dict, int]:
         logging.debug(f"Calling API with endpoint {epoint} params {params}")
         r = self.session.get(f"{QOBUZ_BASE}/{epoint}", params=params)
-        r.raise_for_status()
         return r.json(), r.status_code
 
     def _test_secret(self, secret) -> bool:
