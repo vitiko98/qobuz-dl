@@ -64,7 +64,7 @@ class TrackMetadata:
         self.tracknumber = None
         self.discnumber = None
 
-        if not (track and album):
+        if (track and album) is None:
             return
 
         if track is not None:
