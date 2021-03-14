@@ -11,7 +11,7 @@ from pathvalidate import sanitize_filename
 
 from .clients import ClientInterface
 from .constants import EXT, FLAC_MAX_BLOCKSIZE
-from .exceptions import InvalidQuality, NonStreamable
+from .exceptions import InvalidQuality, NonStreamable, TooLargeCoverArt
 from .metadata import TrackMetadata
 from .util import quality_id, safe_get, tqdm_download
 
@@ -452,7 +452,8 @@ class Album(Tracklist):
                 logger.debug("Tagging track")
                 track.tag(album_meta=self.meta, cover=cover)
 
-    def get_cover_obj(self, cover_path: str, quality: int) -> Union[Picture, APIC]:
+    @staticmethod
+    def get_cover_obj(cover_path: str, quality: int) -> Union[Picture, APIC]:
         """Given the path to an image and a quality id, return an initialized
         cover object that can be used for every track in the album.
 
@@ -466,8 +467,11 @@ class Album(Tracklist):
 
         cover = cover_type.get(quality)
         if cover is Picture:
-            if os.path.getsize(cover_path) > FLAC_MAX_BLOCKSIZE:
-                raise Exception("Cover art too large (> 16.7 MB)")
+            size_ = os.path.getsize(cover_path)
+            if size_ > FLAC_MAX_BLOCKSIZE:
+                raise TooLargeCoverArt(
+                    "Not suitable for Picture embed: {size_ * 10 ** 6}MB"
+                )
         elif cover is None:
             raise InvalidQuality(f"Quality {quality} not allowed")
 

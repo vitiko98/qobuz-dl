@@ -28,3 +28,7 @@ class InvalidContainerError(Exception):
 
 class ParsingError(Exception):
     pass
+
+
+class TooLargeCoverArt(Exception):
+    pass
