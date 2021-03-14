@@ -108,7 +108,7 @@ def add_common_arg(custom_parser, default_folder, default_quality):
         metavar="PATTERN",
         help="""pattern for formatting folder names, e.g
         "{artist} - {album} ({year})". available keys: artist,
-        albumartist, album, year, sampling_rate, bit_rate, tracktitle, version.
+        albumartist, album, year, sampling_rate, bit_depth, tracktitle, version.
         cannot contain characters used by the system, which includes /:<>""",
     )
     custom_parser.add_argument(
