@@ -2,7 +2,7 @@ import hashlib
 import logging
 import time
 from abc import ABC, abstractmethod
-from typing import Generator, Optional, Tuple, Union
+from typing import Generator, Tuple, Union
 
 import requests
 import tidalapi
@@ -290,6 +290,7 @@ class QobuzClient(SecureClientInterface):
         # logger.info(f"Membership: {self.label}")
 
     # Needs more testing and debugging
+    # TODO: rewrite for new functions
     def _multi_meta(self, epoint: str, key: str, meta_id: Union[str, int], type_: str):
         total = 1
         offset = 0
@@ -414,6 +415,15 @@ class QobuzClient(SecureClientInterface):
 
         epoint = f"{media_type}/get"
 
+        response, status_code = self._api_request(epoint, params)
+        return response
+
+    def _api_search(self, query, media_type, limit=500):
+        params = {
+            "query": query,
+            "limit": limit,
+        }
+        epoint = f"{media_type}/search"
         response, status_code = self._api_request(epoint, params)
         return response
 
