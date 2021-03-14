@@ -24,3 +24,7 @@ class NonStreamable(Exception):
 
 class InvalidContainerError(Exception):
     pass
+
+
+class ParsingError(Exception):
+    pass

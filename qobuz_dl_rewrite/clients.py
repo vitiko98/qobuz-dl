@@ -2,7 +2,7 @@ import hashlib
 import logging
 import time
 from abc import ABC, abstractmethod
-from typing import Generator, Union, Tuple
+from typing import Generator, Tuple, Union
 
 import requests
 import tidalapi
@@ -120,15 +120,15 @@ class QobuzClient(SecureClientInterface):
         :type email: str
         :param pwd: password for the qobuz account
         :type pwd: str
-        :param kwargs: app_id, secrets, return_secrets
+        :param kwargs: app_id: str, secrets: list, return_secrets: bool
         """
-        if (kwargs.get("app_id") or kwargs.get("secrets")) is None:
-            logger.info("app_id and secrets not provided, fetching tokens")
+        if not (kwargs.get("app_id") or kwargs.get("secrets")):
+            logger.info("Fetching tokens from Qobuz")
             spoofer = Spoofer()
             kwargs["app_id"] = spoofer.get_app_id()
             kwargs["secrets"] = spoofer.get_secrets()
 
-        self.id = kwargs["app_id"]
+        self.id = str(kwargs["app_id"])  # Ensure it is a string
         self.secrets = kwargs["secrets"]
 
         self.session = requests.Session()
@@ -139,12 +139,9 @@ class QobuzClient(SecureClientInterface):
             }
         )
 
-        logger.debug("authenticating")
         self._auth(email, pwd)
-        # self._api_login(email, pwd)
-        logger.debug("setting up config")
         self._cfg_setup()
-        logger.debug("ready to use")
+        logger.debug("Qobuz client is ready to use")
 
         # used for caching app_id and secrets
         if kwargs.get("return_secrets"):
@@ -390,6 +387,7 @@ class QobuzClient(SecureClientInterface):
         for secret in self.secrets:
             if self.test_secret(secret):
                 self.sec = secret
+                logger.debug("Working secret and app_id: %s - %s", secret, self.id)
                 break
         if not hasattr(self, "sec"):
             raise InvalidAppSecretError(f"Invalid secrets: {self.secrets}")
@@ -397,7 +395,7 @@ class QobuzClient(SecureClientInterface):
     # ---------- NEW FUNCTIONS -------------
     def _api_get(self, media_type, **kwargs):
         item_id = kwargs.get("id")
-        assert item_id is not None, 'must provide id'
+        assert item_id is not None, "must provide id"
 
         params = {
             "app_id": self.id,
@@ -475,7 +473,7 @@ class QobuzClient(SecureClientInterface):
 
     def _test_secret(self, secret) -> bool:
         try:
-            self._api_get_file_url('19512574', sec=secret)
+            self._api_get_file_url("19512574", sec=secret)
             return True
         except InvalidAppSecretError as error:
             logger.debug("Test for %s secret didn't work: %s", secret, error)

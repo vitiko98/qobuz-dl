@@ -1,13 +1,14 @@
 import logging
+import os
 import re
 # ------- Testing ----------
-from secrets import qobuz_email, qobuz_id, qobuz_pwd, qobuz_secrets
-from typing import Tuple
+from typing import Generator, Sequence, Tuple, Union
 
 from .clients import QobuzClient
 from .constants import QOBUZ_URL_REGEX
 from .db import QobuzDB
 from .downloader import Album, Artist, Playlist
+from .exceptions import ParsingError
 
 # --------------------------
 
@@ -19,12 +20,16 @@ MEDIA_CLASS = {"album": Album, "playlist": Playlist, "artist": Artist}
 
 class QobuzDL:
     def __init__(
-        self, directory="Downloads", quality=6, downloads_db=None, config=None
+        self,
+        creds: Tuple[str, str],
+        directory="Downloads",
+        quality=6,
+        downloads_db=None,
+        config=None,
+        **kwargs,
     ):
         self.client = QobuzClient()
-        self.client.login(
-            qobuz_email, qobuz_pwd, app_id=qobuz_id, secrets=qobuz_secrets
-        )
+        self.client.login(creds[0], creds[1], **kwargs)
         self.qobuz_url_parse = re.compile(QOBUZ_URL_REGEX)
 
     def handle_url(self, url: str):
@@ -41,17 +46,48 @@ class QobuzDL:
             https://open.qobuz.com/{type}/{id}
             https://play.qobuz.com/{type}/{id}
             /us-en/{type}/-/{id}
+
+        :raises exceptions.ParsingError
         """
+        parsed = self.qobuz_url_parse.search(url)
 
-        r = self.qobuz_url_parse.search(url)
-        return r.groups()
+        if parsed is not None:
+            parsed = parsed.groups()
 
-    def from_txt(self, filepath):
+            if len(parsed) == 2:
+                return tuple(parsed)  # Convert from Seq for the sake of typing
+
+        raise ParsingError(f"Error parsing URL: `{url}`")
+
+    def from_txt(self, filepath: Union[str, os.PathLike]) -> Sequence[Tuple[str, str]]:
+        """
+        Returns a sequence of tuples from a text file containing URLs. Lines
+        starting with `#` are ignored.
+
+        :param filepath:
+        :type filepath: Union[str, os.PathLike]
+        :rtype: Sequence[tuple]
+        :raises OSError
+        :raises exceptions.ParsingError
+        """
         with open(filepath) as txt:
-            return self.qobuz_url_parse.findall(txt.read())
+            lines = [
+                line.replace("\n", "")
+                for line in txt.readlines()
+                if not line.strip().startswith("#")
+            ]
 
-    def search(self, query, media_type):
-        search_results = self.client.search(query, media_type=media_type)
+            logger.debug("Parsed lines from text file: %d", len(lines))
+
+            parsed = self.qobuz_url_parse.findall(",".join(lines))
+            if parsed:
+                logger.debug("Parsed URLs from regex: %s", parsed)
+                return parsed
+
+        raise ParsingError("Error parsing URLs from file `{filepath}`")
+
+    def search(self, query: str, media_type: str, limit: int = 200) -> Generator:
+        search_results = self.client.search(query, media_type=media_type, limit=limit)
         key = media_type + "s"
         return (
             MEDIA_CLASS[media_type].from_api(item, self.client)
