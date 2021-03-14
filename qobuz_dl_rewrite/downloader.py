@@ -198,7 +198,7 @@ class Track:
             raise InvalidQuality(f'Invalid quality: "{self.quality}"')
 
         # automatically generate key, value pairs for a given container
-        for k, v in self.meta.tags(container=container):
+        for k, v in self.meta.tags(container):
             audio[k] = v
 
         assert cover is not None  # remove this later with no_embed option
@@ -528,9 +528,9 @@ class Playlist(Tracklist):
         ]  # generator
         self.name = self.meta.get("name")
 
-        self._load_albums()
+        self._load_tracks()
 
-    def _load_albums(self):
+    def _load_tracks(self):
         """Given an album metadata dict returned by the API, append all of its
         tracks to `self`.
 
@@ -541,9 +541,11 @@ class Playlist(Tracklist):
             logger.debug("Appending track: %s", track.get("title"))
             self.append(Track(self.client, id=track.get("id")))
 
+        logger.debug(f"Loaded {len(self)} tracks from playlist {self.name}")
+
     @classmethod
     def from_api(cls, item: dict, client, source: str = "qobuz"):
-        """Create an Artist object from the api response of Qobuz, Tidal,
+        """Create a Playlist object from the api response of Qobuz, Tidal,
         or Deezer.
 
         :param resp: response dict
@@ -564,7 +566,7 @@ class Playlist(Tracklist):
         else:
             raise ValueError(f"invalid source '{source}'")
 
-        # equivalent to Album(client=client, **info)
+        # equivalent to Playlist(client=client, **info)
         return cls(client=client, **info)
 
     def __repr__(self) -> str:
@@ -597,10 +599,12 @@ class Artist(Tracklist):
             self.load_meta()
 
     def load_meta(self):
-        self.meta = list(self.client.get(self.id, media_type="artist"))[0]  # generator
-        self.name = self.meta.get("name")
+        response = self.client.get(self.id, media_type="artist")
+        for page in response:  # hacky solution, fix later
+            self.meta = page
+            self._load_albums()
 
-        self._load_albums()
+        self.name = self.meta.get("name")
 
     def _load_albums(self):
         """Given an album metadata dict returned by the API, append all of its
@@ -611,7 +615,6 @@ class Artist(Tracklist):
         """
         for album in self.meta.get("albums", {}).get("items", []):
             logger.debug("Appending album: %s", album.get("title"))
-            # album["load_on_init"] = True
             self.append(Album(self.client, **album))
 
     @classmethod
