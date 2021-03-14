@@ -7,7 +7,7 @@ import requests
 from mutagen.flac import FLAC, Picture
 from mutagen.id3 import APIC, ID3, ID3NoHeaderError
 
-from .client import ClientInterface
+from .clients import ClientInterface
 from .constants import EXT, FLAC_MAX_BLOCKSIZE
 from .exceptions import InvalidQuality, NonStreamable
 from .metadata import TrackMetadata
@@ -349,15 +349,16 @@ class Album(Tracklist):
         if source == "qobuz":
             # only collect minimal information for identification purposes
             info = {
-                "title": item["title"],
-                "albumartist": item["artist"]["name"],
-                "id": item["id"],  # this is the important part
-                "version": item["version"],
-                "url": item["url"],
+                "title": item.get("title"),
+                "albumartist": item.get("artist", {}).get("name")
+                or item.get("performer", {}).get("name"),  # KeyError
+                "id": item.get("id"),  # this is the important part
+                "version": item.get("version"),  # KeyError
+                "url": item.get("url"),
                 "quality": quality_id(
                     item["maximum_bit_depth"], item["maximum_sampling_rate"]
-                ),
-                "streamable": item["streamable"],
+                ),  # KeyError safe?
+                "streamable": item.get("streamable", False),
             }
         elif source == "tidal":
             info = {
@@ -367,10 +368,10 @@ class Album(Tracklist):
             }
         elif source == "deezer":
             info = {
-                "title": item["title"],
-                "albumartist": item["artist"]["name"],
-                "id": item["id"],
-                "url": item["link"],
+                "title": item.get("title"),
+                "albumartist": item.get("artist", {}).get("name"),
+                "id": item.get("id"),
+                "url": item.get("link"),
                 "quality": 6,
             }
         else:
