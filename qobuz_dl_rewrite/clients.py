@@ -168,9 +168,17 @@ class QobuzClient(SecureClientInterface):
 
     def _gen_pages(self, epoint: str, params):
         page, status_code = self._api_request(epoint, params)
-        total = page["albums"]["total"]
-        limit = page["albums"]["limit"]
-        offset = page["albums"]["offset"]
+        logger.debug("Keys returned from _gen_pages: %s", ", ".join(page.keys()))
+        key = epoint.split("/")[0] + "s"
+        total = page.get(key, {})
+        total = total.get("total") or total.get("items")
+
+        if not total:
+            logger.debug("Nothing found from %s epoint", epoint)
+            return
+
+        limit = page.get(key, {}).get("limit", 500)
+        offset = page.get(key, {}).get("offset", 0)
         params.update({"limit": limit})
         yield page
         while (offset + limit) < total:
