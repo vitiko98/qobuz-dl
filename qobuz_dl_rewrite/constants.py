@@ -1,4 +1,11 @@
 import mutagen.id3 as id3
+import appdirs
+
+APPNAME = "qobuz-dl"
+
+CACHE_DIR = appdirs.user_cache_dir(APPNAME)
+CONFIG_DIR = appdirs.user_config_dir(APPNAME)
+LOG_DIR = appdirs.user_config_dir(APPNAME)
 
 EXT = {
     5: ".mp3",
