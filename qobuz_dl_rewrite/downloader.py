@@ -221,7 +221,7 @@ class Track:
         self.__is_tagged = True
 
     def convert(self, codec="ALAC", **kwargs):
-        assert self.__is_downloaded, "track must be downloaded before conversion"
+        assert self.__is_downloaded, "Track must be downloaded before conversion"
 
         CONV_CLASS = {
             "FLAC": converter.FLAC,
