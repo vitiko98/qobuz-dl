@@ -1,4 +1,5 @@
 import logging
+import subprocess
 import os
 import shutil
 from tempfile import gettempdir
@@ -97,6 +98,11 @@ class Track:
         assert not self.__is_downloaded
         self.quality, self.folder = quality or self.quality, folder or self.folder
 
+        if os.path.isfile(self.format_final_path()):
+            self.__is_downloaded = True
+            logger.debug("File already exists: %s", self.final_path)
+            return
+
         dl_info = self.client.get_file_url(self.id, quality)  # dict
 
         if not (dl_info.get("url") or dl_info.get("sampling_rate")) or dl_info.get(
@@ -110,11 +116,6 @@ class Track:
         self.temp_file = os.path.join(gettempdir(), "~qdl_track.tmp")
 
         logger.debug("Temporary file path: %s", self.temp_file)
-
-        if os.path.isfile(self.format_final_path()):
-            self.__is_downloaded = True
-            logger.debug("File already exists: %s", self.final_path)
-            return
 
         tqdm_download(dl_info["url"], self.temp_file)  # downloads file
         shutil.move(self.temp_file, self.final_path)
@@ -209,6 +210,37 @@ class Track:
         else:
             raise ValueError(f'Error saving file with container "{container}"')
 
+    def convert(self, codec='ALAC', **kwargs):
+        assert self.__is_downloaded, 'track must be downloaded before conversion'
+
+        codec = codec.upper()
+        sampling_rate = kwargs.get("sampling_rate")
+        ext = EXT[self.quality]
+        conversion_command = [
+            "ffmpeg",
+            "-i",
+            self.final_path,
+            "-c:v",  # copy cover art
+            "copy",
+            "-loglevel",  # no annoying logs
+            "warning",
+        ]
+
+        if codec == 'ALAC':
+            out_path = self.final_path.replace(ext, '.m4a')
+            conversion_command.extend(["-c:a", "alac"])
+        else:
+            raise NotImplementedError(f"Codec {codec} not implemented")
+
+        if sampling_rate is not None:
+            conversion_command.extend(["-ar", str(sampling_rate)])
+
+        conversion_command.extend(["-y", out_path])
+        logger.debug(f"coverting with command {conversion_command}")
+
+        process = subprocess.Popen(conversion_command)
+        out, err = process.communicate()  # waits until finished
+
     def get(self, *keys, default=None):
         """Safe get method that allows for layered access.
 
@@ -290,6 +322,16 @@ class Tracklist(list):
 
     def set(self, key, val):
         self.__setitem__(key, val)
+
+    def convert(self, codec='ALAC', **kwargs):
+        if (sr := kwargs.get("sampling_rate")):
+            if sr < 44100:
+                logger.warning("Sampling rate {sampling_rate} is lower than 44.1kHz. This may cause distortion and ruin the track.")
+            else:
+                logger.debug(f"Downsampling to {sr/1000}kHz")
+
+        for track in self:
+            track.convert(codec, **kwargs)
 
     @staticmethod
     def get_cover_obj(cover_path: str, quality: int) -> Union[Picture, APIC]:
@@ -440,7 +482,7 @@ class Album(Tracklist):
     def download(
         self,
         quality: int = 7,
-        folder: Union[str, os.PathLike] = "download",
+        folder: Union[str, os.PathLike] = "Downloads",
         progress_bar: bool = True,
         tag_tracks: bool = True,
         cover_key: str = "large",
