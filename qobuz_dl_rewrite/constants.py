@@ -1,5 +1,5 @@
-import mutagen.id3 as id3
 import appdirs
+import mutagen.id3 as id3
 
 APPNAME = "qobuz-dl"
 

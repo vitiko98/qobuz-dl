@@ -1,8 +1,6 @@
 import logging
-import os
-
 import logging.handlers as handlers
-
+import os
 from typing import Optional, Union
 
 import requests
@@ -69,7 +67,9 @@ def tqdm_download(url: str, filepath: str):
             bar.update(size)
 
 
-def init_log(path: Optional[str] = None, level: str = "DEBUG", rotate: str = "midnight"):
+def init_log(
+    path: Optional[str] = None, level: str = "DEBUG", rotate: str = "midnight"
+):
     """
     Initialize a log instance with a stream handler and a rotating file handler.
     If a path is not set, fallback to the default app log directory.

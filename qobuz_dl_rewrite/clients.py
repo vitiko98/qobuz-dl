@@ -153,20 +153,22 @@ class QobuzClient(SecureClientInterface):
         if kwargs.get("return_secrets"):
             return self.app_id, self.secrets
 
-    def search(self, query: str, media_type: str = "album", limit: int = 500):
+    def search(
+        self, query: str, media_type: str = "album", limit: int = 500
+    ) -> Generator:
         return self._api_search(query, media_type, limit)
 
-    def get(self, item_id: Union[str, int], media_type: str = "album"):
+    def get(self, item_id: Union[str, int], media_type: str = "album") -> dict:
         return self._api_get(media_type, item_id=item_id)
 
-    def get_file_url(self, item_id, quality=6):
+    def get_file_url(self, item_id, quality=6) -> dict:
         return self._api_get_file_url(item_id, quality=quality)
 
     # ---------- Private Methods ---------------
 
     # Credit to Sorrow446 for the original methods
 
-    def _gen_pages(self, epoint: str, params):
+    def _gen_pages(self, epoint: str, params: dict) -> dict:
         page, status_code = self._api_request(epoint, params)
         logger.debug("Keys returned from _gen_pages: %s", ", ".join(page.keys()))
         key = epoint.split("/")[0] + "s"
@@ -196,7 +198,7 @@ class QobuzClient(SecureClientInterface):
         if not hasattr(self, "sec"):
             raise InvalidAppSecretError(f"Invalid secrets: {self.secrets}")
 
-    def _api_get(self, media_type, **kwargs):
+    def _api_get(self, media_type: str, **kwargs) -> dict:
         item_id = kwargs.get("item_id")
 
         params = {
@@ -244,7 +246,7 @@ class QobuzClient(SecureClientInterface):
 
         return self._gen_pages(epoint, params)
 
-    def _api_login(self, email, pwd):
+    def _api_login(self, email: str, pwd: str):
         # usr_info = self._api_call("user/login", email=email, pwd=pwd)
         params = {
             "email": email,
@@ -268,7 +270,9 @@ class QobuzClient(SecureClientInterface):
         self.session.headers.update({"X-User-Auth-Token": self.uat})
         self.label = resp["user"]["credential"]["parameters"]["short_label"]
 
-    def _api_get_file_url(self, track_id, quality=6, sec=None):
+    def _api_get_file_url(
+        self, track_id: Union[str, int], quality: str = 6, sec: str = None
+    ) -> dict:
         unix_ts = time.time()
 
         if int(quality) not in (5, 6, 7, 27):  # Needed?
@@ -292,12 +296,12 @@ class QobuzClient(SecureClientInterface):
             raise InvalidAppSecretError("Invalid app secret from params %s" % params)
         return response
 
-    def _api_request(self, epoint, params) -> Tuple[dict, int]:
+    def _api_request(self, epoint: str, params: dict) -> Tuple[dict, int]:
         logging.debug(f"Calling API with endpoint {epoint} params {params}")
         r = self.session.get(f"{QOBUZ_BASE}/{epoint}", params=params)
         return r.json(), r.status_code
 
-    def _test_secret(self, secret) -> bool:
+    def _test_secret(self, secret: str) -> bool:
         try:
             self._api_get_file_url("19512574", sec=secret)
             return True
@@ -310,7 +314,7 @@ class DeezerClient(ClientInterface):
     def __init__(self):
         self.session = requests.Session()
 
-    def search(self, query: str, media_type: str = "album", limit: int = 200):
+    def search(self, query: str, media_type: str = "album", limit: int = 200) -> dict:
         """Search API for query.
 
         :param query:
