@@ -15,6 +15,7 @@ from .constants import EXT, FLAC_MAX_BLOCKSIZE
 from .exceptions import InvalidQuality, NonStreamable, TooLargeCoverArt
 from .metadata import TrackMetadata
 from .util import quality_id, safe_get, tqdm_download
+from . import converter
 
 logger = logging.getLogger(__name__)
 
@@ -222,50 +223,16 @@ class Track:
     def convert(self, codec='ALAC', **kwargs):
         assert self.__is_downloaded, 'track must be downloaded before conversion'
 
-        codec = codec.upper()
-        sampling_rate = kwargs.get("sampling_rate")
-        ext = EXT[self.quality]
-        conversion_command = [
-            "ffmpeg",
-            "-i",
-            self.final_path,
-            "-c:v",  # copy cover art
-            "copy",
-            "-loglevel",  # no annoying logs
-            "warning",
-        ]
+        CONV_CLASS = {
+            'ALAC': converter.ALAC,
+            'MP3': converter.LAME,
+            'FLAC': converter.FLAC,
+            'OGG': converter.VORBIS,
+            'AAC': converter.AAC,
+        }
 
-        if codec == 'ALAC':
-            new_ext = '.m4a'
-            conversion_command.extend(["-c:a", "alac"])
-        elif codec == 'MP3':
-            new_ext = '.mp3'
-            # TODO: add further customization of mp3 quality
-            # https://trac.ffmpeg.org/wiki/Encode/MP3
-            # VBR from 22-26KB/s
-            conversion_command.extend(["-c:a", "libmp3lame", "-q:a", "0"])
-        elif codec == 'AAC':
-            new_ext = '.m4a'
-            # highest quality VBR
-            conversion_command.extend(["-c:a", "libfdk_aac", "-vbr", "5"])
-        elif codec == 'FLAC':
-            new_ext = '.flac'
-        else:
-            raise NotImplementedError(f"Codec {codec} not implemented")
-
-        if sampling_rate is not None and codec not in ("aac", "mp3"):
-            conversion_command.extend(["-ar", str(sampling_rate)])
-
-        # tempfile needs to use new_ext so that ffmpeg detects the container
-        tempfile = os.path.join(gettempdir(), f"~qdl_track_conv{new_ext}")
-        conversion_command.extend(["-y", tempfile])
-        logger.debug(f"coverting with command {conversion_command}")
-
-        process = subprocess.Popen(conversion_command)
-        process.wait()
-        out_path = self.final_path.replace(ext, new_ext)
-        shutil.move(tempfile, out_path)
-        self.final_path = out_path
+        engine = CONV_CLASS[codec.upper()](filename=self.final_path, sampling_rate=kwargs.get("sampling_rate"), overwrite=True)
+        engine.convert(remove_source=kwargs.get("remove_source", False))
 
     def get(self, *keys, default=None):
         """Safe get method that allows for layered access.
