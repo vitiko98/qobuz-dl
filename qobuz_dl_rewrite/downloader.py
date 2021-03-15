@@ -235,9 +235,11 @@ class Track:
         }
 
         engine = CONV_CLASS[codec.upper()](
-            filename=self.final_path, sampling_rate=kwargs.get("sampling_rate")
+            filename=self.final_path,
+            sampling_rate=kwargs.get("sampling_rate"),
+            remove_source=kwargs.get("remove_source", False),
         )
-        engine.convert(remove_source=kwargs.get("remove_source", False))
+        engine.convert()
 
     def get(self, *keys, default=None):
         """Safe get method that allows for layered access.
