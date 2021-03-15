@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 MEDIA_CLASS = {"album": Album, "playlist": Playlist, "artist": Artist}
+Media = Union[Album, Playlist, Artist]  # type hint
 
 
 class QobuzDL:
@@ -87,5 +88,8 @@ class QobuzDL:
 
         raise ParsingError("Error parsing URLs from file `{filepath}`")
 
-    def search(self, query: str, media_type: str, limit: int = 200) -> Generator:
-        return self.client.search(query, media_type, limit)
+    def search(self, query: str, media_type: str, limit: int = 200) -> Media:
+        results = self.client.search(query, media_type, limit)
+        for page in results:
+            for item in page[f"{media_type}s"]["items"]:
+                yield MEDIA_CLASS[media_type].from_api(item, self.client)

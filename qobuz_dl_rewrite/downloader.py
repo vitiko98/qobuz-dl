@@ -613,6 +613,7 @@ class Artist(Tracklist):
         :param source: in ('qobuz', 'deezer', 'tidal')
         :type source: str
         """
+        logging.debug("Loading item from API")
         if source in ("qobuz", "deezer"):
             info = {
                 "name": item.get("name"),
@@ -625,8 +626,9 @@ class Artist(Tracklist):
             }
         else:
             raise ValueError(f"invalid source '{source}'")
+        logging.debug(f"Loaded info {info}")
 
-        # equivalent to Album(client=client, **info)
+        # equivalent to Artist(client=client, **info)
         return cls(client=client, **info)
 
     def __repr__(self) -> str:
