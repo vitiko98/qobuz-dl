@@ -7,6 +7,7 @@ from typing import Generator, Tuple, Union
 import requests
 import tidalapi
 
+from .constants import AGENT, QOBUZ_FEATURED_KEYS
 from .exceptions import (
     AuthenticationError,
     IneligibleError,
@@ -15,7 +16,6 @@ from .exceptions import (
     InvalidQuality,
 )
 from .spoofbuz import Spoofer
-from .constants import QOBUZ_FEATURED_KEYS, AGENT
 
 logger = logging.getLogger(__name__)
 

@@ -5,6 +5,7 @@ import subprocess
 from tempfile import gettempdir
 from typing import Optional
 
+from .downloader import Track, Tracklist
 from .exceptions import ConversionError
 
 logger = logging.getLogger(__name__)
@@ -82,6 +83,17 @@ class Converter:
             logger.debug("Converted: %s -> %s", self.filename, self.final_fn)
         else:
             raise ConversionError("No file was returned from conversion")
+
+    def process_media(self, media_obj):
+        if isinstance(media_obj, Track):
+            self.convert(media_obj.final_path)
+        elif isinstance(media_obj, Tracklist):
+            for media in media_obj:
+                self.process_media(media)
+        else:
+            raise TypeError(
+                f"Media must be Track, Album, Playlist, or Artist, not {type(media_obj)}"
+            )
 
     def _gen_command(self):
         command = [

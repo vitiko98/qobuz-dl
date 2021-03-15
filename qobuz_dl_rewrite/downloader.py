@@ -1,7 +1,7 @@
 import logging
-import subprocess
 import os
 import shutil
+import subprocess
 from tempfile import gettempdir
 from typing import Any, Optional, Union
 
@@ -10,12 +10,12 @@ from mutagen.flac import FLAC, Picture
 from mutagen.id3 import APIC, ID3, ID3NoHeaderError
 from pathvalidate import sanitize_filename
 
+from . import converter
 from .clients import ClientInterface
 from .constants import EXT, FLAC_MAX_BLOCKSIZE
 from .exceptions import InvalidQuality, NonStreamable, TooLargeCoverArt
 from .metadata import TrackMetadata
 from .util import quality_id, safe_get, tqdm_download
-from . import converter
 
 logger = logging.getLogger(__name__)
 
@@ -220,18 +220,22 @@ class Track:
 
         self.__is_tagged = True
 
-    def convert(self, codec='ALAC', **kwargs):
-        assert self.__is_downloaded, 'track must be downloaded before conversion'
+    def convert(self, codec="ALAC", **kwargs):
+        assert self.__is_downloaded, "track must be downloaded before conversion"
 
         CONV_CLASS = {
-            'ALAC': converter.ALAC,
-            'MP3': converter.LAME,
-            'FLAC': converter.FLAC,
-            'OGG': converter.VORBIS,
-            'AAC': converter.AAC,
+            "ALAC": converter.ALAC,
+            "MP3": converter.LAME,
+            "FLAC": converter.FLAC,
+            "OGG": converter.VORBIS,
+            "AAC": converter.AAC,
         }
 
-        engine = CONV_CLASS[codec.upper()](filename=self.final_path, sampling_rate=kwargs.get("sampling_rate"), overwrite=True)
+        engine = CONV_CLASS[codec.upper()](
+            filename=self.final_path,
+            sampling_rate=kwargs.get("sampling_rate"),
+            overwrite=True,
+        )
         engine.convert(remove_source=kwargs.get("remove_source", False))
 
     def get(self, *keys, default=None):
@@ -316,10 +320,12 @@ class Tracklist(list):
     def set(self, key, val):
         self.__setitem__(key, val)
 
-    def convert(self, codec='ALAC', **kwargs):
-        if (sr := kwargs.get("sampling_rate")):
+    def convert(self, codec="ALAC", **kwargs):
+        if (sr := kwargs.get("sampling_rate")) :
             if sr < 44100:
-                logger.warning("Sampling rate {sampling_rate} is lower than 44.1kHz. This may cause distortion and ruin the track.")
+                logger.warning(
+                    "Sampling rate {sampling_rate} is lower than 44.1kHz. This may cause distortion and ruin the track."
+                )
             else:
                 logger.debug(f"Downsampling to {sr/1000}kHz")
 
