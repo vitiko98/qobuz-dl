@@ -63,6 +63,7 @@ class Track:
             kwargs.get("filepath_format") or "{tracknumber}. {title}"
         )
         self.__is_downloaded = False
+        self.__is_tagged = False
         for attr in ("quality", "folder", "meta"):
             setattr(self, attr, None)
 
@@ -176,6 +177,12 @@ class Track:
             )
             return
 
+        if self.__is_tagged:
+            logger.info(
+                "Track %s not tagged because it is already tagged", self["title"]
+            )
+            return
+
         if album_meta is not None:
             self.meta.add_album_meta(album_meta)  # extend meta with album info
 
@@ -210,6 +217,8 @@ class Track:
         else:
             raise ValueError(f'Error saving file with container "{container}"')
 
+        self.__is_tagged = True
+
     def convert(self, codec='ALAC', **kwargs):
         assert self.__is_downloaded, 'track must be downloaded before conversion'
 
@@ -231,8 +240,16 @@ class Track:
             conversion_command.extend(["-c:a", "alac"])
         elif codec == 'MP3':
             new_ext = '.mp3'
-            # uses 320kbps
-            conversion_command.extend(["-c:a", "libmp3lame", "-b:a", "320k"])
+            # TODO: add further customization of mp3 quality
+            # https://trac.ffmpeg.org/wiki/Encode/MP3
+            # VBR from 22-26KB/s
+            conversion_command.extend(["-c:a", "libmp3lame", "-q:a", "0"])
+        elif codec == 'AAC':
+            new_ext = '.m4a'
+            # highest quality VBR
+            conversion_command.extend(["-c:a", "libfdk_aac", "-vbr", "5"])
+        elif codec == 'FLAC':
+            new_ext = '.flac'
         else:
             raise NotImplementedError(f"Codec {codec} not implemented")
 
@@ -248,6 +265,7 @@ class Track:
         process.wait()
         out_path = self.final_path.replace(ext, new_ext)
         shutil.move(tempfile, out_path)
+        self.final_path = out_path
 
     def get(self, *keys, default=None):
         """Safe get method that allows for layered access.
