@@ -1,7 +1,7 @@
 import logging
+import subprocess
 import os
 import shutil
-import subprocess
 from tempfile import gettempdir
 from typing import Any, Optional, Union
 
@@ -10,12 +10,12 @@ from mutagen.flac import FLAC, Picture
 from mutagen.id3 import APIC, ID3, ID3NoHeaderError
 from pathvalidate import sanitize_filename
 
-from . import converter
 from .clients import ClientInterface
 from .constants import EXT, FLAC_MAX_BLOCKSIZE
 from .exceptions import InvalidQuality, NonStreamable, TooLargeCoverArt
 from .metadata import TrackMetadata
 from .util import quality_id, safe_get, tqdm_download
+from . import converter
 
 logger = logging.getLogger(__name__)
 
@@ -226,15 +226,13 @@ class Track:
         CONV_CLASS = {
             "ALAC": converter.ALAC,
             "MP3": converter.LAME,
-            "FLAC": converter.FLAC,
-            "OGG": converter.VORBIS,
+            "OPUS": converter.OPUS,
+            "OGG": converter.Vorbis,
             "AAC": converter.AAC,
         }
 
         engine = CONV_CLASS[codec.upper()](
-            filename=self.final_path,
-            sampling_rate=kwargs.get("sampling_rate"),
-            overwrite=True,
+            filename=self.final_path, sampling_rate=kwargs.get("sampling_rate")
         )
         engine.convert(remove_source=kwargs.get("remove_source", False))
 
