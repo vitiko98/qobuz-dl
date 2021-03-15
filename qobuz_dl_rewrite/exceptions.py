@@ -32,3 +32,11 @@ class ParsingError(Exception):
 
 class TooLargeCoverArt(Exception):
     pass
+
+
+class BadEncoderOption(Exception):
+    pass
+
+
+class ConversionError(Exception):
+    pass
