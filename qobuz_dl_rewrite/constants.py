@@ -7,6 +7,9 @@ CACHE_DIR = appdirs.user_cache_dir(APPNAME)
 CONFIG_DIR = appdirs.user_config_dir(APPNAME)
 LOG_DIR = appdirs.user_config_dir(APPNAME)
 
+
+AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:83.0) Gecko/20100101 Firefox/83.0"
+
 EXT = {
     5: ".mp3",
     6: ".flac",
@@ -22,26 +25,24 @@ QUALITY_DESC = {
     27: "24bit/192kHz",
 }
 
-# Docstring saved for later use, ignore
-"""Get featured albums.
 
-Available queries:
-
-    * most-streamed
-    * recent-releases
-    * best-sellers
-    * press-awards
-    * ideal-discography
-    * editor-picks
-    * most-featured
-    * qobuzissims
-    * new-releases
-    * new-releases-full
-
-:param query: a query from the available queries
-:param limit: max number of results
-"""
-
+QOBUZ_FEATURED_KEYS = [
+    "most-streamed",
+    "recent-releases",
+    "best-sellers",
+    "press-awards",
+    "ideal-discography",
+    "editor-picks",
+    "most-featured",
+    "qobuzissims",
+    "new-releases",
+    "new-releases-full",
+    "harmonia-mundi",
+    "universal-classic",
+    "universal-jazz",
+    "universal-jeunesse",
+    "universal-chanson",
+]
 
 __MP4_KEYS = [
     "\xa9nam",

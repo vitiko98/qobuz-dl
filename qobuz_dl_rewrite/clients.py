@@ -15,30 +15,12 @@ from .exceptions import (
     InvalidQuality,
 )
 from .spoofbuz import Spoofer
+from .constants import QOBUZ_FEATURED_KEYS, AGENT
 
 logger = logging.getLogger(__name__)
 
 # Qobuz
 QOBUZ_BASE = "https://www.qobuz.com/api.json/0.2"
-AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:83.0) Gecko/20100101 Firefox/83.0"
-
-QOBUZ_FEATURED_KEYS = [
-    "most-streamed",
-    "recent-releases",
-    "best-sellers",
-    "press-awards",
-    "ideal-discography",
-    "editor-picks",
-    "most-featured",
-    "qobuzissims",
-    "new-releases",
-    "new-releases-full",
-    "harmonia-mundi",
-    "universal-classic",
-    "universal-jazz",
-    "universal-jeunesse",
-    "universal-chanson",
-]
 
 # Tidal
 TIDAL_Q_IDS = {
@@ -156,6 +138,36 @@ class QobuzClient(SecureClientInterface):
     def search(
         self, query: str, media_type: str = "album", limit: int = 500
     ) -> Generator:
+        """Search the qobuz API.
+
+        If 'featured' is given as media type, this will retrieve results
+        from the featured albums in qobuz. The queries available with this type
+        are:
+
+            * most-streamed
+            * recent-releases
+            * best-sellers
+            * press-awards
+            * ideal-discography
+            * editor-picks
+            * most-featured
+            * qobuzissims
+            * new-releases
+            * new-releases-full
+            * harmonia-mundi
+            * universal-classic
+            * universal-jazz
+            * universal-jeunesse
+            * universal-chanson
+
+        :param query:
+        :type query: str
+        :param media_type:
+        :type media_type: str
+        :param limit:
+        :type limit: int
+        :rtype: Generator
+        """
         return self._api_search(query, media_type, limit)
 
     def get(self, item_id: Union[str, int], media_type: str = "album") -> dict:
