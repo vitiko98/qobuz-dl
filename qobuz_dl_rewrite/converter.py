@@ -26,6 +26,7 @@ class Converter:
         sampling_rate: Optional[int] = None,
         bit_depth: Optional[int] = None,
         copy_art: bool = False,
+        **kwargs,
     ):
         """
         :param ffmpeg_arg: The codec ffmpeg argument (defaults to an "optimal value")
@@ -44,6 +45,8 @@ class Converter:
         self.sampling_rate = sampling_rate
         self.bit_depth = bit_depth
         self.copy_art = copy_art
+
+        self.overwrite = kwargs.get("overwrite")
 
         if ffmpeg_arg is None:
             logger.debug("No arguments provided. Codec defaults will be used")
@@ -65,6 +68,8 @@ class Converter:
         """
         if custom_fn:
             self.final_fn = custom_fn
+        else:
+            self.final_fn = self.filename.replace(self.ext, self.container)
 
         self.command = self._gen_command()
         logger.debug("Generated conversion command: %s", self.command)
@@ -97,11 +102,20 @@ class Converter:
         if self.ffmpeg_arg:
             command.extend(self.ffmpeg_arg.split())
 
-        if (self.sampling_rate and self.bit_depth) and self.lossless:
-            # TODO: Add bit_depth support
-            command.extend(["-ar", str(self.sampling_rate)])
+        if self.lossless:
+            if self.sampling_rate:
+                command.extend(["-ar", str(self.sampling_rate)])
+            if int(self.bit_depth) == 16:
+                command.extend(["-sample_fmt", "s16"])
+            elif int(self.bit_depth) in (24, 32):
+                command.extend(["-sample_fmt", "s32"])
+            else:
+                raise ValueError("Bit depth must be 16, 24, or 32")
 
-        command.extend(["-y", self.final_fn])
+        if self.overwrite:
+            command.append("-y")
+
+        command.append(self.final_fn)
 
         return command
 
@@ -140,6 +154,10 @@ class Converter:
             raise BadEncoderOption(
                 f"VBR value is not in the codec range: {', '.join(options)}"
             )
+
+    @property
+    def ext(self):
+        return self.filename.split('.')[-1]
 
 
 class LAME(Converter):
