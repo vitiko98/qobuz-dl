@@ -227,19 +227,27 @@ class Track:
         ]
 
         if codec == 'ALAC':
-            out_path = self.final_path.replace(ext, '.m4a')
+            new_ext = '.m4a'
             conversion_command.extend(["-c:a", "alac"])
+        elif codec == 'MP3':
+            new_ext = '.mp3'
+            # uses 320kbps
+            conversion_command.extend(["-c:a", "libmp3lame", "-b:a", "320k"])
         else:
             raise NotImplementedError(f"Codec {codec} not implemented")
 
-        if sampling_rate is not None:
+        if sampling_rate is not None and codec not in ("aac", "mp3"):
             conversion_command.extend(["-ar", str(sampling_rate)])
 
-        conversion_command.extend(["-y", out_path])
+        # tempfile needs to use new_ext so that ffmpeg detects the container
+        tempfile = os.path.join(gettempdir(), f"~qdl_track_conv{new_ext}")
+        conversion_command.extend(["-y", tempfile])
         logger.debug(f"coverting with command {conversion_command}")
 
         process = subprocess.Popen(conversion_command)
-        out, err = process.communicate()  # waits until finished
+        process.wait()
+        out_path = self.final_path.replace(ext, new_ext)
+        shutil.move(tempfile, out_path)
 
     def get(self, *keys, default=None):
         """Safe get method that allows for layered access.
