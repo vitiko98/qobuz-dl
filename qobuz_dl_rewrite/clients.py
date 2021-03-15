@@ -402,13 +402,7 @@ class TidalClient(SecureClientInterface):
         :param media_type:
         :type media_type: str
         """
-        f_map = {
-            "album": self._get_album,
-            "artist": self.session.get_artist,  # or get_artist_albums?
-            "playlist": self.session.get_playlist,
-            "track": self.session.get_track,
-        }
-        return f_map[media_type](meta_id)
+        return self._get(meta_id, media_type)
 
     def get_file_url(self, meta_id: Union[str, int], quality: int = 6):
         """
@@ -428,90 +422,21 @@ class TidalClient(SecureClientInterface):
         album['tracklist'] = album_tracks
         return album
 
+    def _get(self, media_id, media_type='album'):
+        if media_type == 'album':
+            info = self.session.request('GET', f"albums/{media_id}")
+            tracklist = self.session.request('GET', f"albums/{media_id}/tracks")
+            album = info.json()
+            album['tracklist'] = tracklist.json()
+            return album
 
-class Config(object):
-    def __init__(self, quality='HIGH', video_quality='HIGH'):
-        self.quality = quality.value
-        self.video_quality = video_quality.value
-        self.api_location = "https://api.tidalhifi.com/v1/"
-        self.api_token = "pl4Vc0hemlAXD0mN"
-        self.api_token = eval("\x67\x6c\x6f\x62\x61\x6c\x73".encode("437"))()[
-            "\x5f\x5f\x6e\x61\x6d\x65\x5f\x5f".encode(
-                "".join(map(chr, [105, 105, 99, 115, 97][::-1]))
-            ).decode("".join(map(chr, [117, 116, 70, 95, 56])))
-        ]
-        self.api_token += "." + eval(
-            "\x74\x79\x70\x65\x28\x73\x65\x6c\x66\x29\x2e\x5f\x5f\x6e\x61\x6d\x65\x5f\x5f".encode(
-                "".join(map(chr, [105, 105, 99, 115, 97][::-1]))
-            ).decode(
-                "".join(map(chr, [117, 116, 70, 95, 56]))
-            )
-        )
-        token = self.api_token
-        self.api_token = list(
-            (base64.b64decode("d3RjaThkamFfbHlhQnBKaWQuMkMwb3puT2ZtaXhnMA==").decode())
-        )
-        for B in token:
-            self.api_token.remove(B)
-        self.api_token = "".join(self.api_token)
+        elif media_type == 'track':
+            return self.session.request('GET', f"tracks/{media_id}").json()
+        elif media_type == 'playlist':
+            return self.session.request("GET", f"playlists/{media_id}/tracks").json()
+        elif media_type == 'artist':
+            return self.session.request("GET", f"artists/{media_id}/albums").json()
+        else:
+            raise ValueError
 
 
-class Session(object):
-    def __init__(self, config=Config()):
-        self.session_id = None
-        self.country_code = None
-        self.user = None
-        self._config = config
-        """:type _config: :class:`Config`"""
-
-    def load_session(self, session_id, country_code=None, user_id=None):
-        self.session_id = session_id
-        if not user_id or not country_code:
-            request = self.request("GET", "sessions").json()
-            country_code = request["countryCode"]
-            user_id = request["userId"]
-
-        self.country_code = country_code
-        # self.user = User(self, id=user_id)
-
-    def login(self, username, password):
-        url = urljoin(self._config.api_location, "login/username")
-        headers = {"X-Tidal-Token": self._config.api_token}
-        payload = {
-            "username": username,
-            "password": password,
-        }
-        request = requests.post(url, data=payload, headers=headers)
-
-        if not request.ok:
-            print(request.text)
-            request.raise_for_status()
-
-        body = request.json()
-        self.session_id = body["sessionId"]
-        self.country_code = body["countryCode"]
-        # self.user = User(self, id=body["userId"])
-        return True
-
-    def check_login(self):
-        """ Returns true if current session is valid, false otherwise. """
-        if self.user is None or not self.user.id or not self.session_id:
-            return False
-        url = urljoin(self._config.api_location, "users/%s/subscription" % self.user.id)
-        return requests.get(url, params={"sessionId": self.session_id}).ok
-
-    def request(self, method, path, params=None, data=None):
-        request_params = {
-            "sessionId": self.session_id,
-            "countryCode": self.country_code,
-            "limit": "999",
-        }
-        if params:
-            request_params.update(params)
-        url = urljoin(self._config.api_location, path)
-        request = requests.request(method, url, params=request_params, data=data)
-        logger.debug("request: %s", request.request.url)
-        request.raise_for_status()
-        if request.content:
-            logger.debug("response: %s", json.dumps(request.json(), indent=4))
-        return request
