@@ -40,13 +40,12 @@ class Config:
         self.authentication = {"app_id": None, "secrets": None}
         self.downloads_database = None
         self.filters = {"smart_discography": False, "albums_only": False}
-        self.downloads = {"downloads_folder": folder, "quality": quality}
+        self.downloads = {"folder": folder, "quality": quality}
         self.metadata = {"embed_covers": True, "large_covers": False, "default_comment": None}
         self.path_format = {"folder": folder_format, "track": track_format}
 
         if config_path is not None:
-            with open(config_path) as cfg:
-                self.__dict__.update(yaml.load(cfg))
+            self.load(config_path)
 
     def reset(self, path):
         with open(path, 'w') as cfg:
@@ -54,7 +53,7 @@ class Config:
 
     def load(self, path):
         with open(path) as cfg:
-            self.__dict__ = yaml.load(cfg)
+            self.__dict__.update(yaml.load(cfg))
 
     def update(self, args):
         """Update configuration based on args from CLI.
