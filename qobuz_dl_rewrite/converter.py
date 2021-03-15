@@ -68,8 +68,6 @@ class Converter:
         """
         if custom_fn:
             self.final_fn = custom_fn
-        else:
-            self.final_fn = self.filename.replace(self.ext, self.container)
 
         self.command = self._gen_command()
         logger.debug("Generated conversion command: %s", self.command)
