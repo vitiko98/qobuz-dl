@@ -1,7 +1,14 @@
-from typing import Optional
+import logging
+import os
+
+import logging.handlers as handlers
+
+from typing import Optional, Union
 
 import requests
 from tqdm import tqdm
+
+from .constants import LOG_DIR
 
 
 def safe_get(d: dict, *keys, default=None):
@@ -60,3 +67,38 @@ def tqdm_download(url: str, filepath: str):
         for data in r.iter_content(chunk_size=1024):
             size = file.write(data)
             bar.update(size)
+
+
+def init_log(path: Optional[str] = None, level: str = "DEBUG", rotate: str = "midnight"):
+    """
+    Initialize a log instance with a stream handler and a rotating file handler.
+    If a path is not set, fallback to the default app log directory.
+
+    :param path:
+    :type path: Optional[str]
+    :param level:
+    :type level: str
+    :param rotate:
+    :type rotate: str
+    """
+    if not path:
+        os.makedirs(LOG_DIR, exist_ok=True)
+        path = os.path.join(LOG_DIR, "qobuz_dl.log")
+
+    logger = logging.getLogger()
+    level = logging.getLevelName(level)
+    logger.setLevel(level)
+
+    formatter = logging.Formatter(
+        fmt="%(asctime)s - %(module)s.%(funcName)s.%(levelname)s: %(message)s",
+        datefmt="%H:%M:%S",
+    )
+
+    rotable = handlers.TimedRotatingFileHandler(path, when=rotate)
+    printable = logging.StreamHandler()
+
+    rotable.setFormatter(formatter)
+    printable.setFormatter(formatter)
+
+    logger.addHandler(printable)
+    logger.addHandler(rotable)
