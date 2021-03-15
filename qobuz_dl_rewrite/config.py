@@ -1,4 +1,7 @@
-import yaml
+from pprint import pformat
+from ruamel.yaml import YAML
+
+yaml = YAML()
 
 
 class Config:
@@ -29,21 +32,17 @@ class Config:
     def __init__(self, config_path=None):
 
         # DEFAULTS
-        self.directory = "Qobuz Downloads"
-        self.quality = 6
-        self.embed_art = False
-        self.lucky_limit = 1
-        self.lucky_type = "album"
-        self.interactive_limit = 20
-        self.ignore_singles_eps = False
-        self.no_m3u_for_playlists = False
-        self.quality_fallback = True
-        self.cover_og_quality = False
-        self.no_cover = False
-        self.downloads_db = None
-        self.folder_format = "{artist} - {album} ({year}) [{bit_depth}B-{sampling_rate}kHz]"
-        self.track_format = "{tracknumber}. {tracktitle}"
-        self.smart_discography = False
+        folder = "Downloads"
+        quality = 6
+        folder_format = "{artist} - {album} ({year}) [{bit_depth}B-{sampling_rate}kHz]"
+        track_format = "{tracknumber}. {tracktitle}"
+        self.credentials = {"email": None, "password": None}
+        self.authentication = {"app_id": None, "secrets": None}
+        self.downloads_database = None
+        self.filters = {"smart_discography": False, "albums_only": False}
+        self.downloads = {"downloads_folder": folder, "quality": quality}
+        self.metadata = {"embed_covers": True, "large_covers": False, "default_comment": None}
+        self.path_format = {"folder": folder_format, "track": track_format}
 
         if config_path is not None:
             with open(config_path) as cfg:
@@ -69,3 +68,6 @@ class Config:
 
     def __setitem__(self, key, val):
         setattr(self, key, val)
+
+    def __repr__(self):
+        return f"Config({pformat(self.__dict__)})"
