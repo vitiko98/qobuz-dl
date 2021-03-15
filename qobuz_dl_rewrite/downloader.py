@@ -224,11 +224,14 @@ class Track:
         assert self.__is_downloaded, "track must be downloaded before conversion"
 
         CONV_CLASS = {
+            "FLAC": converter.FLAC,
             "ALAC": converter.ALAC,
             "MP3": converter.LAME,
             "OPUS": converter.OPUS,
             "OGG": converter.Vorbis,
+            "VORBIS": converter.Vorbis,
             "AAC": converter.AAC,
+            "M4A": converter.AAC,
         }
 
         engine = CONV_CLASS[codec.upper()](
