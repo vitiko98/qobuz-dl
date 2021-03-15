@@ -26,8 +26,11 @@ class Converter:
         sampling_rate: Optional[int] = None,
         bit_depth: Optional[int] = None,
         copy_art: bool = False,
+        remove_source: bool = False,
     ):
         """
+        :param filename:
+        :type filename: str
         :param ffmpeg_arg: The codec ffmpeg argument (defaults to an "optimal value")
         :type ffmpeg_arg: Optional[str]
         :param sampling_rate: This value is ignored if a lossy codec is detected
@@ -36,12 +39,15 @@ class Converter:
         :type bit_depth: Optional[int]
         :param copy_art: Embed the cover art (if found) into the encoded file
         :type copy_art: bool
+        :param remove_source:
+        :type remove_source: bool
         """
         logger.debug(locals())
 
         self.filename = filename
         self.final_fn = f"{os.path.splitext(filename)[0]}.{self.container}"
         self.tempfile = os.path.join(gettempdir(), os.path.basename(self.final_fn))
+        self.remove_source = remove_source
         self.sampling_rate = sampling_rate
         self.bit_depth = bit_depth
         self.copy_art = copy_art
@@ -55,14 +61,12 @@ class Converter:
 
         logger.debug("Ffmpeg codec extra argument: %s", self.ffmpeg_arg)
 
-    def convert(self, custom_fn: Optional[str] = None, remove_source: bool = True):
+    def convert(self, custom_fn: Optional[str] = None):
         """Convert the file.
 
         :param custom_fn: Custom output filename (defaults to the original
         name with a replaced container)
         :type custom_fn: Optional[str]
-        :param remove_source: Remove the source after the conversion
-        :type remove_source: bool
         """
         if custom_fn:
             self.final_fn = custom_fn
@@ -72,8 +76,8 @@ class Converter:
 
         process = subprocess.Popen(self.command)
         process.wait()
-        if os.path.isfile(self.final_fn):
-            if remove_source:
+        if os.path.isfile(self.tempfile):
+            if self.remove_source:
                 os.remove(self.filename)
                 logger.debug("Source removed: %s", self.filename)
 

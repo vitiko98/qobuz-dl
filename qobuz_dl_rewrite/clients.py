@@ -397,7 +397,7 @@ class TidalClient(SecureClientInterface):
         :type media_type: str
         """
         f_map = {
-            "album": self.session.get_album,
+            "album": self._get_album,
             "artist": self.session.get_artist,  # or get_artist_albums?
             "playlist": self.session.get_playlist,
             "track": self.session.get_track,
@@ -414,3 +414,9 @@ class TidalClient(SecureClientInterface):
         # Not tested
         self.session._config.quality = TIDAL_Q_IDS[quality]
         return self.session.get_track_url(meta_id)
+
+    def _get_album(self, album_id):
+        album_info = self.session.get_album(album_id)
+        album_tracks = self.session.get_album_tracks(album_id)
+        print(album_info)
+        print(album_tracks)
