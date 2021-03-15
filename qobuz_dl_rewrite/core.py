@@ -1,7 +1,6 @@
 import logging
 import os
 import re
-
 # ------- Testing ----------
 from typing import Generator, Sequence, Tuple, Union
 
@@ -74,9 +73,7 @@ class QobuzDL:
         """
         with open(filepath) as txt:
             lines = [
-                line.replace("\n", "")
-                for line in txt.readlines()
-                if not line.strip().startswith("#")
+                line for line in txt.readlines() if not line.strip().startswith("#")
             ]
 
             logger.debug("Parsed lines from text file: %d", len(lines))
