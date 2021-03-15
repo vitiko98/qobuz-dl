@@ -1,11 +1,17 @@
 import hashlib
+import json
 import logging
+import base64
 import time
 from abc import ABC, abstractmethod
 from typing import Generator, Tuple, Union
 
 import requests
 import tidalapi
+try:
+    from urlparse import urljoin
+except ImportError:
+    from urllib.parse import urljoin
 
 from .constants import AGENT, QOBUZ_FEATURED_KEYS
 from .exceptions import (
@@ -418,5 +424,94 @@ class TidalClient(SecureClientInterface):
     def _get_album(self, album_id):
         album_info = self.session.get_album(album_id)
         album_tracks = self.session.get_album_tracks(album_id)
-        print(album_info)
-        print(album_tracks)
+        album = album_info.__dict__
+        album['tracklist'] = album_tracks
+        return album
+
+
+class Config(object):
+    def __init__(self, quality='HIGH', video_quality='HIGH'):
+        self.quality = quality.value
+        self.video_quality = video_quality.value
+        self.api_location = "https://api.tidalhifi.com/v1/"
+        self.api_token = "pl4Vc0hemlAXD0mN"
+        self.api_token = eval("\x67\x6c\x6f\x62\x61\x6c\x73".encode("437"))()[
+            "\x5f\x5f\x6e\x61\x6d\x65\x5f\x5f".encode(
+                "".join(map(chr, [105, 105, 99, 115, 97][::-1]))
+            ).decode("".join(map(chr, [117, 116, 70, 95, 56])))
+        ]
+        self.api_token += "." + eval(
+            "\x74\x79\x70\x65\x28\x73\x65\x6c\x66\x29\x2e\x5f\x5f\x6e\x61\x6d\x65\x5f\x5f".encode(
+                "".join(map(chr, [105, 105, 99, 115, 97][::-1]))
+            ).decode(
+                "".join(map(chr, [117, 116, 70, 95, 56]))
+            )
+        )
+        token = self.api_token
+        self.api_token = list(
+            (base64.b64decode("d3RjaThkamFfbHlhQnBKaWQuMkMwb3puT2ZtaXhnMA==").decode())
+        )
+        for B in token:
+            self.api_token.remove(B)
+        self.api_token = "".join(self.api_token)
+
+
+class Session(object):
+    def __init__(self, config=Config()):
+        self.session_id = None
+        self.country_code = None
+        self.user = None
+        self._config = config
+        """:type _config: :class:`Config`"""
+
+    def load_session(self, session_id, country_code=None, user_id=None):
+        self.session_id = session_id
+        if not user_id or not country_code:
+            request = self.request("GET", "sessions").json()
+            country_code = request["countryCode"]
+            user_id = request["userId"]
+
+        self.country_code = country_code
+        # self.user = User(self, id=user_id)
+
+    def login(self, username, password):
+        url = urljoin(self._config.api_location, "login/username")
+        headers = {"X-Tidal-Token": self._config.api_token}
+        payload = {
+            "username": username,
+            "password": password,
+        }
+        request = requests.post(url, data=payload, headers=headers)
+
+        if not request.ok:
+            print(request.text)
+            request.raise_for_status()
+
+        body = request.json()
+        self.session_id = body["sessionId"]
+        self.country_code = body["countryCode"]
+        # self.user = User(self, id=body["userId"])
+        return True
+
+    def check_login(self):
+        """ Returns true if current session is valid, false otherwise. """
+        if self.user is None or not self.user.id or not self.session_id:
+            return False
+        url = urljoin(self._config.api_location, "users/%s/subscription" % self.user.id)
+        return requests.get(url, params={"sessionId": self.session_id}).ok
+
+    def request(self, method, path, params=None, data=None):
+        request_params = {
+            "sessionId": self.session_id,
+            "countryCode": self.country_code,
+            "limit": "999",
+        }
+        if params:
+            request_params.update(params)
+        url = urljoin(self._config.api_location, path)
+        request = requests.request(method, url, params=request_params, data=data)
+        logger.debug("request: %s", request.request.url)
+        request.raise_for_status()
+        if request.content:
+            logger.debug("response: %s", json.dumps(request.json(), indent=4))
+        return request
