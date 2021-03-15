@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+
 # ------- Testing ----------
 from typing import Generator, Sequence, Tuple, Union
 
@@ -87,12 +88,4 @@ class QobuzDL:
         raise ParsingError("Error parsing URLs from file `{filepath}`")
 
     def search(self, query: str, media_type: str, limit: int = 200) -> Generator:
-        results = self.client.search(query, media_type=media_type, limit=limit)
-        key = media_type + "s"
-
-        # Temporal to test Deezer
-        iterable = results.get(key, {}).get("items") or results.get("data", [])
-
-        return (
-            MEDIA_CLASS[media_type].from_api(item, self.client) for item in iterable
-        )
+        return self.client.search(query, media_type, limit)
