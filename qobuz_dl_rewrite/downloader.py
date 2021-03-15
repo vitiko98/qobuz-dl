@@ -1,7 +1,7 @@
 import logging
-import subprocess
 import os
 import shutil
+import subprocess
 from tempfile import gettempdir
 from typing import Any, Optional, Union
 
@@ -10,12 +10,12 @@ from mutagen.flac import FLAC, Picture
 from mutagen.id3 import APIC, ID3, ID3NoHeaderError
 from pathvalidate import sanitize_filename
 
+from . import converter
 from .clients import ClientInterface
 from .constants import EXT, FLAC_MAX_BLOCKSIZE
 from .exceptions import InvalidQuality, NonStreamable, TooLargeCoverArt
 from .metadata import TrackMetadata
 from .util import quality_id, safe_get, tqdm_download
-from . import converter
 
 logger = logging.getLogger(__name__)
 

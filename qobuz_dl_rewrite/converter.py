@@ -115,6 +115,10 @@ class Converter:
         if self.lossless:
             if isinstance(self.sampling_rate, int):
                 command.extend(["-ar", str(self.sampling_rate)])
+            else:
+                raise TypeError(
+                    f"Sampling rate must be int, not {type(self.sampling_rate)}"
+                )
 
             if isinstance(self.bit_depth, int):
                 if int(self.bit_depth) == 16:
@@ -123,6 +127,8 @@ class Converter:
                     command.extend(["-sample_fmt", "s32"])
                 else:
                     raise ValueError("Bit depth must be 16, 24, or 32")
+            else:
+                raise TypeError(f"Bit depth must be int, not {type(self.bit_depth)}")
 
         command.extend(["-y", self.tempfile])
 
@@ -137,6 +143,14 @@ class Converter:
             )
             self.ffmpeg_arg = self.default_ffmpeg_arg
             return
+
+
+class FLAC(Converter):
+    " Class for FLAC converter. "
+    codec_name = "flac"
+    codec_lib = "flac"
+    container = "flac"
+    lossless = True
 
 
 class LAME(Converter):
