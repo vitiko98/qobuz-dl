@@ -34,7 +34,7 @@ TIDAL_Q_IDS = {
     4: "LOW",  # AAC
     5: "HIGH",  # AAC
     6: "LOSSLESS",  # Lossless, but it also could be MQA
-    7: "HI_RES",
+    7: "HI_RES",  # not available for download
 }
 TIDAL_MAX_Q = max(TIDAL_Q_IDS.keys())
 
@@ -43,6 +43,7 @@ TIDAL_MAX_Q = max(TIDAL_Q_IDS.keys())
 DEEZER_BASE = "https://api.deezer.com"
 DEEZER_DL = "http://dz.loaderapp.info/deezer"
 DEEZER_Q_IDS = {4: 128, 5: 320, 6: 1411}
+DEEZER_MAX_Q = max(DEEZER_Q_IDS.keys())
 
 
 # ----------- Abstract Classes -----------------
@@ -362,7 +363,7 @@ class DeezerClient(ClientInterface):
 
         return response.json()
 
-    def get(self, meta_id: Union[str, int], type_: str = "album"):
+    def get(self, meta_id: Union[str, int], media_type: str = "album"):
         """Get metadata.
 
         :param meta_id:
@@ -370,14 +371,25 @@ class DeezerClient(ClientInterface):
         :param type_:
         :type type_: str
         """
-        response = self.session.get(f"{DEEZER_BASE}/{type_}/{meta_id}")
-        response.raise_for_status()
+        url = f"{DEEZER_BASE}/{media_type}/{meta_id}"
+        item = self.session.get(url).json()
+        if media_type in ("album", "playlist"):
+            tracks = self.session.get(f"{url}/tracks").json()
+            item["tracks"] = tracks["data"]
+            item["track_total"] = len(tracks["data"])
 
-        return response.json()
+        return item
 
     @staticmethod
     def get_file_url(meta_id: Union[str, int], quality: int = 6):
-        return f'{DEEZER_DL}/{DEEZER_Q_IDS[quality]}/"{DEEZER_BASE}/track/{meta_id}"'
+        quality = min(DEEZER_MAX_Q, quality)
+        url = f'{DEEZER_DL}/{DEEZER_Q_IDS[quality]}/{DEEZER_BASE}/track/{meta_id}'
+        logger.debug(f"Download url {url}")
+        return url
+
+    @property
+    def source(self):
+        return "deezer"
 
 
 class TidalClient(SecureClientInterface):

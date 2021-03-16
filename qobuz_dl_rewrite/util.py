@@ -1,3 +1,4 @@
+import sys
 import logging
 import logging.handlers as handlers
 import os
@@ -7,6 +8,8 @@ import requests
 from tqdm import tqdm
 
 from .constants import LOG_DIR
+
+logger = logging.getLogger(__name__)
 
 
 def safe_get(d: dict, *keys, default=None):
@@ -52,13 +55,15 @@ def tqdm_download(url: str, filepath: str):
     """Downloads a file with a progress bar.
 
     :param url: url to direct download
-    :type url: str
     :param filepath: file to write
+    :type url: str
     :type filepath: str
     """
-    # Fixme: add the conditional to the progress_bar bool
+    # FIXME: add the conditional to the progress_bar bool
+    logger.debug(f"Downloading {url} to {filepath}")
     r = requests.get(url, allow_redirects=True, stream=True)
     total = int(r.headers.get("content-length", 0))
+    logger.debug(f"File size = {total}")
     with open(filepath, "wb") as file, tqdm(
         total=total, unit="iB", unit_scale=True, unit_divisor=1024
     ) as bar:

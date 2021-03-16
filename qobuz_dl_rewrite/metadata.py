@@ -90,19 +90,28 @@ class TrackMetadata:
             self.date = resp.get("release_date_original") or resp.get("release_date")
             self.copyright = resp.get("copyright")
             self.albumartist = resp.get("artist", {}).get("name")
-
             self.label = resp.get("label")
 
             if isinstance(self.label, dict):
                 self.label = self.label.get("name")
+
         elif self.__source == "tidal":
             self.album = resp.get("title")
             self.tracktotal = resp.get("numberOfTracks")
+            # genre not returned by API
             self.date = resp.get("releaseDate")
             self.copyright = resp.get("copyright")
             self.albumartist = resp.get("artist", {}).get("name")
+            # label not returned by API
+
         elif self.__source == "deezer":
-            raise NotImplementedError
+            self.album = resp.get("title")
+            self.tracktotal = resp.get("track_total")
+            self.genre = resp.get("genres", {}).get("data")
+            self.date = resp.get("release_date")
+            self.albumartist = resp.get("artist", {}).get("name")
+            self.label = resp.get("label")
+
         else:
             raise ValueError
 
@@ -124,14 +133,21 @@ class TrackMetadata:
             except KeyError:
                 if hasattr(self, "albumartist"):
                     self.artist = self.albumartist
+
         elif self.__source == "tidal":
             self.title = track.get("title").strip()
             self._mod_title(track.get("version"), None)
             self.tracknumber = str(track.get("trackNumber"))
             self.discnumber = str(track.get("volumeNumber"))
             self.artist = track.get("artist", {}).get("name")
+
         elif self.__source == "deezer":
-            raise NotImplementedError
+            self.title = track.get("title").strip()
+            self._mod_title(track.get("version"), None)
+            self.tracknumber = track.get("track_position")
+            self.discnumber = track.get("disk_number")
+            self.artist = track.get("artist", {}).get("name")
+
         else:
             raise ValueError
 
@@ -176,20 +192,24 @@ class TrackMetadata:
         if not hasattr(self, "_genres"):
             return None
 
-        genres = re.findall(r"([^\u2192\/]+)", "/".join(self._genres))
-        no_repeats = []
-        [no_repeats.append(g) for g in genres if g not in no_repeats]
-        return ", ".join(no_repeats)
+        if isinstance(self._genres, list):
+            genres = re.findall(r"([^\u2192\/]+)", "/".join(self._genres))
+            no_repeats = []
+            [no_repeats.append(g) for g in genres if g not in no_repeats]
+            return ", ".join(no_repeats)
+        elif isinstance(self._genres, str):
+            return self._genres
+        else:
+            raise TypeError(f"Genre must be list or str, not {type(self._genre)}")
 
     @genre.setter
-    def genre(self, val: list):  # Is the assert necessary?
+    def genre(self, val: Union[str, list]):
         """Sets the internal `genre` field to the given list.
         It is not formatted until it is requested with `meta.genre`.
 
         :param val:
-        :type val: list
+        :type val: Union[str, list]
         """
-        assert type(val) == list
         self._genres = val
 
     @property

@@ -1,10 +1,10 @@
 import logging
 import os
 import shutil
-from pprint import pformat
+from abc import ABC, abstractmethod
+from pprint import pformat, pprint
 from tempfile import gettempdir
 from typing import Any, Optional, Union
-from abc import ABC, abstractmethod
 
 import requests
 from mutagen.flac import FLAC, Picture
@@ -30,6 +30,8 @@ TIDAL_Q_MAP = {
     "LOSSLESS": 6,
     "HI_RES": 7,
 }
+
+COVER_SIZES = ("thumbnail", "small", "large")
 
 
 class Track:
@@ -96,8 +98,9 @@ class Track:
     def _get_tracklist(resp, source):
         if source in ("qobuz", "tidal"):
             return resp["tracks"]["items"]
+        elif source == "deezer":
+            return resp["tracks"]
         else:
-            # TODO: implement deezer
             raise NotImplementedError
 
     def download(
@@ -124,20 +127,25 @@ class Track:
             return
 
         dl_info = self.client.get_file_url(self.id, quality)  # dict
-
-        if not (dl_info.get("url") or dl_info.get("sampling_rate")) or dl_info.get(
-            "sample"
-        ):
-            logger.debug("Track is a sample: %s", dl_info)
-            return
-
-        logger.debug("Downloadable URL found: %s", dl_info["url"])
-
         self.temp_file = os.path.join(gettempdir(), "~qdl_track.tmp")
-
         logger.debug("Temporary file path: %s", self.temp_file)
 
-        tqdm_download(dl_info["url"], self.temp_file)  # downloads file
+        if self.client.source == 'qobuz':
+            if not (dl_info.get("url") or dl_info.get("sampling_rate")) or dl_info.get(
+                "sample"
+            ):
+                logger.debug("Track is a sample: %s", dl_info)
+                return
+
+        if self.client.source in ('qobuz', 'tidal'):
+            logger.debug("Downloadable URL found: %s", dl_info.get("url"))
+            tqdm_download(dl_info["url"], self.temp_file)  # downloads file
+        elif self.client.source == 'deezer':
+            logger.debug("Downloadable URL found: %s", dl_info)
+            tqdm_download(dl_info, self.temp_file)  # downloads file
+        else:
+            raise InvalidSourceError(self.client.source)
+
         shutil.move(self.temp_file, self.final_path)
 
         self.__is_downloaded = True
@@ -435,8 +443,10 @@ class Album(Tracklist):
     def load_meta(self):
         assert hasattr(self, "id"), "id must be set to load metadata"
         self.meta = self.client.get(self.id, media_type="album")
+        pprint(self.meta)
         # update attributes based on response
-        self.__dict__.update(self._parse_get_resp(self.meta, self.client))
+        for k, v in self._parse_get_resp(self.meta, self.client).items():
+            setattr(self, k, v)  # prefer to __dict__.update for properties
 
         if not self.get("streamable", False):
             raise NonStreamable(f"This album is not streamable ({self.id} ID)")
@@ -476,9 +486,7 @@ class Album(Tracklist):
                     size: TIDAL_COVER_URL.format(
                         uuid=resp.get("cover").replace("-", "/"), height=x, width=x
                     )
-                    for size, x in zip(
-                        ("thumbnail", "small", "large"), (160, 320, 1280)
-                    )
+                    for size, x in zip(COVER_SIZES, (160, 320, 1280))
                 },
                 "streamable": resp.get("allowStreaming"),
                 "quality": TIDAL_Q_MAP[resp.get("audioQuality")],
@@ -486,12 +494,21 @@ class Album(Tracklist):
             }
         elif client.source == "deezer":
             info = {
-                "title": resp.get("title"),
-                "albumartist": safe_get(resp, "artist", "name"),
-                "_artist": safe_get(resp, "artist", "name"),
                 "id": resp.get("id"),
+                "title": resp.get("title"),
+                "_artist": safe_get(resp, "artist", "name"),
+                "albumartist": safe_get(resp, "artist", "name"),
+                # version not given by API
+                "cover_urls": {
+                    sk: resp.get(rk)  # size key, resp key
+                    for sk, rk in zip(
+                        COVER_SIZES, ("cover", "cover_medium", "cover_xl")
+                    )
+                },
                 "url": resp.get("link"),
+                "streamable": True,  # api only returns streamables
                 "quality": 6,  # all tracks are 16/44.1 streamable
+                "tracktotal": resp.get("track_total"),
             }
         else:
             raise NotImplementedError
@@ -577,14 +594,15 @@ class Album(Tracklist):
 
         # create a single cover object and use them for all tracks
         # TODO: avoid this method if embeded covers are not requested
-        cover = self.get_cover_obj(cover_path, quality)
+        if self.client.source != 'deezer':
+            cover = self.get_cover_obj(cover_path, quality)
 
         for track in self:
             logger.debug("Downloading track to %s with quality %s", folder, quality)
             track.download(quality, folder, progress_bar)
-            if tag_tracks:
+            if tag_tracks and self.client.source != 'deezer':
                 logger.debug("Tagging track")
-                track.tag(album_meta=self.meta, cover=cover)
+                track.tag(cover=cover)
 
     def __repr__(self) -> str:
         """Return a string representation of this Album object.
