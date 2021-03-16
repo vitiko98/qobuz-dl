@@ -34,6 +34,7 @@ TIDAL_Q_IDS = {
     4: "LOW",  # AAC
     5: "HIGH",  # AAC
     6: "LOSSLESS",  # Lossless, but it also could be MQA
+    7: "HI_RES",
 }
 TIDAL_MAX_Q = max(TIDAL_Q_IDS.keys())
 

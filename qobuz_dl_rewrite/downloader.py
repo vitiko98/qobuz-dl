@@ -4,6 +4,7 @@ import shutil
 from pprint import pformat
 from tempfile import gettempdir
 from typing import Any, Optional, Union
+from abc import ABC, abstractmethod
 
 import requests
 from mutagen.flac import FLAC, Picture
@@ -48,11 +49,7 @@ class Track:
     >>> t.tag()
     """
 
-    def __init__(
-        self,
-        client: ClientInterface,
-        **kwargs,
-    ):
+    def __init__(self, client: ClientInterface, **kwargs):
         """Create a track object.
 
         The only required parameter is client, but passing at an id is
@@ -298,7 +295,7 @@ class Track:
         return f"<Track - {self['title']}>"
 
 
-class Tracklist(list):
+class Tracklist(list, ABC):
     """A base class for tracklist-like objects.
 
     Implements methods to give it dict-like behavior. If a Tracklist
@@ -406,8 +403,13 @@ class Tracklist(list):
         return cover_obj
 
     @staticmethod
+    @abstractmethod
     def _parse_get_resp(item, client):
-        raise NotImplementedError
+        pass
+
+    @abstractmethod
+    def download(self, **kwargs):
+        pass
 
 
 class Album(Tracklist):
@@ -632,31 +634,22 @@ class Playlist(Tracklist):
 
         logger.debug(f"Loaded {len(self)} tracks from playlist {self.name}")
 
-    @classmethod
-    def from_api(cls, item: dict, client: ClientInterface, source: str = "qobuz"):
-        """Create a Playlist object from the api response of Qobuz, Tidal,
-        or Deezer.
-
-        :param resp: response dict
-        :type resp: dict
-        :param source: in ('qobuz', 'deezer', 'tidal')
-        :type source: str
-        """
-        if source in ("qobuz", "deezer"):
+    @staticmethod
+    def _parse_get_resp(item, client):
+        if client.source in ("qobuz", "deezer"):
             info = {
                 "name": item.get("name"),
                 "id": item.get("id"),
             }
-        elif source == "tidal":
+        elif client.source == "tidal":
             info = {
                 "name": item.name,
                 "id": item.id,
             }
         else:
-            raise InvalidSourceError(source)
+            raise InvalidSourceError(client.source)
 
-        # equivalent to Playlist(client=client, **info)
-        return cls(client=client, **info)
+        return info
 
     def __repr__(self) -> str:
         """Return a string representation of this Playlist object.

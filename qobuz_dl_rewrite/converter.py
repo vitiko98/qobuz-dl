@@ -59,7 +59,7 @@ class Converter:
             self.ffmpeg_arg = ffmpeg_arg
             self._is_command_valid()
 
-        logger.debug("Ffmpeg codec extra argument: %s", self.ffmpeg_arg)
+        logger.debug("FFmpeg codec extra argument: %s", self.ffmpeg_arg)
 
     def convert(self, custom_fn: Optional[str] = None):
         """Convert the file.
