@@ -73,37 +73,34 @@ class TrackMetadata:
 
         if track is not None:
             self.add_track_meta(track)
-            # prefer track['album'] over album
-            if track.get("album"):
-                album = track.get("album")
 
         if album is not None:
             self.add_album_meta(album)
 
-    def add_album_meta(self, album: dict):
-        """Parse the metadata from an album dict returned by the
+    def add_album_meta(self, resp: dict):
+        """Parse the metadata from an resp dict returned by the
         Qobuz API.
 
-        :param dict album: from the Qobuz API
+        :param dict resp: from the Qobuz API
         """
         if self.__source == "qobuz":
-            self.album = album.get("title")
-            self.tracktotal = str(album.get("tracks_count", 1))
-            self.genre = album.get("genres_list", [])
-            self.date = album.get("release_date_original") or album.get("release_date")
-            self.copyright = album.get("copyright")
-            self.albumartist = album.get("artist", {}).get("name")
+            self.album = resp.get("title")
+            self.tracktotal = str(resp.get("tracks_count", 1))
+            self.genre = resp.get("genres_list", [])
+            self.date = resp.get("release_date_original") or resp.get("release_date")
+            self.copyright = resp.get("copyright")
+            self.albumartist = resp.get("artist", {}).get("name")
 
-            self.label = album.get("label")
+            self.label = resp.get("label")
 
             if isinstance(self.label, dict):
                 self.label = self.label.get("name")
         elif self.__source == "tidal":
-            self.album = album.get("title")
-            self.tracktotal = album.get("numberOfTracks")
-            self.date = album.get("releaseDate")
-            self.copyright = album.get("copyright")
-            self.albumartist = album.get("artist", {}).get("name")
+            self.album = resp.get("title")
+            self.tracktotal = resp.get("numberOfTracks")
+            self.date = resp.get("releaseDate")
+            self.copyright = resp.get("copyright")
+            self.albumartist = resp.get("artist", {}).get("name")
         elif self.__source == "deezer":
             raise NotImplementedError
         else:
@@ -130,8 +127,8 @@ class TrackMetadata:
         elif self.__source == "tidal":
             self.title = track.get("title").strip()
             self._mod_title(track.get("version"), None)
-            self.tracknumber = track.get("trackNumber")
-            self.discnumber = track.get("volumeNumber")
+            self.tracknumber = str(track.get("trackNumber"))
+            self.discnumber = str(track.get("volumeNumber"))
             self.artist = track.get("artist", {}).get("name")
         elif self.__source == "deezer":
             raise NotImplementedError
@@ -284,7 +281,7 @@ class TrackMetadata:
         """
         for k, v in FLAC_KEY.items():
             tag = getattr(self, k)
-            if tag is not None and not k.startswith("_"):
+            if tag is not None:
                 yield (v, tag)
 
     def __gen_mp3_tags(self) -> Tuple[str, str]:
@@ -300,7 +297,7 @@ class TrackMetadata:
             else:
                 text = getattr(self, k)
 
-            if text is not None and not k.startswith("_"):
+            if text is not None:
                 yield (v.__name__, v(encoding=3, text=text))
 
     def __mp4_tags(self) -> Tuple[str, str]:

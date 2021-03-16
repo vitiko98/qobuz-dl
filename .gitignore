@@ -149,3 +149,7 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 *.yaml
+*.flac
+*.m4a
+*.ogg
+*.mp3

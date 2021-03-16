@@ -10,6 +10,8 @@ LOG_DIR = appdirs.user_config_dir(APPNAME)
 
 AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:83.0) Gecko/20100101 Firefox/83.0"
 
+TIDAL_COVER_URL = "https://resources.tidal.com/images/{uuid}/{width}x{height}.jpg"
+
 EXT = {
     5: ".mp3",
     6: ".flac",

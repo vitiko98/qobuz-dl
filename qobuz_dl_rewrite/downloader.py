@@ -1,7 +1,7 @@
 import logging
 import os
 import shutil
-import subprocess
+from pprint import pformat
 from tempfile import gettempdir
 from typing import Any, Optional, Union
 
@@ -12,7 +12,7 @@ from pathvalidate import sanitize_filename
 
 from . import converter
 from .clients import ClientInterface
-from .constants import EXT, FLAC_MAX_BLOCKSIZE
+from .constants import EXT, FLAC_MAX_BLOCKSIZE, TIDAL_COVER_URL
 from .exceptions import (
     InvalidQuality,
     InvalidSourceError,
@@ -32,7 +32,7 @@ TIDAL_Q_MAP = {
 
 
 class Track:
-    """Represents a downloadable track returned by the qobuz api.
+    """Represents a downloadable track.
 
     Loading metadata as a single track:
     >>> t = Track(client, id='20252078')
@@ -96,8 +96,8 @@ class Track:
         )  # meta dict -> TrackMetadata object
 
     @staticmethod
-    def _get_tracklist(resp, client):
-        if client.source in ("qobuz", "tidal"):
+    def _get_tracklist(resp, source):
+        if source in ("qobuz", "tidal"):
             return resp["tracks"]["items"]
         else:
             # TODO: implement deezer
@@ -176,9 +176,8 @@ class Track:
         :raises IndexError
         """
 
-        track = cls._get_tracklist(album)[pos]
+        track = cls._get_tracklist(album, client.source)[pos]
         meta = TrackMetadata(album=album, track=track, source=client.source)
-        meta.add_track_meta(album["tracks"]["items"][pos])
         return cls(client=client, meta=meta, id=track["id"])
 
     def tag(self, album_meta: dict = None, cover: Union[Picture, APIC] = None):
@@ -295,6 +294,9 @@ class Track:
         """
         setattr(self.meta, key, val)
 
+    def __repr__(self):
+        return f"<Track - {self['title']}>"
+
 
 class Tracklist(list):
     """A base class for tracklist-like objects.
@@ -367,7 +369,7 @@ class Tracklist(list):
         :param source: in ('qobuz', 'deezer', 'tidal')
         :type source: str
         """
-        info = cls._load_get_response(item)
+        info = cls._parse_get_resp(item, client=client)
 
         # equivalent to Album(client=client, **info)
         return cls(client=client, **info)
@@ -429,9 +431,10 @@ class Album(Tracklist):
             self.load_meta()
 
     def load_meta(self):
+        assert hasattr(self, "id"), "id must be set to load metadata"
         self.meta = self.client.get(self.id, media_type="album")
         # update attributes based on response
-        self.__dict__.update(self._parse_get_resp(self.meta))
+        self.__dict__.update(self._parse_get_resp(self.meta, self.client))
 
         if not self.get("streamable", False):
             raise NonStreamable(f"This album is not streamable ({self.id} ID)")
@@ -448,6 +451,7 @@ class Album(Tracklist):
         """
         if client.source == "qobuz":
             info = {
+                "id": resp.get("id"),
                 "title": resp.get("title"),
                 "_artist": resp.get("artist") or resp.get("performer"),
                 "albumartist": resp.get("name"),
@@ -461,11 +465,19 @@ class Album(Tracklist):
             }
         elif client.source == "tidal":
             info = {
+                "id": resp.get("id"),
                 "title": resp.get("title"),
                 "_artist": safe_get(resp, "artist", "name"),
                 "albumartist": safe_get(resp, "artist", "name"),
                 "version": resp.get("version"),
-                "cover_urls": [resp.get("cover")],
+                "cover_urls": {
+                    size: TIDAL_COVER_URL.format(
+                        uuid=resp.get("cover").replace("-", "/"), height=x, width=x
+                    )
+                    for size, x in zip(
+                        ("thumbnail", "small", "large"), (160, 320, 1280)
+                    )
+                },
                 "streamable": resp.get("allowStreaming"),
                 "quality": TIDAL_Q_MAP[resp.get("audioQuality")],
                 "tracktotal": resp.get("numberOfTracks"),
@@ -491,6 +503,8 @@ class Album(Tracklist):
         This uses a classmethod to convert an item into a Track object, which
         stores the metadata inside a TrackMetadata object.
         """
+        logging.debug("Loading tracks to album")
+        logging.debug(pformat(self.meta))
         for i in range(self.tracktotal):
             # append method inherited from superclass list
             self.append(
@@ -639,7 +653,7 @@ class Playlist(Tracklist):
                 "id": item.id,
             }
         else:
-            raise ValueError(f"invalid source '{source}'")
+            raise InvalidSourceError(source)
 
         # equivalent to Playlist(client=client, **info)
         return cls(client=client, **info)
@@ -708,7 +722,7 @@ class Artist(Tracklist):
                 "id": item.id,
             }
         else:
-            raise ValueError(f"invalid source '{source}'")
+            raise InvalidSourceError(source)
         logging.debug(f"Loaded info {info}")
 
         # equivalent to Artist(client=client, **info)

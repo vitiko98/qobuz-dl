@@ -32,9 +32,10 @@ QOBUZ_BASE = "https://www.qobuz.com/api.json/0.2"
 # Tidal
 TIDAL_Q_IDS = {
     4: "LOW",  # AAC
-    5: "MEDIUM",  # AAC
-    6: "HIGH",  # Lossless, but it also could be MQA
+    5: "HIGH",  # AAC
+    6: "LOSSLESS",  # Lossless, but it also could be MQA
 }
+TIDAL_MAX_Q = max(TIDAL_Q_IDS.keys())
 
 
 # Deezer
@@ -78,6 +79,11 @@ class ClientInterface(ABC):
 
         :param track_id: id of the track
         """
+        pass
+
+    @property
+    @abstractmethod
+    def source(self):
         pass
 
 
@@ -412,8 +418,12 @@ class TidalClient(SecureClientInterface):
         :param quality:
         :type quality: int
         """
-        # Not tested
-        return self._get_file_url(meta_id, quality=quality)
+        logger.debug(f"Fetching file url with quality {quality}")
+        return self._get_file_url(meta_id, quality=min(TIDAL_MAX_Q, quality))
+
+    @property
+    def source(self):
+        return "tidal"
 
     def _search(self, query, media_type="album", **kwargs):
         params = {
