@@ -41,7 +41,9 @@ class TrackMetadata:
 
     """
 
-    def __init__(self, track: Optional[dict] = None, album: Optional[dict] = None):
+    def __init__(
+        self, track: Optional[dict] = None, album: Optional[dict] = None, source="qobuz"
+    ):
         """Creates a TrackMetadata object optionally initialized with
         dicts returned by the Qobuz API.
 
@@ -64,6 +66,8 @@ class TrackMetadata:
         self.tracknumber = None
         self.discnumber = None
 
+        self.__source = source  # not included in tags
+
         if (track and album) is None:
             return
 
@@ -82,17 +86,28 @@ class TrackMetadata:
 
         :param dict album: from the Qobuz API
         """
-        self.album = album.get("title")
-        self.tracktotal = str(album.get("tracks_count", 1))
-        self.genre = album.get("genres_list", [])
-        self.date = album.get("release_date_original") or album.get("release_date")
-        self.copyright = album.get("copyright")
-        self.albumartist = album.get("artist", {}).get("name")
+        if self.__source == "qobuz":
+            self.album = album.get("title")
+            self.tracktotal = str(album.get("tracks_count", 1))
+            self.genre = album.get("genres_list", [])
+            self.date = album.get("release_date_original") or album.get("release_date")
+            self.copyright = album.get("copyright")
+            self.albumartist = album.get("artist", {}).get("name")
 
-        self.label = album.get("label")
+            self.label = album.get("label")
 
-        if isinstance(self.label, dict):
-            self.label = self.label.get("name")
+            if isinstance(self.label, dict):
+                self.label = self.label.get("name")
+        elif self.__source == "tidal":
+            self.album = album.get("title")
+            self.tracktotal = album.get("numberOfTracks")
+            self.date = album.get("releaseDate")
+            self.copyright = album.get("copyright")
+            self.albumartist = album.get("artist", {}).get("name")
+        elif self.__source == "deezer":
+            raise NotImplementedError
+        else:
+            raise ValueError
 
     def add_track_meta(self, track: dict):
         """Parse the metadata from a track dict returned by the
@@ -100,23 +115,36 @@ class TrackMetadata:
 
         :param track:
         """
-        self.title = track.get("title").strip()
-        if track.get("version"):
-            logger.debug("Version found: %s", track["version"])
-            self.title = f"{self.title} ({track['version']})"
-        if track.get("work"):
-            logger.debug("Work found: %s", track["work"])
-            self.title = f"{track['work']}: {self.title}"
+        if self.__source == "qobuz":
+            self.title = track.get("title").strip()
+            self._mod_title(track.get("version"), track.get("work"))
+            self.composer = track.get("composer", {}).get("name")
 
-        self.composer = track.get("composer", {}).get("name")
+            self.tracknumber = str(track.get("track_number", 1))
+            self.discnumber = str(track.get("media_number", 1))
+            try:
+                self.artist = track["performer"]["name"]
+            except KeyError:
+                if hasattr(self, "albumartist"):
+                    self.artist = self.albumartist
+        elif self.__source == "tidal":
+            self.title = track.get("title").strip()
+            self._mod_title(track.get("version"), None)
+            self.tracknumber = track.get("trackNumber")
+            self.discnumber = track.get("volumeNumber")
+            self.artist = track.get("artist", {}).get("name")
+        elif self.__source == "deezer":
+            raise NotImplementedError
+        else:
+            raise ValueError
 
-        self.tracknumber = str(track.get("track_number", 1))
-        self.discnumber = str(track.get("media_number", 1))
-        try:
-            self.artist = track["performer"]["name"]
-        except KeyError:
-            if hasattr(self, "albumartist"):
-                self.artist = self.albumartist
+    def _mod_title(self, version, work):
+        if version is not None:
+            logger.debug("Version found: %s", version)
+            self.title = f"{self.title} (version)"
+        if work is not None:
+            logger.debug("Work found: %s", work)
+            self.title = f"{work}: {self.title}"
 
     @property
     def artist(self) -> Union[str, None]:
@@ -148,6 +176,9 @@ class TrackMetadata:
 
         :rtype: str
         """
+        if not hasattr(self, "_genres"):
+            return None
+
         genres = re.findall(r"([^\u2192\/]+)", "/".join(self._genres))
         no_repeats = []
         [no_repeats.append(g) for g in genres if g not in no_repeats]
@@ -253,7 +284,7 @@ class TrackMetadata:
         """
         for k, v in FLAC_KEY.items():
             tag = getattr(self, k)
-            if tag is not None:
+            if tag is not None and not k.startswith("_"):
                 yield (v, tag)
 
     def __gen_mp3_tags(self) -> Tuple[str, str]:
@@ -269,7 +300,7 @@ class TrackMetadata:
             else:
                 text = getattr(self, k)
 
-            if text is not None:
+            if text is not None and not k.startswith("_"):
                 yield (v.__name__, v(encoding=3, text=text))
 
     def __mp4_tags(self) -> Tuple[str, str]:

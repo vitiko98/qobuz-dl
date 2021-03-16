@@ -13,11 +13,22 @@ from pathvalidate import sanitize_filename
 from . import converter
 from .clients import ClientInterface
 from .constants import EXT, FLAC_MAX_BLOCKSIZE
-from .exceptions import InvalidQuality, NonStreamable, TooLargeCoverArt
+from .exceptions import (
+    InvalidQuality,
+    InvalidSourceError,
+    NonStreamable,
+    TooLargeCoverArt,
+)
 from .metadata import TrackMetadata
 from .util import quality_id, safe_get, tqdm_download
 
 logger = logging.getLogger(__name__)
+
+# TODO: add the other quality options
+TIDAL_Q_MAP = {
+    "LOSSLESS": 6,
+    "HI_RES": 7,
+}
 
 
 class Track:
@@ -80,7 +91,17 @@ class Track:
         assert hasattr(self, "id"), "id must be set before loading metadata"
 
         track_meta = self.client.get(self.id, media_type="track")
-        self.meta = TrackMetadata(track=track_meta)  # meta dict -> TrackMetadata object
+        self.meta = TrackMetadata(
+            track=track_meta, source=self.client.source
+        )  # meta dict -> TrackMetadata object
+
+    @staticmethod
+    def _get_tracklist(resp, client):
+        if client.source in ("qobuz", "tidal"):
+            return resp["tracks"]["items"]
+        else:
+            # TODO: implement deezer
+            raise NotImplementedError
 
     def download(
         self,
@@ -154,8 +175,9 @@ class Track:
         :type client: ClientInterface
         :raises IndexError
         """
-        track = album.get("tracks", {}).get("items", [])[pos]
-        meta = TrackMetadata(album=album, track=track)
+
+        track = cls._get_tracklist(album)[pos]
+        meta = TrackMetadata(album=album, track=track, source=client.source)
         meta.add_track_meta(album["tracks"]["items"][pos])
         return cls(client=client, meta=meta, id=track["id"])
 
@@ -335,6 +357,21 @@ class Tracklist(list):
         for track in self:
             track.convert(codec, **kwargs)
 
+    @classmethod
+    def from_api(cls, item: dict, client: ClientInterface):
+        """Create an Album object from the api response of Qobuz, Tidal,
+        or Deezer.
+
+        :param resp: response dict
+        :type resp: dict
+        :param source: in ('qobuz', 'deezer', 'tidal')
+        :type source: str
+        """
+        info = cls._load_get_response(item)
+
+        # equivalent to Album(client=client, **info)
+        return cls(client=client, **info)
+
     @staticmethod
     def get_cover_obj(cover_path: str, quality: int) -> Union[Picture, APIC]:
         """Given the path to an image and a quality id, return an initialized
@@ -366,6 +403,10 @@ class Tracklist(list):
 
         return cover_obj
 
+    @staticmethod
+    def _parse_get_resp(item, client):
+        raise NotImplementedError
+
 
 class Album(Tracklist):
     """Represents a downloadable Qobuz album."""
@@ -389,17 +430,59 @@ class Album(Tracklist):
 
     def load_meta(self):
         self.meta = self.client.get(self.id, media_type="album")
-        self.title = self.meta.get("title")
-        self._artist = self.meta.get("artist") or self.meta.get("performer")
-        self.albumartist = self._artist.get("name")
-        self.version = self.meta.get("version")
-        self.cover_urls = self.meta.get("image")
-        self.streamable = self.meta.get("streamable")
+        # update attributes based on response
+        self.__dict__.update(self._parse_get_resp(self.meta))
 
         if not self.get("streamable", False):
             raise NonStreamable(f"This album is not streamable ({self.id} ID)")
 
         self._load_tracks()
+
+    @staticmethod
+    def _parse_get_resp(resp: dict, client: ClientInterface) -> dict:
+        """Parse information from a client.get(query, 'album') call.
+
+        :param resp:
+        :type resp: dict
+        :rtype: dict
+        """
+        if client.source == "qobuz":
+            info = {
+                "title": resp.get("title"),
+                "_artist": resp.get("artist") or resp.get("performer"),
+                "albumartist": resp.get("name"),
+                "version": resp.get("version"),
+                "cover_urls": resp.get("image"),
+                "streamable": resp.get("streamable"),
+                "quality": quality_id(
+                    resp.get("maximum_bit_depth"), resp.get("maximum_sampling_rate")
+                ),
+                "tracktotal": resp.get("tracks_count"),
+            }
+        elif client.source == "tidal":
+            info = {
+                "title": resp.get("title"),
+                "_artist": safe_get(resp, "artist", "name"),
+                "albumartist": safe_get(resp, "artist", "name"),
+                "version": resp.get("version"),
+                "cover_urls": [resp.get("cover")],
+                "streamable": resp.get("allowStreaming"),
+                "quality": TIDAL_Q_MAP[resp.get("audioQuality")],
+                "tracktotal": resp.get("numberOfTracks"),
+            }
+        elif client.source == "deezer":
+            info = {
+                "title": resp.get("title"),
+                "albumartist": safe_get(resp, "artist", "name"),
+                "_artist": safe_get(resp, "artist", "name"),
+                "id": resp.get("id"),
+                "url": resp.get("link"),
+                "quality": 6,  # all tracks are 16/44.1 streamable
+            }
+        else:
+            raise NotImplementedError
+
+        return info
 
     def _load_tracks(self):
         """Given an album metadata dict returned by the API, append all of its
@@ -408,55 +491,11 @@ class Album(Tracklist):
         This uses a classmethod to convert an item into a Track object, which
         stores the metadata inside a TrackMetadata object.
         """
-        for i in range(self.meta.get("tracks", {}).get("total", [])):
+        for i in range(self.tracktotal):
             # append method inherited from superclass list
             self.append(
                 Track.from_album_meta(album=self.meta, pos=i, client=self.client)
             )
-
-    @classmethod
-    def from_api(cls, item: dict, client: ClientInterface, source: str = "qobuz"):
-        """Create an Album object from the api response of Qobuz, Tidal,
-        or Deezer.
-
-        :param resp: response dict
-        :type resp: dict
-        :param source: in ('qobuz', 'deezer', 'tidal')
-        :type source: str
-        """
-        if source == "qobuz":
-            # only collect minimal information for identification purposes
-            info = {
-                "title": item.get("title"),
-                "albumartist": item.get("artist", {}).get("name")
-                or item.get("performer", {}).get("name"),  # KeyError
-                "id": item.get("id"),  # this is the important part
-                "version": item.get("version"),  # KeyError
-                "url": item.get("url"),
-                "quality": quality_id(
-                    item.get("maximum_bit_depth"), item.get("maximum_sampling_rate")
-                ),
-                "streamable": item.get("streamable", False),
-            }
-        elif source == "tidal":
-            info = {
-                "title": item.name,
-                "id": item.id,
-                "albumartist": item.artist.name,
-            }
-        elif source == "deezer":
-            info = {
-                "title": item.get("title"),
-                "albumartist": item.get("artist", {}).get("name"),
-                "id": item.get("id"),
-                "url": item.get("link"),
-                "quality": 6,
-            }
-        else:
-            raise ValueError(f"invalid source '{source}'")
-
-        # equivalent to Album(client=client, **info)
-        return cls(client=client, **info)
 
     @property
     def title(self) -> str:

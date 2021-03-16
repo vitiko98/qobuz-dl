@@ -26,6 +26,10 @@ class InvalidContainerError(Exception):
     pass
 
 
+class InvalidSourceError(Exception):
+    pass
+
+
 class ParsingError(Exception):
     pass
 

@@ -1,13 +1,14 @@
+import base64
 import hashlib
 import json
 import logging
-import base64
 import time
 from abc import ABC, abstractmethod
 from typing import Generator, Tuple, Union
 
 import requests
 import tidalapi
+
 try:
     from urlparse import urljoin
 except ImportError:
@@ -30,9 +31,9 @@ QOBUZ_BASE = "https://www.qobuz.com/api.json/0.2"
 
 # Tidal
 TIDAL_Q_IDS = {
-    4: tidalapi.Quality.low,  # AAC
-    5: tidalapi.Quality.high,  # AAC
-    6: tidalapi.Quality.lossless,  # Lossless, but it also could be MQA
+    4: "LOW",  # AAC
+    5: "MEDIUM",  # AAC
+    6: "HIGH",  # Lossless, but it also could be MQA
 }
 
 
@@ -392,7 +393,7 @@ class TidalClient(SecureClientInterface):
         :raises ValueError: if field value is invalid
         """
 
-        return self.session.search(media_type, query, limit)
+        return self._search(query, media_type, limit=limit)
 
     def get(self, meta_id: Union[str, int], media_type: str = "album"):
         """Get metadata.
@@ -412,31 +413,33 @@ class TidalClient(SecureClientInterface):
         :type quality: int
         """
         # Not tested
-        self.session._config.quality = TIDAL_Q_IDS[quality]
-        return self.session.get_track_url(meta_id)
+        return self._get_file_url(meta_id, quality=quality)
 
-    def _get_album(self, album_id):
-        album_info = self.session.get_album(album_id)
-        album_tracks = self.session.get_album_tracks(album_id)
-        album = album_info.__dict__
-        album['tracklist'] = album_tracks
-        return album
+    def _search(self, query, media_type="album", **kwargs):
+        params = {
+            "query": query,
+            "limit": kwargs.get("limit", 50),
+        }
+        return self.session.request("GET", f"search/{media_type}s", params).json()
 
-    def _get(self, media_id, media_type='album'):
-        if media_type == 'album':
-            info = self.session.request('GET', f"albums/{media_id}")
-            tracklist = self.session.request('GET', f"albums/{media_id}/tracks")
+    def _get(self, media_id, media_type="album"):
+        if media_type == "album":
+            info = self.session.request("GET", f"albums/{media_id}")
+            tracklist = self.session.request("GET", f"albums/{media_id}/tracks")
             album = info.json()
-            album['tracklist'] = tracklist.json()
+            album["tracks"] = tracklist.json()
             return album
 
-        elif media_type == 'track':
-            return self.session.request('GET', f"tracks/{media_id}").json()
-        elif media_type == 'playlist':
+        elif media_type == "track":
+            return self.session.request("GET", f"tracks/{media_id}").json()
+        elif media_type == "playlist":
             return self.session.request("GET", f"playlists/{media_id}/tracks").json()
-        elif media_type == 'artist':
+        elif media_type == "artist":
             return self.session.request("GET", f"artists/{media_id}/albums").json()
         else:
             raise ValueError
 
-
+    def _get_file_url(self, track_id, quality=6):
+        params = {"soundQuality": TIDAL_Q_IDS[quality]}
+        resp = self.session.request("GET", f"tracks/{track_id}/streamUrl", params)
+        return resp.json()
