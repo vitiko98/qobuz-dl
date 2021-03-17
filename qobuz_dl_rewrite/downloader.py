@@ -1,8 +1,9 @@
 import logging
 import os
+import re
 import shutil
 from abc import ABC, abstractmethod
-from pprint import pformat, pprint
+from pprint import pprint
 from tempfile import gettempdir
 from typing import Any, Optional, Union
 
@@ -32,6 +33,11 @@ TIDAL_Q_MAP = {
 }
 
 COVER_SIZES = ("thumbnail", "small", "large")
+
+TYPE_REGEXES = {
+    "remaster": re.compile(r"(?i)(re)?master(ed)?"),
+    "extra": re.compile(r"(?i)(anniversary|deluxe|live|collector|demo|expanded)"),
+}
 
 
 class Track:
@@ -130,17 +136,17 @@ class Track:
         self.temp_file = os.path.join(gettempdir(), "~qdl_track.tmp")
         logger.debug("Temporary file path: %s", self.temp_file)
 
-        if self.client.source == 'qobuz':
+        if self.client.source == "qobuz":
             if not (dl_info.get("url") or dl_info.get("sampling_rate")) or dl_info.get(
                 "sample"
             ):
                 logger.debug("Track is a sample: %s", dl_info)
                 return
 
-        if self.client.source in ('qobuz', 'tidal'):
+        if self.client.source in ("qobuz", "tidal"):
             logger.debug("Downloadable URL found: %s", dl_info.get("url"))
             tqdm_download(dl_info["url"], self.temp_file)  # downloads file
-        elif self.client.source == 'deezer':
+        elif self.client.source == "deezer":
             logger.debug("Downloadable URL found: %s", dl_info)
             tqdm_download(dl_info, self.temp_file)  # downloads file
         else:
@@ -419,6 +425,15 @@ class Tracklist(list, ABC):
     def download(self, **kwargs):
         pass
 
+    @staticmethod
+    def essence(album: dict) -> str:
+        """Ignore text in parens/brackets, return all lowercase.
+        Used to group two albums that may be named similarly, but not exactly
+        the same.
+        """
+        r = re.match(r"([^\(]+)(?:\s*[\(\[][^\)][\)\]])*", album)
+        return r.group(1).strip().lower()
+
 
 class Album(Tracklist):
     """Represents a downloadable Qobuz album."""
@@ -466,13 +481,15 @@ class Album(Tracklist):
                 "id": resp.get("id"),
                 "title": resp.get("title"),
                 "_artist": resp.get("artist") or resp.get("performer"),
-                "albumartist": resp.get("name"),
+                "albumartist": resp.get("artist", {}).get("name"),
                 "version": resp.get("version"),
                 "cover_urls": resp.get("image"),
                 "streamable": resp.get("streamable"),
                 "quality": quality_id(
                     resp.get("maximum_bit_depth"), resp.get("maximum_sampling_rate")
                 ),
+                "bit_depth": resp.get("maximum_bit_depth"),
+                "sampling_rate": resp.get("maximum_sampling_rate") * 1000,
                 "tracktotal": resp.get("tracks_count"),
             }
         elif client.source == "tidal":
@@ -490,6 +507,8 @@ class Album(Tracklist):
                 },
                 "streamable": resp.get("allowStreaming"),
                 "quality": TIDAL_Q_MAP[resp.get("audioQuality")],
+                "bit_depth": 16,
+                "sampling_rate": 44100,
                 "tracktotal": resp.get("numberOfTracks"),
             }
         elif client.source == "deezer":
@@ -508,6 +527,8 @@ class Album(Tracklist):
                 "url": resp.get("link"),
                 "streamable": True,  # api only returns streamables
                 "quality": 6,  # all tracks are 16/44.1 streamable
+                "bit_depth": 16,
+                "sampling_rate": 44100,
                 "tracktotal": resp.get("track_total"),
             }
         else:
@@ -523,7 +544,6 @@ class Album(Tracklist):
         stores the metadata inside a TrackMetadata object.
         """
         logging.debug("Loading tracks to album")
-        logging.debug(pformat(self.meta))
         for i in range(self.tracktotal):
             # append method inherited from superclass list
             self.append(
@@ -594,13 +614,13 @@ class Album(Tracklist):
 
         # create a single cover object and use them for all tracks
         # TODO: avoid this method if embeded covers are not requested
-        if self.client.source != 'deezer':
+        if self.client.source != "deezer":
             cover = self.get_cover_obj(cover_path, quality)
 
         for track in self:
             logger.debug("Downloading track to %s with quality %s", folder, quality)
             track.download(quality, folder, progress_bar)
-            if tag_tracks and self.client.source != 'deezer':
+            if tag_tracks and self.client.source != "deezer":
                 logger.debug("Tagging track")
                 track.tag(cover=cover)
 
@@ -699,17 +719,47 @@ class Artist(Tracklist):
             self.load_meta()
 
     def load_meta(self):
-        response = self.client.get(self.id, media_type="artist")
-        for page in response:  # hacky solution, fix later
-            self.meta = page
-            self._load_albums()
+        self.meta = self.client.get(self.id, media_type="artist")
+        self._load_albums()
 
         self.name = self.meta.get("name")
 
     def _load_albums(self):
         for album in self.meta.get("albums", {}).get("items", []):
             logger.debug("Appending album: %s", album.get("title"))
-            self.append(Album(self.client, **album))
+            self.append(Album(self.client, **Album._parse_get_resp(album, self.client)))
+
+    def download(self, filters=None, no_repeats=False, quality=7):
+        logger.debug(f"Length of tracklist {len(self)}")
+        if no_repeats:
+            final = self._remove_repeats(bit_depth=max, sampling_rate=min)
+        else:
+            final = self
+
+        if filters is not None and self.client.source == "qobuz":
+            if type(filters) in (tuple, list):
+                for f in filters:
+
+                    def inter(album):
+                        """Intermediate function to pass self into f"""
+                        return f(self, album)
+
+                    final = filter(inter, final)
+            else:
+
+                def inter(album):
+                    return filters(self, album)
+
+                final = filter(inter, final)
+
+        i = 0
+        for album in final:
+            i += 1
+            logger.debug(f"Downloading album {album}")
+            album.load_meta()
+            album.download(quality=quality)
+
+        logger.debug(f"{i} albums downloaded")
 
     @classmethod
     def from_api(cls, item: dict, client: ClientInterface, source: str = "qobuz"):
@@ -738,6 +788,33 @@ class Artist(Tracklist):
 
         # equivalent to Artist(client=client, **info)
         return cls(client=client, **info)
+
+    def _remove_repeats(self, bit_depth=max, sampling_rate=max):
+        groups = dict()
+        for album in self:
+            if (t := self.essence(album.title)) not in groups:
+                groups[t] = []
+            groups[t].append(album)
+
+        for group in groups.values():
+            assert bit_depth in (min, max) and sampling_rate in (min, max)
+            best_bd = bit_depth(a["bit_depth"] for a in group)
+            best_sr = sampling_rate(a["sampling_rate"] for a in group)
+            for album in group:
+                if album["bit_depth"] == best_bd and album["sampling_rate"] == best_sr:
+                    yield album
+                    break
+
+    @staticmethod
+    def studio_albums(artist, album):
+        return (
+            album["albumartist"] != "Various Artists"
+            and TYPE_REGEXES['extra'].search(album.title) is None
+        )
+
+    @staticmethod
+    def no_features(artist, album):
+        return artist["name"] == album["albumartist"]
 
     def __repr__(self) -> str:
         """Return a string representation of this Artist object.

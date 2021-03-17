@@ -31,7 +31,7 @@ class QobuzDL:
     ):
         self.client = QobuzClient()
         self.client.login(creds[0], creds[1])
-        self.qobuz_url_parse = re.compile(QOBUZ_URL_REGEX)
+        self.url_parse = re.compile(QOBUZ_URL_REGEX)
 
     def handle_url(self, url: str):
         url_type, item_id = self.parse_url(url)
@@ -53,7 +53,7 @@ class QobuzDL:
 
         :raises exceptions.ParsingError
         """
-        parsed = self.qobuz_url_parse.search(url)
+        parsed = self.url_parse.search(url)
 
         if parsed is not None:
             parsed = parsed.groups()

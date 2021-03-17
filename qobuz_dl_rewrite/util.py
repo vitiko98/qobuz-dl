@@ -1,7 +1,7 @@
-import sys
 import logging
 import logging.handlers as handlers
 import os
+import sys
 from typing import Optional, Union
 
 import requests

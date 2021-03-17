@@ -193,7 +193,7 @@ class QobuzClient(SecureClientInterface):
 
     @property
     def source(self):
-        return 'qobuz'
+        return "qobuz"
 
     # ---------- Private Methods ---------------
 
@@ -387,7 +387,7 @@ class DeezerClient(ClientInterface):
     @staticmethod
     def get_file_url(meta_id: Union[str, int], quality: int = 6):
         quality = min(DEEZER_MAX_Q, quality)
-        url = f'{DEEZER_DL}/{DEEZER_Q_IDS[quality]}/{DEEZER_BASE}/track/{meta_id}'
+        url = f"{DEEZER_DL}/{DEEZER_Q_IDS[quality]}/{DEEZER_BASE}/track/{meta_id}"
         logger.debug(f"Download url {url}")
         return url
 
