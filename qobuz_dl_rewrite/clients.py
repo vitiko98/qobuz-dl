@@ -191,6 +191,10 @@ class QobuzClient(SecureClientInterface):
     def get_file_url(self, item_id, quality=6) -> dict:
         return self._api_get_file_url(item_id, quality=quality)
 
+    @property
+    def source(self):
+        return 'qobuz'
+
     # ---------- Private Methods ---------------
 
     # Credit to Sorrow446 for the original methods

@@ -7,7 +7,7 @@ from typing import Generator, Sequence, Tuple, Union
 from .clients import QobuzClient
 from .constants import QOBUZ_URL_REGEX
 from .db import QobuzDB
-from .downloader import Album, Artist, Playlist
+from .downloader import Album, Artist, Playlist, Track
 from .exceptions import ParsingError
 
 # --------------------------
@@ -15,7 +15,7 @@ from .exceptions import ParsingError
 logger = logging.getLogger(__name__)
 
 
-MEDIA_CLASS = {"album": Album, "playlist": Playlist, "artist": Artist}
+MEDIA_CLASS = {"album": Album, "playlist": Playlist, "artist": Artist, "track": Track}
 Media = Union[Album, Playlist, Artist]  # type hint
 
 
@@ -30,7 +30,7 @@ class QobuzDL:
         **kwargs,
     ):
         self.client = QobuzClient()
-        self.client.login(creds[0], creds[1], **kwargs)
+        self.client.login(creds[0], creds[1])
         self.qobuz_url_parse = re.compile(QOBUZ_URL_REGEX)
 
     def handle_url(self, url: str):
@@ -47,6 +47,9 @@ class QobuzDL:
             https://open.qobuz.com/{type}/{id}
             https://play.qobuz.com/{type}/{id}
             /us-en/{type}/-/{id}
+
+            https://www.deezer.com/us/{type}/{id}
+            https://tidal.com/browse/{type}/{id}
 
         :raises exceptions.ParsingError
         """
@@ -72,9 +75,9 @@ class QobuzDL:
         :raises exceptions.ParsingError
         """
         with open(filepath) as txt:
-            lines = [
+            lines = (
                 line for line in txt.readlines() if not line.strip().startswith("#")
-            ]
+            )
 
             logger.debug("Parsed lines from text file: %d", len(lines))
 
