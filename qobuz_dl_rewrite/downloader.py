@@ -29,6 +29,8 @@ logger = logging.getLogger(__name__)
 
 # TODO: add the other quality options
 TIDAL_Q_MAP = {
+    "LOW": 4,
+    "HIGH": 5,
     "LOSSLESS": 6,
     "HI_RES": 7,
 }
@@ -480,6 +482,8 @@ class Album(Tracklist):
         if kwargs.get("load_on_init"):
             self.load_meta()
 
+        self.downloaded = False
+
     def load_meta(self):
         assert hasattr(self, "id"), "id must be set to load metadata"
         self.meta = self.client.get(self.id, media_type="album")
@@ -492,6 +496,11 @@ class Album(Tracklist):
             raise NonStreamable(f"This album is not streamable ({self.id} ID)")
 
         self._load_tracks()
+
+    @classmethod
+    def from_api(cls, resp, client):
+        info = cls._parse_get_resp(resp, client)
+        return cls(client, **info)
 
     @staticmethod
     def _parse_get_resp(resp: dict, client: ClientInterface) -> dict:
@@ -649,6 +658,8 @@ class Album(Tracklist):
                 logger.debug("Tagging track")
                 track.tag(cover=cover)
 
+        self.downloaded = True
+
     def __repr__(self) -> str:
         """Return a string representation of this Album object.
         Useful for pprint and json.dumps.
@@ -719,14 +730,14 @@ class Playlist(Tracklist):
                     "source": self.client.source,
                 }
 
-        elif self.client.source == 'deezer':
-            tracklist = self.meta['tracks']
+        elif self.client.source == "deezer":
+            tracklist = self.meta["tracks"]
 
             def gen_cover(track):
-                return track['album']['cover_medium']
+                return track["album"]["cover_medium"]
 
             def meta_args(track):
-                return {'track': track, 'source': self.client.source}
+                return {"track": track, "source": self.client.source}
 
         else:
             raise NotImplementedError
@@ -734,7 +745,7 @@ class Playlist(Tracklist):
         for i, track in enumerate(tracklist):
             meta = TrackMetadata(**meta_args(track))
             if new_tracknumbers:
-                meta['tracknumber'] = str(i+1)
+                meta["tracknumber"] = str(i + 1)
 
             self.append(
                 Track(
@@ -751,14 +762,14 @@ class Playlist(Tracklist):
         for track in self:
             logger.debug(track.meta)
             track.download()
-            if self.client.source != 'deezer':
+            if self.client.source != "deezer":
                 # deezer comes pre-tagged
                 logger.debug("Skipping tagging for deezer track")
                 track.tag()
 
     @staticmethod
     def _parse_get_resp(item, client):
-        if client.source == 'qobuz':
+        if client.source == "qobuz":
             info = {
                 "name": item.get("name"),
                 "id": item.get("id"),
@@ -768,10 +779,10 @@ class Playlist(Tracklist):
                 "name": item["title"],
                 "id": item["uuid"],
             }
-        elif client.source == 'deezer':
+        elif client.source == "deezer":
             info = {
-                'name': item['title'],
-                'id': item['id'],
+                "name": item["title"],
+                "id": item["id"],
             }
         else:
             raise InvalidSourceError(client.source)
@@ -814,9 +825,21 @@ class Artist(Tracklist):
         self.name = self.meta.get("name")
 
     def _load_albums(self):
-        for album in self.meta.get("albums", {}).get("items", []):
+        if self.client.source == "qobuz":
+            albums = self.meta["albums"]["items"]
+
+        elif self.client.source == "tidal":
+            albums = self.meta["items"]
+
+        elif self.client.source == "deezer":
+            albums = self.meta["albums"]
+
+        else:
+            raise InvalidSourceError(self.client.source)
+
+        for album in albums:
             logger.debug("Appending album: %s", album.get("title"))
-            self.append(Album(self.client, **Album._parse_get_resp(album, self.client)))
+            self.append(Album.from_api(album, self.client))
 
     def download(self, filters=None, no_repeats=False, quality=7):
         logger.debug(f"Length of tracklist {len(self)}")
@@ -861,19 +884,7 @@ class Artist(Tracklist):
         :type source: str
         """
         logging.debug("Loading item from API")
-        if source in ("qobuz", "deezer"):
-            info = {
-                "name": item.get("name"),
-                "id": item.get("id"),
-            }
-        elif source == "tidal":
-            info = {
-                "name": item.name,
-                "id": item.id,
-            }
-        else:
-            raise InvalidSourceError(source)
-        logging.debug(f"Loaded info {info}")
+        info = cls._parse_get_resp(item, client)
 
         # equivalent to Artist(client=client, **info)
         return cls(client=client, **info)
@@ -893,6 +904,24 @@ class Artist(Tracklist):
                 if album["bit_depth"] == best_bd and album["sampling_rate"] == best_sr:
                     yield album
                     break
+
+    @staticmethod
+    def _parse_get_resp(item, client):
+        if client.source in ("qobuz", "deezer"):
+            info = {
+                "name": item.get("name"),
+                "id": item.get("id"),
+            }
+        elif client.source == "tidal":
+            info = {
+                "name": item["name"],
+                "id": item["id"],
+            }
+        else:
+            raise InvalidSourceError(client.source)
+
+        logging.debug(f"Loaded info {info}")
+        return info
 
     # ----------- Filters --------------
 

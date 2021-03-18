@@ -4,8 +4,9 @@ import re
 # ------- Testing ----------
 from typing import Generator, Sequence, Tuple, Union
 
-from .clients import QobuzClient
-from .constants import QOBUZ_URL_REGEX
+from .clients import DeezerClient, QobuzClient, TidalClient
+from .config import Config
+from .constants import CONFIG_PATH, QOBUZ_URL_REGEX, DB_PATH
 from .db import QobuzDB
 from .downloader import Album, Artist, Playlist, Track
 from .exceptions import ParsingError
@@ -16,22 +17,45 @@ logger = logging.getLogger(__name__)
 
 
 MEDIA_CLASS = {"album": Album, "playlist": Playlist, "artist": Artist, "track": Track}
+CLIENTS = {"qobuz": QobuzClient, "tidal": TidalClient, "deezer": DeezerClient}
 Media = Union[Album, Playlist, Artist]  # type hint
 
 
 class QobuzDL:
     def __init__(
         self,
-        creds: Tuple[str, str],
-        directory="Downloads",
-        quality=6,
-        downloads_db=None,
         config=None,
+        client=None,
+        source="qobuz",
+        database=None,
         **kwargs,
     ):
-        self.client = QobuzClient()
-        self.client.login(creds[0], creds[1])
         self.url_parse = re.compile(QOBUZ_URL_REGEX)
+        if config is None:
+            self.config = Config(CONFIG_PATH)
+            self.config.load()
+
+        if client is not None:
+            self.client = client
+        elif source is not None:
+            self.client = CLIENTS[source]()
+        else:
+            self.client = QobuzClient()
+
+        if database is None:
+            self.db = QobuzDB(DB_PATH)
+        else:
+            assert isinstance(database, QobuzDB)
+            self.db = database
+
+        creds = config.creds(self.client.source)
+        if creds.get("app_id") is None and self.client.source == "qobuz":
+            app_id, secrets = self.client.login(**creds, return_secrets=True)
+            config["Qobuz"]["app_id"] = app_id
+            config["Qobuz"]["secrets"] = secrets
+            config.save()
+        else:
+            self.client.login(**creds)
 
     def handle_url(self, url: str):
         url_type, item_id = self.parse_url(url)
@@ -88,7 +112,7 @@ class QobuzDL:
 
         raise ParsingError("Error parsing URLs from file `{filepath}`")
 
-    def search(self, query: str, media_type: str, limit: int = 200) -> Media:
+    def search(self, query: str, media_type: str, limit: int = 200) -> Generator:
         results = self.client.search(query, media_type, limit)
         for page in results:
             for item in page[f"{media_type}s"]["items"]:

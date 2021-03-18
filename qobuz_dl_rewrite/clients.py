@@ -1,6 +1,4 @@
-import base64
 import hashlib
-import json
 import logging
 import time
 from abc import ABC, abstractmethod
@@ -8,11 +6,6 @@ from typing import Generator, Tuple, Union
 
 import requests
 import tidalapi
-
-try:
-    from urlparse import urljoin
-except ImportError:
-    from urllib.parse import urljoin
 
 from .constants import AGENT, QOBUZ_FEATURED_KEYS
 from .exceptions import (
@@ -57,6 +50,14 @@ class ClientInterface(ABC):
     """
 
     @abstractmethod
+    def login(self, **kwargs):
+        """Authenticate the client.
+
+        :param kwargs:
+        """
+        pass
+
+    @abstractmethod
     def search(self, query: str, media_type="album"):
         """Search API for query.
 
@@ -88,29 +89,14 @@ class ClientInterface(ABC):
     def source(self):
         pass
 
-
-class SecureClientInterface(ClientInterface):
-    """Identical to a ClientInterface except for a login
-    method.
-
-    This is an Abstract Base Class. It cannot be instantiated;
-    it is merely a template.
-    """
-
-    @abstractmethod
-    def login(self, **kwargs):
-        """Authenticate the client.
-
-        :param kwargs:
-        """
-        pass
-
-
 # ------------- Clients -----------------
 
 
-class QobuzClient(SecureClientInterface):
+class QobuzClient(ClientInterface):
     # ------- Public Methods -------------
+    def __init__(self):
+        self.logged_in = False
+
     def login(self, email: str, pwd: str, **kwargs):
         """Authenticate the QobuzClient. Must have a paid membership.
 
@@ -124,6 +110,10 @@ class QobuzClient(SecureClientInterface):
         :type pwd: str
         :param kwargs: app_id: str, secrets: list, return_secrets: bool
         """
+        if self.logged_in:
+            logger.debug("Already logged in")
+            return
+
         if not (kwargs.get("app_id") or kwargs.get("secrets")):
             logger.info("Fetching tokens from Qobuz")
             spoofer = Spoofer()
@@ -149,6 +139,7 @@ class QobuzClient(SecureClientInterface):
         # used for caching app_id and secrets
         if kwargs.get("return_secrets"):
             return self.app_id, self.secrets
+        self.logged_in = True
 
     def search(
         self, query: str, media_type: str = "album", limit: int = 500
@@ -344,6 +335,7 @@ class QobuzClient(SecureClientInterface):
 class DeezerClient(ClientInterface):
     def __init__(self):
         self.session = requests.Session()
+        self.logged_in = True
 
     def search(self, query: str, media_type: str = "album", limit: int = 200) -> dict:
         """Search API for query.
@@ -367,6 +359,9 @@ class DeezerClient(ClientInterface):
 
         return response.json()
 
+    def login(self, **kwargs):
+        logger.debug("Deezer does not require login call, returning")
+
     def get(self, meta_id: Union[str, int], media_type: str = "album"):
         """Get metadata.
 
@@ -381,6 +376,9 @@ class DeezerClient(ClientInterface):
             tracks = self.session.get(f"{url}/tracks").json()
             item["tracks"] = tracks["data"]
             item["track_total"] = len(tracks["data"])
+        elif media_type == 'artist':
+            albums = self.session.get(f"{url}/albums").json()
+            item['albums'] = albums['data']
 
         return item
 
@@ -396,14 +394,21 @@ class DeezerClient(ClientInterface):
         return "deezer"
 
 
-class TidalClient(SecureClientInterface):
+class TidalClient(ClientInterface):
+    def __init__(self):
+        self.logged_in = False
+
     def login(self, email: str, pwd: str):
+        if self.logged_in:
+            return
 
         config = tidalapi.Config()
 
         self.session = tidalapi.Session(config=config)
         self.session.login(email, pwd)
         logger.info("Logged into Tidal")
+
+        self.logged_in = True
 
     def search(self, query: str, media_type: str = "album", limit: int = 50):
         """

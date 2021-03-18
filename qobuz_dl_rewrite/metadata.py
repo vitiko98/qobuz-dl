@@ -141,7 +141,7 @@ class TrackMetadata:
                     self.artist = self.albumartist
 
             if track.get("album"):
-                self.add_album_meta(track['album'])
+                self.add_album_meta(track["album"])
 
         elif self.__source == "tidal":
             self.title = track.get("title").strip()
@@ -259,7 +259,7 @@ class TrackMetadata:
         """
         if hasattr(self, "_year"):
             return self._year
-        elif hasattr(self, 'date'):
+        elif hasattr(self, "date"):
             return self.date[:4]
         else:
             return None

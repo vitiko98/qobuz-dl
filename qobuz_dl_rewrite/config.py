@@ -37,8 +37,9 @@ class Config:
         quality = 6
         folder_format = "{artist} - {album} ({year}) [{bit_depth}B-{sampling_rate}kHz]"
         track_format = "{tracknumber}. {tracktitle}"
-        self.credentials = {"email": None, "password": None}
-        self.authentication = {"app_id": None, "secrets": None}
+
+        self.Qobuz = {"email": None, "password": None, "app_id": None, "secrets": None}
+        self.Tidal = {"email": None, "password": None}
         self.downloads_database = None
         self.filters = {"smart_discography": False, "albums_only": False}
         self.downloads = {"folder": folder, "quality": quality}
@@ -49,23 +50,47 @@ class Config:
         }
         self.path_format = {"folder": folder_format, "track": track_format}
 
-        if config_path is not None:
-            self.load(config_path)
+        self.__path = config_path
+        self.__loaded = False
 
-    def reset(self, path):
-        with open(path, "w") as cfg:
-            yaml.dump(self.__dict__, cfg)
+    def save(self):
+        if self.__loaded:
+            info = dict()
+            for k, v in self.__dict__.items():
+                if not k.startswith("_"):
+                    info[k] = v
 
-    def load(self, path):
-        with open(path) as cfg:
+            with open(self.__path, "w") as cfg:
+                yaml.dump(info, cfg)
+
+    def load(self):
+        with open(self.__path) as cfg:
             self.__dict__.update(yaml.load(cfg))
+        self.__loaded = True
 
-    def update(self, args):
-        """Update configuration based on args from CLI.
+    @property
+    def tidal_creds(self):
+        return {
+            "email": self.Tidal["email"],
+            "pwd": self.Tidal["password"],
+        }
 
-        :param args:
-        """
-        self.__dict__.update(args)
+    @property
+    def qobuz_creds(self):
+        return {
+            "email": self.Qobuz["email"],
+            "pwd": self.Qobuz["password"],
+            "app_id": self.Qobuz["app_id"],
+            "secrets": self.Qobuz["secrets"].split(","),
+        }
+
+    def creds(self, source: str):
+        if source == "qobuz":
+            return self.qobuz_creds
+        elif source == "tidal":
+            return self.tidal_creds
+        else:
+            raise NotImplementedError
 
     def __getitem__(self, key):
         return getattr(self, key)
