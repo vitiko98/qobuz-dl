@@ -33,6 +33,7 @@ TIDAL_Q_MAP = {
     "HI_RES": 7,
 }
 
+# used to homogenize cover size keys
 COVER_SIZES = ("thumbnail", "small", "large")
 
 TYPE_REGEXES = {
@@ -93,7 +94,7 @@ class Track:
             logger.debug("Track: meta not provided")
 
         if (u := kwargs.get("cover_url")) is not None:
-            logger.debug(f"Cover {u}")
+            logger.debug(f"Cover url: {u}")
             self.cover_url = u
 
     def load_meta(self):
@@ -173,7 +174,6 @@ class Track:
         tqdm_download(self.cover_url, self.cover_path)
         self.cover = Tracklist.get_cover_obj(self.cover_path, self.quality)
         logger.debug(f"Cover obj: {self.cover}")
-
 
     def format_final_path(self) -> str:
         """Return the final filepath of the downloaded file.
@@ -687,16 +687,63 @@ class Playlist(Tracklist):
         info = cls._parse_get_resp(resp, client)
         return cls(client, **info)
 
-    def load_meta(self):
+    def load_meta(self, **kwargs):
         self.meta = self.client.get(self.id, "playlist")
 
-        self._load_tracks()
+        self._load_tracks(**kwargs)
 
-    def _load_tracks(self):
-        for track in self.meta.get("tracks", {}).get("items", []):
-            logger.debug("Appending track: %s", track.get("title"))
-            meta = TrackMetadata(track=track, album=track["album"])
-            self.append(Track(self.client, id=track.get("id"), meta=meta, cover_url=track['album']['image']['small']))
+    def _load_tracks(self, new_tracknumbers=True):
+        if self.client.source == "qobuz":
+            tracklist = self.meta["tracks"]["items"]
+
+            def gen_cover(track):
+                return track["album"]["image"]["small"]
+
+            def meta_args(track):
+                return {"track": track, "album": track["album"]}
+
+        elif self.client.source == "tidal":
+            tracklist = self.meta["items"]
+
+            def gen_cover(track):
+                cover_url = TIDAL_COVER_URL.format(
+                    uuid=track["album"]["cover"].replace("-", "/"),
+                    height=320,  # uses the 'small' size
+                    width=320,
+                )
+                return cover_url
+
+            def meta_args(track):
+                return {
+                    "track": track,
+                    "source": self.client.source,
+                }
+
+        elif self.client.source == 'deezer':
+            tracklist = self.meta['tracks']
+
+            def gen_cover(track):
+                return track['album']['cover_medium']
+
+            def meta_args(track):
+                return {'track': track, 'source': self.client.source}
+
+        else:
+            raise NotImplementedError
+
+        for i, track in enumerate(tracklist):
+            meta = TrackMetadata(**meta_args(track))
+            if new_tracknumbers:
+                meta['tracknumber'] = str(i+1)
+
+            self.append(
+                Track(
+                    self.client,
+                    id=track.get("id"),
+                    meta=meta,
+                    cover_url=gen_cover(track),
+                )
+            )
 
         logger.debug(f"Loaded {len(self)} tracks from playlist {self.name}")
 
@@ -704,19 +751,27 @@ class Playlist(Tracklist):
         for track in self:
             logger.debug(track.meta)
             track.download()
-            track.tag()
+            if self.client.source != 'deezer':
+                # deezer comes pre-tagged
+                logger.debug("Skipping tagging for deezer track")
+                track.tag()
 
     @staticmethod
     def _parse_get_resp(item, client):
-        if client.source in ("qobuz", "deezer"):
+        if client.source == 'qobuz':
             info = {
                 "name": item.get("name"),
                 "id": item.get("id"),
             }
         elif client.source == "tidal":
             info = {
-                "name": item.name,
-                "id": item.id,
+                "name": item["title"],
+                "id": item["uuid"],
+            }
+        elif client.source == 'deezer':
+            info = {
+                'name': item['title'],
+                'id': item['id'],
             }
         else:
             raise InvalidSourceError(client.source)

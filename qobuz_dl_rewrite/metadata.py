@@ -140,12 +140,18 @@ class TrackMetadata:
                 if hasattr(self, "albumartist"):
                     self.artist = self.albumartist
 
+            if track.get("album"):
+                self.add_album_meta(track['album'])
+
         elif self.__source == "tidal":
             self.title = track.get("title").strip()
             self._mod_title(track.get("version"), None)
             self.tracknumber = str(track.get("trackNumber"))
             self.discnumber = str(track.get("volumeNumber"))
             self.artist = track.get("artist", {}).get("name")
+
+            if track.get("album"):
+                self.add_album_meta(track["album"])
 
         elif self.__source == "deezer":
             self.title = track.get("title").strip()
@@ -232,7 +238,8 @@ class TrackMetadata:
             cr = cr.replace("(C)", COPYRIGHT)
             return cr
         else:
-            raise AttributeError("Copyright tag must be set before acessing")
+            logger.debug("Accessed copyright tag before setting, return None")
+            return None
 
     @copyright.setter
     def copyright(self, val: str):
@@ -252,8 +259,10 @@ class TrackMetadata:
         """
         if hasattr(self, "_year"):
             return self._year
-
-        return self.date[:4]
+        elif hasattr(self, 'date'):
+            return self.date[:4]
+        else:
+            return None
 
     @year.setter
     def year(self, val):
