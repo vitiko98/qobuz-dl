@@ -1,6 +1,8 @@
 import json
 import logging
 import re
+import sys
+from pprint import pprint
 from typing import Generator, Optional, Tuple, Union
 
 from .constants import (
@@ -68,13 +70,17 @@ class TrackMetadata:
 
         self.__source = source  # not included in tags
 
-        if (track and album) is None:
+        logger.debug(f"{track and album}")
+        if track is None and album is None:
+            logger.debug("No params passed, returning")
             return
 
         if track is not None:
+            logger.debug("Parsing track metadata")
             self.add_track_meta(track)
 
         if album is not None:
+            logger.debug("Parsing album metadata")
             self.add_album_meta(album)
 
     def add_album_meta(self, resp: dict):
@@ -154,7 +160,7 @@ class TrackMetadata:
     def _mod_title(self, version, work):
         if version is not None:
             logger.debug("Version found: %s", version)
-            self.title = f"{self.title} (version)"
+            self.title = f"{self.title} ({version})"
         if work is not None:
             logger.debug("Work found: %s", work)
             self.title = f"{work}: {self.title}"
@@ -220,6 +226,8 @@ class TrackMetadata:
         :rtype: str, None
         """
         if hasattr(self, "_copyright"):
+            if self._copyright is None:
+                return None
             cr = self._copyright.replace("(P)", PHON_COPYRIGHT)
             cr = cr.replace("(C)", COPYRIGHT)
             return cr
@@ -301,7 +309,8 @@ class TrackMetadata:
         """
         for k, v in FLAC_KEY.items():
             tag = getattr(self, k)
-            if tag is not None:
+            if tag:
+                logger.debug(f"Adding tag {v}: {repr(tag)}")
                 yield (v, tag)
 
     def __gen_mp3_tags(self) -> Tuple[str, str]:

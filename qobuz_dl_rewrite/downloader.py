@@ -2,6 +2,7 @@ import logging
 import os
 import re
 import shutil
+import sys
 from abc import ABC, abstractmethod
 from pprint import pprint
 from tempfile import gettempdir
@@ -91,6 +92,10 @@ class Track:
             # `load_meta` must be called at some point
             logger.debug("Track: meta not provided")
 
+        if (u := kwargs.get("cover_url")) is not None:
+            logger.debug(f"Cover {u}")
+            self.cover_url = u
+
     def load_meta(self):
         """Send a request to the client to get metadata for this Track."""
         assert hasattr(self, "id"), "id must be set before loading metadata"
@@ -112,7 +117,7 @@ class Track:
     def download(
         self,
         quality: int = 7,
-        folder: Optional[Union[str, os.PathLike]] = None,
+        folder: Optional[Union[str, os.PathLike]] = "Downloads",
         progress_bar: bool = True,
     ):
         """Download the track
@@ -127,10 +132,16 @@ class Track:
         assert not self.__is_downloaded
         self.quality, self.folder = quality or self.quality, folder or self.folder
 
+        if not os.path.isdir(self.folder):
+            os.makedirs(folder, exist_ok=True)
+
         if os.path.isfile(self.format_final_path()):
             self.__is_downloaded = True
             logger.debug("File already exists: %s", self.final_path)
             return
+
+        if hasattr(self, "cover_url"):
+            self.download_cover()
 
         dl_info = self.client.get_file_url(self.id, quality)  # dict
         self.temp_file = os.path.join(gettempdir(), "~qdl_track.tmp")
@@ -156,6 +167,14 @@ class Track:
 
         self.__is_downloaded = True
 
+    def download_cover(self):
+        self.cover_path = os.path.join(self.folder, f"cover{hash(self.meta.title)}.jpg")
+        logger.debug(f"Downloading cover from {self.cover_url}")
+        tqdm_download(self.cover_url, self.cover_path)
+        self.cover = Tracklist.get_cover_obj(self.cover_path, self.quality)
+        logger.debug(f"Cover obj: {self.cover}")
+
+
     def format_final_path(self) -> str:
         """Return the final filepath of the downloaded file.
 
@@ -165,9 +184,12 @@ class Track:
         """
         if not hasattr(self, "final_path"):
             formatter = self.meta.get_formatter()
+            print(formatter)
             filename = self.track_file_format.format(**formatter)
+            print(filename)
+            print(self.folder, filename, EXT[self.quality])
             self.final_path = (
-                os.path.join(self.folder, sanitize_filename(filename))[:250]
+                os.path.join(self.folder, sanitize_filename(filename))[:250].strip()
                 + EXT[self.quality]  # file extension dict
             )
 
@@ -240,7 +262,10 @@ class Track:
         for k, v in self.meta.tags(container):
             audio[k] = v
 
-        assert cover is not None  # remove this later with no_embed option
+        if cover is None:
+            assert hasattr(self, "cover")
+            cover = self.cover
+
         if container == "flac":
             audio.add_picture(cover)
             audio.save()
@@ -657,20 +682,29 @@ class Playlist(Tracklist):
         if kwargs.get("load_on_init"):
             self.load_meta()
 
+    @classmethod
+    def from_api(cls, resp: dict, client: ClientInterface):
+        info = cls._parse_get_resp(resp, client)
+        return cls(client, **info)
+
     def load_meta(self):
-        self.meta = list(self.client.get(self.id, media_type="playlist"))[
-            0
-        ]  # generator
-        self.name = self.meta.get("name")
+        self.meta = self.client.get(self.id, "playlist")
 
         self._load_tracks()
 
     def _load_tracks(self):
         for track in self.meta.get("tracks", {}).get("items", []):
             logger.debug("Appending track: %s", track.get("title"))
-            self.append(Track(self.client, id=track.get("id")))
+            meta = TrackMetadata(track=track, album=track["album"])
+            self.append(Track(self.client, id=track.get("id"), meta=meta, cover_url=track['album']['image']['small']))
 
         logger.debug(f"Loaded {len(self)} tracks from playlist {self.name}")
+
+    def download(self, filters=None):
+        for track in self:
+            logger.debug(track.meta)
+            track.download()
+            track.tag()
 
     @staticmethod
     def _parse_get_resp(item, client):
@@ -805,16 +839,28 @@ class Artist(Tracklist):
                     yield album
                     break
 
+    # ----------- Filters --------------
+
     @staticmethod
     def studio_albums(artist, album):
         return (
             album["albumartist"] != "Various Artists"
-            and TYPE_REGEXES['extra'].search(album.title) is None
+            and TYPE_REGEXES["extra"].search(album.title) is None
         )
 
     @staticmethod
     def no_features(artist, album):
         return artist["name"] == album["albumartist"]
+
+    @staticmethod
+    def no_extras(artist, album):
+        return TYPE_REGEXES["extra"].search(album.title) is None
+
+    @staticmethod
+    def remaster_only(artist, album):
+        return TYPE_REGEXES["remaster"].search(album.title) is not None
+
+    # --------- Magic Methods --------
 
     def __repr__(self) -> str:
         """Return a string representation of this Artist object.
