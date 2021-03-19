@@ -140,18 +140,12 @@ class TrackMetadata:
                 if hasattr(self, "albumartist"):
                     self.artist = self.albumartist
 
-            if track.get("album"):
-                self.add_album_meta(track["album"])
-
         elif self.__source == "tidal":
             self.title = track.get("title").strip()
             self._mod_title(track.get("version"), None)
             self.tracknumber = str(track.get("trackNumber"))
             self.discnumber = str(track.get("volumeNumber"))
             self.artist = track.get("artist", {}).get("name")
-
-            if track.get("album"):
-                self.add_album_meta(track["album"])
 
         elif self.__source == "deezer":
             self.title = track.get("title").strip()
@@ -162,6 +156,9 @@ class TrackMetadata:
 
         else:
             raise ValueError
+
+        if track.get("album"):
+            self.add_album_meta(track["album"])
 
     def _mod_title(self, version, work):
         if version is not None:
@@ -201,7 +198,7 @@ class TrackMetadata:
 
         :rtype: str
         """
-        if not hasattr(self, "_genres"):
+        if not self.get('_genres'):
             return None
 
         if isinstance(self._genres, list):
@@ -212,7 +209,7 @@ class TrackMetadata:
         elif isinstance(self._genres, str):
             return self._genres
         else:
-            raise TypeError(f"Genre must be list or str, not {type(self._genre)}")
+            raise TypeError(f"Genre must be list or str, not {type(self._genres)}")
 
     @genre.setter
     def genre(self, val: Union[str, list]):
@@ -260,7 +257,8 @@ class TrackMetadata:
         if hasattr(self, "_year"):
             return self._year
         elif hasattr(self, "date"):
-            return self.date[:4]
+            if self.date is not None:
+                return self.date[:4]
         else:
             return None
 

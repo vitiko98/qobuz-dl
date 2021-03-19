@@ -1,7 +1,6 @@
 import logging
 import os
 import re
-
 # ------- Testing ----------
 from typing import Generator, Optional, Sequence, Tuple, Union
 
@@ -137,4 +136,3 @@ class QobuzDL:
         else:
             for item in results.get("data") or results.get("items"):
                 yield MEDIA_CLASS[media_type].from_api(item, self.client)
-        # fixme: Track class not working

@@ -7,7 +7,7 @@ from typing import Optional, Union
 import requests
 from tqdm import tqdm
 
-from .constants import LOG_DIR
+from .constants import LOG_DIR, TIDAL_COVER_URL
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +70,13 @@ def tqdm_download(url: str, filepath: str):
         for data in r.iter_content(chunk_size=1024):
             size = file.write(data)
             bar.update(size)
+
+
+def tidal_cover_url(uuid, size):
+    possibles = (80, 160, 320, 640, 1280)
+    assert size in possibles, f"size must be in {possibles}"
+
+    return TIDAL_COVER_URL.format(uuid=uuid.replace("-", "/"), height=size, width=size)
 
 
 def init_log(

@@ -2,9 +2,8 @@ import logging
 import os
 import re
 import shutil
-import sys
 from abc import ABC, abstractmethod
-from pprint import pprint
+from pprint import pprint, pformat
 from tempfile import gettempdir
 from typing import Any, Callable, Optional, Union
 
@@ -15,7 +14,7 @@ from pathvalidate import sanitize_filename
 
 from . import converter
 from .clients import ClientInterface
-from .constants import EXT, FLAC_MAX_BLOCKSIZE, TIDAL_COVER_URL
+from .constants import EXT, FLAC_MAX_BLOCKSIZE
 from .exceptions import (
     InvalidQuality,
     InvalidSourceError,
@@ -23,7 +22,7 @@ from .exceptions import (
     TooLargeCoverArt,
 )
 from .metadata import TrackMetadata
-from .util import quality_id, safe_get, tqdm_download
+from .util import quality_id, safe_get, tidal_cover_url, tqdm_download
 
 logger = logging.getLogger(__name__)
 
@@ -142,7 +141,7 @@ class Track:
         if os.path.isfile(self.format_final_path()):
             self.__is_downloaded = True
             logger.debug("File already exists: %s", self.final_path)
-            return
+            return False
 
         if hasattr(self, "cover_url"):
             self.download_cover()
@@ -156,7 +155,7 @@ class Track:
                 "sample"
             ):
                 logger.debug("Track is a sample: %s", dl_info)
-                return
+                return False
 
         if self.client.source in ("qobuz", "tidal"):
             logger.debug("Downloadable URL found: %s", dl_info.get("url"))
@@ -170,13 +169,18 @@ class Track:
         shutil.move(self.temp_file, self.final_path)
 
         self.__is_downloaded = True
+        return True
 
     def download_cover(self):
         """Downloads the cover art, if cover_url is given."""
 
         self.cover_path = os.path.join(self.folder, f"cover{hash(self.meta.title)}.jpg")
         logger.debug(f"Downloading cover from {self.cover_url}")
-        tqdm_download(self.cover_url, self.cover_path)
+        if not os.path.exists(self.cover_path):
+            tqdm_download(self.cover_url, self.cover_path)
+        else:
+            logger.debug("Cover already exists, skipping download")
+
         self.cover = Tracklist.get_cover_obj(self.cover_path, self.quality)
         logger.debug(f"Cover obj: {self.cover}")
 
@@ -217,6 +221,26 @@ class Track:
         track = cls._get_tracklist(album, client.source)[pos]
         meta = TrackMetadata(album=album, track=track, source=client.source)
         return cls(client=client, meta=meta, id=track["id"])
+
+    @classmethod
+    def from_api(cls, item: dict, client: ClientInterface):
+        meta = TrackMetadata(track=item, source=client.source)
+        logger.debug(pformat(item))
+        if client.source == "qobuz":
+            cover_url = item["album"]["image"]["small"]
+        elif client.source == "tidal":
+            cover_url = tidal_cover_url(item["album"]["cover"], 320)
+        elif client.source == 'deezer':
+            cover_url = item['album']['cover_medium']
+        else:
+            raise InvalidSourceError(client.source)
+
+        return cls(
+            client=client,
+            meta=meta,
+            id=item["id"],
+            cover_url=cover_url,
+        )
 
     def tag(self, album_meta: dict = None, cover: Union[Picture, APIC] = None):
         """Tag the track using the stored metadata.
@@ -565,9 +589,7 @@ class Album(Tracklist):
                 "albumartist": safe_get(resp, "artist", "name"),
                 "version": resp.get("version"),
                 "cover_urls": {
-                    size: TIDAL_COVER_URL.format(
-                        uuid=resp.get("cover").replace("-", "/"), height=x, width=x
-                    )
+                    size: tidal_cover_url(resp.get("cover"), x)
                     for size, x in zip(COVER_SIZES, (160, 320, 1280))
                 },
                 "streamable": resp.get("allowStreaming"),
@@ -773,11 +795,7 @@ class Playlist(Tracklist):
             tracklist = self.meta["items"]
 
             def gen_cover(track):
-                cover_url = TIDAL_COVER_URL.format(
-                    uuid=track["album"]["cover"].replace("-", "/"),
-                    height=320,  # uses the 'small' size
-                    width=320,
-                )
+                cover_url = tidal_cover_url(track['album']['cover'], 320)
                 return cover_url
 
             def meta_args(track):

@@ -5,6 +5,8 @@ from pprint import pformat
 import click
 from ruamel.yaml import YAML
 
+from .exceptions import InvalidSourceError
+
 yaml = YAML()
 
 
@@ -117,8 +119,10 @@ class Config:
             return self.qobuz_creds
         elif source == "tidal":
             return self.tidal_creds
+        elif source == 'deezer':
+            return dict()
         else:
-            raise NotImplementedError(f"Unknown source: {source}")
+            raise InvalidSourceError(source)
 
     def __getitem__(self, key):
         return getattr(self, key)
