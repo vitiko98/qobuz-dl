@@ -32,7 +32,7 @@ QUALITY_DESC = {
 }
 
 
-QOBUZ_FEATURED_KEYS = [
+QOBUZ_FEATURED_KEYS = (
     "most-streamed",
     "recent-releases",
     "best-sellers",
@@ -48,9 +48,9 @@ QOBUZ_FEATURED_KEYS = [
     "universal-jazz",
     "universal-jeunesse",
     "universal-chanson",
-]
+)
 
-__MP4_KEYS = [
+__MP4_KEYS = (
     "\xa9nam",
     "\xa9ART",
     "\xa9alb",
@@ -69,9 +69,9 @@ __MP4_KEYS = [
     "covr",
     "trkn",
     "disk",
-]
+)
 
-__MP3_KEYS = [
+__MP3_KEYS = (
     id3.TIT2,
     id3.TPE1,
     id3.TALB,
@@ -90,9 +90,9 @@ __MP3_KEYS = [
     None,
     id3.TRCK,
     id3.TPOS,
-]
+)
 
-__METADATA_TYPES = [
+__METADATA_TYPES = (
     "title",
     "artist",
     "album",
@@ -111,7 +111,7 @@ __METADATA_TYPES = [
     "cover",
     "tracknumber",
     "discnumber",
-]
+)
 
 
 FLAC_KEY = {v: v.upper() for v in __METADATA_TYPES}
