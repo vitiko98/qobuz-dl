@@ -6,7 +6,7 @@ from typing import Generator, Sequence, Tuple, Union
 
 from .clients import DeezerClient, QobuzClient, TidalClient
 from .config import Config
-from .constants import CONFIG_PATH, QOBUZ_URL_REGEX, DB_PATH
+from .constants import CONFIG_PATH, DB_PATH, QOBUZ_URL_REGEX
 from .db import QobuzDB
 from .downloader import Album, Artist, Playlist, Track
 from .exceptions import ParsingError

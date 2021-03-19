@@ -89,6 +89,7 @@ class ClientInterface(ABC):
     def source(self):
         pass
 
+
 # ------------- Clients -----------------
 
 
@@ -376,9 +377,9 @@ class DeezerClient(ClientInterface):
             tracks = self.session.get(f"{url}/tracks").json()
             item["tracks"] = tracks["data"]
             item["track_total"] = len(tracks["data"])
-        elif media_type == 'artist':
+        elif media_type == "artist":
             albums = self.session.get(f"{url}/albums").json()
-            item['albums'] = albums['data']
+            item["albums"] = albums["data"]
 
         return item
 

@@ -6,7 +6,7 @@ import sys
 from abc import ABC, abstractmethod
 from pprint import pprint
 from tempfile import gettempdir
-from typing import Any, Optional, Union
+from typing import Any, Callable, Optional, Union
 
 import requests
 from mutagen.flac import FLAC, Picture
@@ -101,6 +101,7 @@ class Track:
 
     def load_meta(self):
         """Send a request to the client to get metadata for this Track."""
+
         assert hasattr(self, "id"), "id must be set before loading metadata"
 
         track_meta = self.client.get(self.id, media_type="track")
@@ -171,6 +172,8 @@ class Track:
         self.__is_downloaded = True
 
     def download_cover(self):
+        """Downloads the cover art, if cover_url is given."""
+
         self.cover_path = os.path.join(self.folder, f"cover{hash(self.meta.title)}.jpg")
         logger.debug(f"Downloading cover from {self.cover_url}")
         tqdm_download(self.cover_url, self.cover_path)
@@ -279,7 +282,23 @@ class Track:
 
         self.__is_tagged = True
 
-    def convert(self, codec="ALAC", **kwargs):
+    def convert(self, codec: str = "ALAC", **kwargs):
+        """Converts the track to another codec.
+
+        Valid values for codec:
+            * FLAC
+            * ALAC
+            * MP3
+            * OPUS
+            * OGG
+            * VORBIS
+            * AAC
+            * M4A
+
+        :param codec: the codec to convert the track to
+        :type codec: str
+        :param kwargs:
+        """
         assert self.__is_downloaded, "Track must be downloaded before conversion"
 
         CONV_CLASS = {
@@ -332,7 +351,11 @@ class Track:
         """
         setattr(self.meta, key, val)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
+        """Return a string representation of the track.
+
+        :rtype: str
+        """
         return f"<Track - {self['title']}>"
 
 
@@ -463,7 +486,15 @@ class Tracklist(list, ABC):
 
 
 class Album(Tracklist):
-    """Represents a downloadable Qobuz album."""
+    """Represents a downloadable Qobuz album.
+
+    Usage:
+
+    >>> resp = client.get('fleetwood mac rumours', 'album')
+    >>> album = Album.from_api(resp['items'][0], client)
+    >>> album.load_meta()
+    >>> album.download()
+    """
 
     def __init__(self, client: ClientInterface, **kwargs):
         """Create a new Album object.
@@ -674,7 +705,14 @@ class Album(Tracklist):
 
 
 class Playlist(Tracklist):
-    """Represents a downloadable Qobuz playlist."""
+    """Represents a downloadable Qobuz playlist.
+
+    Usage:
+    >>> resp = client.get('hip hop', 'playlist')
+    >>> pl = Playlist.from_api(resp['items'][0], client)
+    >>> pl.load_meta()
+    >>> pl.download()
+    """
 
     def __init__(self, client: ClientInterface, **kwargs):
         """Create a new Playlist object.
@@ -695,15 +733,33 @@ class Playlist(Tracklist):
 
     @classmethod
     def from_api(cls, resp: dict, client: ClientInterface):
+        """Return a Playlist object initialized with information from
+        a search result returned by the API.
+
+        :param resp: a single search result entry of a playlist
+        :type resp: dict
+        :param client:
+        :type client: ClientInterface
+        """
         info = cls._parse_get_resp(resp, client)
         return cls(client, **info)
 
     def load_meta(self, **kwargs):
-        self.meta = self.client.get(self.id, "playlist")
+        """Send a request to fetch the tracklist from the api.
 
+        :param new_tracknumbers: replace the tracknumber with playlist position
+        :type new_tracknumbers: bool
+        :param kwargs:
+        """
+        self.meta = self.client.get(self.id, "playlist")
         self._load_tracks(**kwargs)
 
-    def _load_tracks(self, new_tracknumbers=True):
+    def _load_tracks(self, new_tracknumbers: bool = True):
+        """Parses the tracklist returned by the API.
+
+        :param new_tracknumbers: replace tracknumber tag with playlist position
+        :type new_tracknumbers: bool
+        """
         if self.client.source == "qobuz":
             tracklist = self.meta["tracks"]["items"]
 
@@ -758,7 +814,12 @@ class Playlist(Tracklist):
 
         logger.debug(f"Loaded {len(self)} tracks from playlist {self.name}")
 
-    def download(self, filters=None):
+    def download(self, filters: Callable = None):
+        """Download and tag all of the tracks.
+
+        :param filters: Not implemented yet
+        :type filters:
+        """
         for track in self:
             logger.debug(track.meta)
             track.download()
@@ -768,7 +829,15 @@ class Playlist(Tracklist):
                 track.tag()
 
     @staticmethod
-    def _parse_get_resp(item, client):
+    def _parse_get_resp(item: dict, client: ClientInterface):
+        """Parses information from a search result returned
+        by a client.search call.
+
+        :param item:
+        :type item: dict
+        :param client:
+        :type client: ClientInterface
+        """
         if client.source == "qobuz":
             info = {
                 "name": item.get("name"),
@@ -799,7 +868,14 @@ class Playlist(Tracklist):
 
 
 class Artist(Tracklist):
-    """Represents a downloadable Qobuz artist."""
+    """Represents a downloadable artist.
+
+    Usage:
+    >>> resp = client.get('fleetwood mac', 'artist')
+    >>> artist = Artist.from_api(resp['items'][0], client)
+    >>> artist.load_meta()
+    >>> artist.download()
+    """
 
     def __init__(self, client: ClientInterface, **kwargs):
         """Create a new Artist object.
@@ -819,12 +895,16 @@ class Artist(Tracklist):
             self.load_meta()
 
     def load_meta(self):
+        """Send an API call to get album info based on id."""
         self.meta = self.client.get(self.id, media_type="artist")
         self._load_albums()
 
         self.name = self.meta.get("name")
 
     def _load_albums(self):
+        """From the discography returned by client.get(query, 'artist'),
+        generate album objects and append them to self.
+        """
         if self.client.source == "qobuz":
             albums = self.meta["albums"]["items"]
 
@@ -841,7 +921,21 @@ class Artist(Tracklist):
             logger.debug("Appending album: %s", album.get("title"))
             self.append(Album.from_api(album, self.client))
 
-    def download(self, filters=None, no_repeats=False, quality=7):
+    def download(
+        self,
+        filters: Optional[Union[Callable, list]] = None,
+        no_repeats: bool = False,
+        quality: int = 7,
+    ):
+        """Download all albums in the discography.
+
+        :param filters: Filters to apply to discography, see options below.
+        :type filters: Optional[Union[Callable, list]]
+        :param no_repeats: Remove repeats
+        :type no_repeats: bool
+        :param quality: in (4, 5, 6, 7, 27)
+        :type quality: int
+        """
         logger.debug(f"Length of tracklist {len(self)}")
         if no_repeats:
             final = self._remove_repeats(bit_depth=max, sampling_rate=min)
@@ -890,6 +984,12 @@ class Artist(Tracklist):
         return cls(client=client, **info)
 
     def _remove_repeats(self, bit_depth=max, sampling_rate=max):
+        """Remove the repeated albums from self. May remove different
+        versions of the same album.
+
+        :param bit_depth: either max or min functions
+        :param sampling_rate: either max or min functions
+        """
         groups = dict()
         for album in self:
             if (t := self.essence(album.title)) not in groups:
@@ -906,7 +1006,14 @@ class Artist(Tracklist):
                     break
 
     @staticmethod
-    def _parse_get_resp(item, client):
+    def _parse_get_resp(item: dict, client: ClientInterface):
+        """Parse a result from a client.search call.
+
+        :param item: the item to parse
+        :type item: dict
+        :param client:
+        :type client: ClientInterface
+        """
         if client.source in ("qobuz", "deezer"):
             info = {
                 "name": item.get("name"),
@@ -926,7 +1033,18 @@ class Artist(Tracklist):
     # ----------- Filters --------------
 
     @staticmethod
-    def studio_albums(artist, album):
+    def studio_albums(artist, album: Album) -> bool:
+        """Passed as a parameter by the user.
+
+        >>> artist.download(filters=Artist.studio_albums)
+
+        This will download only studio albums.
+
+        :param artist: usually self
+        :param album: the album to check
+        :type album: Album
+        :rtype: bool
+        """
         return (
             album["albumartist"] != "Various Artists"
             and TYPE_REGEXES["extra"].search(album.title) is None
@@ -934,14 +1052,48 @@ class Artist(Tracklist):
 
     @staticmethod
     def no_features(artist, album):
+        """Passed as a parameter by the user.
+
+        >>> artist.download(filters=Artist.no_features)
+
+        This will download only albums where the requested
+        artist is the album artist.
+
+        :param artist: usually self
+        :param album: the album to check
+        :type album: Album
+        :rtype: bool
+        """
         return artist["name"] == album["albumartist"]
 
     @staticmethod
     def no_extras(artist, album):
+        """Passed as a parameter by the user.
+
+        >>> artist.download(filters=Artist.no_extras)
+
+        This will skip any extras.
+
+        :param artist: usually self
+        :param album: the album to check
+        :type album: Album
+        :rtype: bool
+        """
         return TYPE_REGEXES["extra"].search(album.title) is None
 
     @staticmethod
     def remaster_only(artist, album):
+        """Passed as a parameter by the user.
+
+        >>> artist.download(filters=Artist.remaster_only)
+
+        This will download only remasterd albums.
+
+        :param artist: usually self
+        :param album: the album to check
+        :type album: Album
+        :rtype: bool
+        """
         return TYPE_REGEXES["remaster"].search(album.title) is not None
 
     # --------- Magic Methods --------
