@@ -2,7 +2,7 @@ import hashlib
 import logging
 import time
 from abc import ABC, abstractmethod
-from typing import Generator, Tuple, Union
+from typing import Generator, Sequence, Tuple, Union
 
 import requests
 import tidalapi
@@ -137,10 +137,10 @@ class QobuzClient(ClientInterface):
         self._validate_secrets()
         logger.debug("Qobuz client is ready to use")
 
-        # used for caching app_id and secrets
-        if kwargs.get("return_secrets"):
-            return self.app_id, self.secrets
         self.logged_in = True
+
+    def get_tokens(self) -> Tuple[str, Sequence[str]]:
+        return self.app_id, self.secrets
 
     def search(
         self, query: str, media_type: str = "album", limit: int = 500

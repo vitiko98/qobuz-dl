@@ -1,8 +1,14 @@
+import logging
+import os
 from pprint import pformat
 
+import click
 from ruamel.yaml import YAML
 
 yaml = YAML()
+
+
+logger = logging.getLogger(__name__)
 
 
 class Config:
@@ -30,7 +36,7 @@ class Config:
     Hopefully this will make it easier to add new command line options and features.
     """
 
-    def __init__(self, config_path=None):
+    def __init__(self, config_path: str):
 
         # DEFAULTS
         folder = "Downloads"
@@ -38,15 +44,23 @@ class Config:
         folder_format = "{artist} - {album} ({year}) [{bit_depth}B-{sampling_rate}kHz]"
         track_format = "{tracknumber}. {tracktitle}"
 
-        self.Qobuz = {"email": None, "password": None, "app_id": None, "secrets": None}
-        self.Tidal = {"email": None, "password": None}
+        self.Qobuz = {
+            "enabled": True,
+            "email": None,
+            "password": None,
+            "app_id": "",  # Avoid NoneType error
+            "secrets": "",
+        }
+        self.Tidal = {"enabled": True, "email": None, "password": None}
+        self.Deezer = {"enabled": True}
         self.downloads_database = None
         self.filters = {"smart_discography": False, "albums_only": False}
         self.downloads = {"folder": folder, "quality": quality}
         self.metadata = {
-            "embed_covers": True,
+            "embed_covers": False,
             "large_covers": False,
             "default_comment": None,
+            "remove_extra_tags": False,
         }
         self.path_format = {"folder": folder_format, "track": track_format}
 
@@ -57,15 +71,29 @@ class Config:
         if self.__loaded:
             info = dict()
             for k, v in self.__dict__.items():
+                logger.debug("Adding value %s to %s key to config", k, v)
                 if not k.startswith("_"):
                     info[k] = v
 
             with open(self.__path, "w") as cfg:
+                logger.debug("Config saved: %s", self.__path)
                 yaml.dump(info, cfg)
 
     def load(self):
+        if not os.path.isfile(self.__path):
+            logger.debug("File not found. Creating one: %s", self.__path)
+            self.__loaded = True
+            self.save()
+
+            click.secho(
+                "A config file has been created. Please update it "
+                f"with your credentials: {self.__path}",
+                fg="yellow",
+            )
+
         with open(self.__path) as cfg:
             self.__dict__.update(yaml.load(cfg))
+
         self.__loaded = True
 
     @property
@@ -90,7 +118,7 @@ class Config:
         elif source == "tidal":
             return self.tidal_creds
         else:
-            raise NotImplementedError
+            raise NotImplementedError(f"Unknown source: {source}")
 
     def __getitem__(self, key):
         return getattr(self, key)

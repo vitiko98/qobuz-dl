@@ -1,15 +1,16 @@
 import logging
 import os
 import re
+
 # ------- Testing ----------
-from typing import Generator, Sequence, Tuple, Union
+from typing import Generator, Optional, Sequence, Tuple, Union
 
 from .clients import DeezerClient, QobuzClient, TidalClient
 from .config import Config
 from .constants import CONFIG_PATH, DB_PATH, QOBUZ_URL_REGEX
 from .db import QobuzDB
 from .downloader import Album, Artist, Playlist, Track
-from .exceptions import ParsingError
+from .exceptions import InvalidSourceError, ParsingError
 
 # --------------------------
 
@@ -24,23 +25,22 @@ Media = Union[Album, Playlist, Artist]  # type hint
 class QobuzDL:
     def __init__(
         self,
-        config=None,
-        client=None,
-        source="qobuz",
-        database=None,
-        **kwargs,
+        config: Optional[Config] = None,
+        source: str = "qobuz",
+        database: Optional[str] = None,
     ):
+        logger.debug(locals())
+
+        self.source = source
         self.url_parse = re.compile(QOBUZ_URL_REGEX)
-        if config is None:
+        self.config = config
+        if self.config is None:
             self.config = Config(CONFIG_PATH)
             self.config.load()
 
-        if client is not None:
-            self.client = client
-        elif source is not None:
-            self.client = CLIENTS[source]()
-        else:
-            self.client = QobuzClient()
+        self.client = CLIENTS[source]()
+
+        logger.debug("Using client: %s", self.client)
 
         if database is None:
             self.db = QobuzDB(DB_PATH)
@@ -48,16 +48,29 @@ class QobuzDL:
             assert isinstance(database, QobuzDB)
             self.db = database
 
-        creds = config.creds(self.client.source)
-        if creds.get("app_id") is None and self.client.source == "qobuz":
-            app_id, secrets = self.client.login(**creds, return_secrets=True)
-            config["Qobuz"]["app_id"] = app_id
-            config["Qobuz"]["secrets"] = secrets
-            config.save()
-        else:
-            self.client.login(**creds)
+    def load_creds(self):
+        if isinstance(self.client, (QobuzClient, TidalClient)):
+            creds = self.config.creds(self.source)
+            if not creds.get("app_id") and isinstance(self.client, QobuzClient):
+                self.client.login(**creds)
+                app_id, secrets = self.client.get_tokens()
+                self.config["Qobuz"]["app_id"] = app_id
+                self.config["Qobuz"]["secrets"] = secrets
+                self.config.save()
+            else:
+                self.client.login(**creds)
 
     def handle_url(self, url: str):
+        """Download an url
+
+        :param url:
+        :type url: str
+        :raises InvalidSourceError
+        :raises ParsingError
+        """
+        if self.source not in url:
+            raise InvalidSourceError(f"{url} is not a {self.source.title()} source")
+
         url_type, item_id = self.parse_url(url)
         item = MEDIA_CLASS[url_type](client=self.client, id=item_id)
         item.load_meta()
@@ -67,7 +80,7 @@ class QobuzDL:
         """Returns the type of the url and the id.
 
         Compatible with urls of the form:
-            https://www.qobuz.com/us-en/{type}/{name}/{id}
+            https://www..com/us-en/{type}/{name}/{id}
             https://open.qobuz.com/{type}/{id}
             https://play.qobuz.com/{type}/{id}
             /us-en/{type}/-/{id}
@@ -105,15 +118,23 @@ class QobuzDL:
 
             logger.debug("Parsed lines from text file: %d", len(lines))
 
-            parsed = self.qobuz_url_parse.findall(",".join(lines))
+            parsed = self.url_parse.findall(",".join(lines))
             if parsed:
                 logger.debug("Parsed URLs from regex: %s", parsed)
                 return parsed
 
         raise ParsingError("Error parsing URLs from file `{filepath}`")
 
-    def search(self, query: str, media_type: str, limit: int = 200) -> Generator:
+    def search(
+        self, query: str, media_type: str = "album", limit: int = 200
+    ) -> Generator:
         results = self.client.search(query, media_type, limit)
-        for page in results:
-            for item in page[f"{media_type}s"]["items"]:
+
+        if isinstance(results, Generator):  # QobuzClient
+            for page in results:
+                for item in page[f"{media_type}s"]["items"]:
+                    yield MEDIA_CLASS[media_type].from_api(item, self.client)
+        else:
+            for item in results.get("data") or results.get("items"):
                 yield MEDIA_CLASS[media_type].from_api(item, self.client)
+        # fixme: Track class not working
