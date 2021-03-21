@@ -1,9 +1,10 @@
-from pprint import pprint
+import sys
 import logging
 import os
 import re
 import shutil
 from abc import ABC, abstractmethod
+from pprint import pprint
 from tempfile import gettempdir
 from typing import Any, Callable, Optional, Tuple, Union
 
@@ -218,13 +219,13 @@ class Track:
     def format_final_path(self) -> str:
         """Return the final filepath of the downloaded file.
 
-        This uses the `_get_formatter` method of TrackMetadata, which returns
+        This uses the `get_formatter` method of TrackMetadata, which returns
         a dict with the keys allowed in formatter strings, and their values in
         the TrackMetadata object.
         """
-        formatter = self.meta._get_formatter()
+        formatter = self.meta.get_formatter()
         # filename = sanitize_filepath(self.file_format.format(**formatter))
-        filename = clean_format(self.file_format, **formatter)
+        filename = clean_format(self.file_format, formatter)
         self.final_path = (
             os.path.join(self.folder, filename)[:250].strip()
             + EXT[self.quality]  # file extension dict
@@ -375,6 +376,9 @@ class Track:
 
         self.container = codec.upper()
 
+        print(self.final_path)
+        print(kwargs.get("sampling_rate"))
+        print(kwargs.get("remove_source"))
         engine = CONV_CLASS[codec.upper()](
             filename=self.final_path,
             sampling_rate=kwargs.get("sampling_rate"),
@@ -673,7 +677,7 @@ class Album(Tracklist):
                 "tracktotal": resp.get("track_total"),
             }
 
-        raise NotImplementedError(client.source)
+        raise InvalidSourceError(client.source)
 
     def _load_tracks(self):
         """Given an album metadata dict returned by the API, append all of its
@@ -748,15 +752,16 @@ class Album(Tracklist):
 
                 img = requests.head(cover_url)
 
-                if int(img.headers["Content-Length"]) > 5 * 10 ** 6:  # 5MB
-                    logger.debug("Requested key (%s) size is too large. Falling back")
+                if int(img.headers["Content-Length"]) > FLAC_MAX_BLOCKSIZE:  # 16.7 MB
+                    logger.info(
+                        f"{cover_key} cover size is too large to "
+                        "embed. Using small cover instead"
+                    )
                     cover_url = self.cover_urls.get("small")
 
                 tqdm_download(cover_url, cover_path)
 
-        # create a single cover object and use them for all tracks
-        # TODO: avoid this method if embeded covers are not requested
-        if self.client.source != "deezer":
+        if self.client.source != "deezer" and embed_cover:
             cover = self.get_cover_obj(cover_path, quality)
 
         for track in self:
@@ -778,15 +783,20 @@ class Album(Tracklist):
             else:
                 dict_[key] = None
 
+        dict_['sampling_rate'] /= 1000
+        # 48.0kHz -> 48kHz, 44.1kHz -> 44.1kHz
+        if dict_['sampling_rate'] % 1 == 0.0:
+            dict_['sampling_rate'] = int(dict_['sampling_rate'])
+
         return dict_
 
     def _get_formatted_folder(self, parent_folder: str) -> str:
         if self.bit_depth is not None and self.sampling_rate is not None:
-            self.container = 'FLAC'
-        elif self.client.source == 'qobuz':
-            self.container = 'MP3'
-        elif self.client.source == 'tidal':
-            self.container = 'AAC'
+            self.container = "FLAC"
+        elif self.client.source == "qobuz":
+            self.container = "MP3"
+        elif self.client.source == "tidal":
+            self.container = "AAC"
         else:
             raise Exception(f"{self.bit_depth=}, {self.sampling_rate=}")
 
@@ -1241,11 +1251,11 @@ class Artist(Tracklist):
 
 class Label(Artist):
     def load_meta(self):
-        assert self.client.source == 'qobuz', 'Label source must be qobuz'
+        assert self.client.source == "qobuz", "Label source must be qobuz"
 
-        resp = self.client.get(self.id, 'label')
-        self.name = resp['name']
-        for album in resp['albums']['items']:
+        resp = self.client.get(self.id, "label")
+        self.name = resp["name"]
+        for album in resp["albums"]["items"]:
             pprint(album)
             self.append(Album.from_api(album, client=self.client))
 

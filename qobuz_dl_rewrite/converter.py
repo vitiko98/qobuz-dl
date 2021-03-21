@@ -107,7 +107,7 @@ class Converter:
         if self.lossless:
             if isinstance(self.sampling_rate, int):
                 command.extend(["-ar", str(self.sampling_rate)])
-            else:
+            elif self.sampling_rate is not None:
                 raise TypeError(
                     f"Sampling rate must be int, not {type(self.sampling_rate)}"
                 )
@@ -119,7 +119,7 @@ class Converter:
                     command.extend(["-sample_fmt", "s32"])
                 else:
                     raise ValueError("Bit depth must be 16, 24, or 32")
-            else:
+            elif self.bit_depth is not None:
                 raise TypeError(f"Bit depth must be int, not {type(self.bit_depth)}")
 
         command.extend(["-y", self.tempfile])

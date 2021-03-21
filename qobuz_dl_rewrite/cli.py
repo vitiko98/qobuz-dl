@@ -6,9 +6,9 @@ import os
 import click
 
 from qobuz_dl_rewrite.config import Config
+from qobuz_dl_rewrite.constants import CACHE_DIR, CONFIG_DIR
 from qobuz_dl_rewrite.core import QobuzDL
 from qobuz_dl_rewrite.utils import init_log
-from qobuz_dl_rewrite.constants import CONFIG_DIR, CACHE_DIR
 
 logger = logging.getLogger(__name__)
 

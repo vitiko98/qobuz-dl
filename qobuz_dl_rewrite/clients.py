@@ -124,7 +124,7 @@ class QobuzClient(ClientInterface):
             logger.debug("Already logged in")
             return
 
-        if (kwargs.get("app_id") or kwargs.get("secrets")) in (None, ['']):
+        if (kwargs.get("app_id") or kwargs.get("secrets")) in (None, [""]):
             logger.info("Fetching tokens from Qobuz")
             spoofer = Spoofer()
             kwargs["app_id"] = spoofer.get_app_id()
@@ -190,7 +190,6 @@ class QobuzClient(ClientInterface):
     def get(self, item_id: Union[str, int], media_type: str = "album") -> dict:
         return self._api_get(media_type, item_id=item_id)
 
-    @region.cache_on_arguments(expiration_time=TRACK_CACHE_TIME)
     def get_file_url(self, item_id, quality=6) -> dict:
         return self._api_get_file_url(item_id, quality=quality)
 
@@ -314,10 +313,10 @@ class QobuzClient(ClientInterface):
 
         if sec is not None:
             secret = sec
-        elif hasattr(self, 'sec'):
+        elif hasattr(self, "sec"):
             secret = self.sec
         else:
-            raise InvalidAppSecretError('Cannot find app secret')
+            raise InvalidAppSecretError("Cannot find app secret")
 
         r_sig = f"trackgetFileUrlformat_id{quality}intentstreamtrack_id{track_id}{unix_ts}{secret}"
         logger.debug("Raw request signature: %s", r_sig)
@@ -459,7 +458,6 @@ class TidalClient(ClientInterface):
         """
         return self._get(meta_id, media_type)
 
-    @region.cache_on_arguments(expiration_time=TRACK_CACHE_TIME)
     def get_file_url(self, meta_id: Union[str, int], quality: int = 6):
         """
         :param meta_id:

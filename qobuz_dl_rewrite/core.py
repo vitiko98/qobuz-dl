@@ -21,6 +21,7 @@ Media = Union[Album, Playlist, Artist]  # type hint
 
 # TODO: add support for database
 
+
 class QobuzDL:
     def __init__(
         self,
