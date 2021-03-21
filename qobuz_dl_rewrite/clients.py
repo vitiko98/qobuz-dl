@@ -1,15 +1,16 @@
+import datetime
 import hashlib
 import logging
-import datetime
-import time
 import os
+import time
 from abc import ABC, abstractmethod
 from typing import Generator, Sequence, Tuple, Union
 
 import requests
 import tidalapi
+from dogpile.cache import make_region
 
-from .constants import AGENT, QOBUZ_FEATURED_KEYS, CACHE_DIR
+from .constants import AGENT, CACHE_DIR, QOBUZ_FEATURED_KEYS
 from .exceptions import (
     AuthenticationError,
     IneligibleError,
@@ -18,7 +19,6 @@ from .exceptions import (
     InvalidQuality,
 )
 from .spoofbuz import Spoofer
-from dogpile.cache import make_region
 
 os.makedirs(CACHE_DIR, exist_ok=True)
 region = make_region().configure(

@@ -3,9 +3,9 @@ import os
 import re
 import shutil
 from abc import ABC, abstractmethod
-from pprint import pprint, pformat
+from pprint import pformat, pprint
 from tempfile import gettempdir
-from typing import Any, Callable, Optional, Union, Sequence, Tuple
+from typing import Any, Callable, Optional, Sequence, Tuple, Union
 
 import click
 import requests
@@ -15,7 +15,13 @@ from pathvalidate import sanitize_filename, sanitize_filepath
 
 from . import converter
 from .clients import ClientInterface
-from .constants import EXT, FLAC_MAX_BLOCKSIZE, TRACK_FORMAT, FOLDER_FORMAT, ALBUM_KEYS
+from .constants import (
+    ALBUM_KEYS,
+    EXT,
+    FLAC_MAX_BLOCKSIZE,
+    FOLDER_FORMAT,
+    TRACK_FORMAT,
+)
 from .exceptions import (
     InvalidQuality,
     InvalidSourceError,
@@ -23,7 +29,13 @@ from .exceptions import (
     TooLargeCoverArt,
 )
 from .metadata import TrackMetadata
-from .util import quality_id, safe_get, tidal_cover_url, tqdm_download, clean_format
+from .util import (
+    clean_format,
+    quality_id,
+    safe_get,
+    tidal_cover_url,
+    tqdm_download,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -580,7 +592,6 @@ class Album(Tracklist):
     def load_meta(self):
         assert hasattr(self, "id"), "id must be set to load metadata"
         self.meta = self.client.get(self.id, media_type="album")
-        # pprint(self.meta)
 
         # update attributes based on response
         for k, v in self._parse_get_resp(self.meta, self.client).items():
@@ -622,7 +633,7 @@ class Album(Tracklist):
                 "albumartist": resp.get("artist", {}).get("name"),
                 "year": str(resp.get("release_date_original"))[:4],
                 "version": resp.get("version"),
-                "release_type": resp.get("release_type", "n/a"),
+                "release_type": resp.get("release_type", "album"),
                 "cover_urls": resp.get("image"),
                 "streamable": resp.get("streamable"),
                 "quality": quality_id(
@@ -1209,6 +1220,7 @@ class Artist(Tracklist):
         :type album: Album
         :rtype: bool
         """
+        # Doesn't work yet
         return album["release_type"] == "album"
 
     # --------- Magic Methods --------

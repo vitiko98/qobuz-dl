@@ -1,8 +1,6 @@
 import logging
 import os
 import re
-
-# ------- Testing ----------
 from typing import Generator, Optional, Sequence, Tuple, Union
 
 import click
@@ -13,8 +11,6 @@ from .constants import CONFIG_PATH, DB_PATH, QOBUZ_URL_REGEX
 from .db import QobuzDB
 from .downloader import Album, Artist, Playlist, Track
 from .exceptions import InvalidSourceError, ParsingError
-
-# --------------------------
 
 logger = logging.getLogger(__name__)
 
@@ -83,11 +79,10 @@ class QobuzDL:
 
         item = MEDIA_CLASS[media_type](client=self.client, id=item_id)
         if isinstance(item, Artist):
-            filters_ = tuple(self.config.filters.keys())
+            keys = self.config.filters.keys()
+            filters_ = tuple(key for key in keys if self.config.filters[key])
             arguments["filters"] = filters_
-            logger.debug(
-                "Added filter argument for artist/label: %s", filters_
-            )
+            logger.debug("Added filter argument for artist/label: %s", filters_)
 
         logger.debug("Arguments from config: %s", arguments)
 

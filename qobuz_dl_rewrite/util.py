@@ -1,12 +1,12 @@
 import logging
 import logging.handlers as handlers
 import os
-from typing import Optional
 from string import Formatter
+from typing import Optional
 
 import requests
-from tqdm import tqdm
 from pathvalidate import sanitize_filename
+from tqdm import tqdm
 
 from .constants import LOG_DIR, TIDAL_COVER_URL
 

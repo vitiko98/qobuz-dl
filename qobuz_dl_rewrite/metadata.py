@@ -7,10 +7,10 @@ from typing import Generator, Optional, Tuple, Union
 from .constants import (
     COPYRIGHT,
     FLAC_KEY,
-    TRACK_KEYS,
     MP3_KEY,
     MP4_KEY,
     PHON_COPYRIGHT,
+    TRACK_KEYS,
 )
 from .exceptions import InvalidContainerError
 
