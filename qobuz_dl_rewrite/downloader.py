@@ -376,9 +376,6 @@ class Track:
 
         self.container = codec.upper()
 
-        print(self.final_path)
-        print(kwargs.get("sampling_rate"))
-        print(kwargs.get("remove_source"))
         engine = CONV_CLASS[codec.upper()](
             filename=self.final_path,
             sampling_rate=kwargs.get("sampling_rate"),

@@ -25,8 +25,9 @@ class Converter:
         ffmpeg_arg: Optional[str] = None,
         sampling_rate: Optional[int] = None,
         bit_depth: Optional[int] = None,
-        copy_art: bool = False,
+        copy_art: bool = True,
         remove_source: bool = False,
+        show_progress: bool = False,
     ):
         """
         :param filename:
@@ -51,6 +52,7 @@ class Converter:
         self.sampling_rate = sampling_rate
         self.bit_depth = bit_depth
         self.copy_art = copy_art
+        self.show_progress = show_progress
 
         if ffmpeg_arg is None:
             logger.debug("No arguments provided. Codec defaults will be used")
@@ -94,10 +96,12 @@ class Converter:
             self.filename,
             "-loglevel",
             "warning",
-            "-stats",  # progress
             "-c:a",
             self.codec_lib,
         ]
+        if self.show_progress:
+            command.append("-stats")
+
         if self.copy_art:
             command.extend(["-c:v", "copy"])
 
