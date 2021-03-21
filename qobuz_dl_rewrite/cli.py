@@ -44,6 +44,7 @@ def _get_config(ctx):
 @click.option("--db-file", metavar="PATH", help="Custom database file")
 @click.option("--log-file", metavar="PATH", help="Custom logfile")
 @click.option("--flush-cache", metavar="PATH", help="Flush the cache before running (only for extreme cases)")
+# TODO: add options for conversion
 @click.pass_context
 # fmt: on
 def cli(ctx, **kwargs):

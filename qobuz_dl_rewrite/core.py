@@ -19,6 +19,7 @@ MEDIA_CLASS = {"album": Album, "playlist": Playlist, "artist": Artist, "track": 
 CLIENTS = {"qobuz": QobuzClient, "tidal": TidalClient, "deezer": DeezerClient}
 Media = Union[Album, Playlist, Artist]  # type hint
 
+# TODO: add support for database
 
 class QobuzDL:
     def __init__(

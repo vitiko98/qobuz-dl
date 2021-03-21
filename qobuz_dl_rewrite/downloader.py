@@ -54,6 +54,8 @@ TYPE_REGEXES = {
     "extra": re.compile(r"(?i)(anniversary|deluxe|live|collector|demo|expanded)"),
 }
 
+# TODO: add Label class, probably subclass Artist
+
 
 class Track:
     """Represents a downloadable track.
