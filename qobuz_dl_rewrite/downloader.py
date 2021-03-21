@@ -29,7 +29,7 @@ from .exceptions import (
     TooLargeCoverArt,
 )
 from .metadata import TrackMetadata
-from .util import (
+from .utils import (
     clean_format,
     quality_id,
     safe_get,
