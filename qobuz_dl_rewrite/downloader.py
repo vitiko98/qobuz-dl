@@ -3,9 +3,8 @@ import os
 import re
 import shutil
 from abc import ABC, abstractmethod
-from pprint import pformat, pprint
 from tempfile import gettempdir
-from typing import Any, Callable, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Optional, Tuple, Union
 
 import click
 import requests
@@ -208,6 +207,8 @@ class Track:
 
     def download_cover(self):
         """Downloads the cover art, if cover_url is given."""
+
+        assert hasattr(self, "cover_url"), "must pass cover_url parameter"
 
         self.cover_path = os.path.join(self.folder, f"cover{hash(self.meta.title)}.jpg")
         logger.debug(f"Downloading cover from {self.cover_url}")

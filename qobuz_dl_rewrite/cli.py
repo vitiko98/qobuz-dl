@@ -1,11 +1,13 @@
 # For tests
 
-import click
-import os
 import logging
+import os
+
+import click
+
 from qobuz_dl_rewrite.config import Config
-from qobuz_dl_rewrite.utils import init_log
 from qobuz_dl_rewrite.core import QobuzDL
+from qobuz_dl_rewrite.utils import init_log
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +22,7 @@ def _get_config(ctx):
 # fmt: off
 @click.group()
 @click.option("--disable", metavar="PROVIDER,...", help="Disable following providers (comma separated)")
-@click.option("-q","--quality",metavar="QUALITY",help="Quality integer ID (5, 6, 7, 27)")
+@click.option("-q", "--quality", metavar="INT", help="Quality integer ID (5, 6, 7, 27)")
 @click.option("--embed-cover", is_flag=True, help="Embed cover art into files")
 @click.option("--no-extras", is_flag=True, help="Ignore extras")
 @click.option("--no-features", is_flag=True, help="Ignore features")
@@ -32,10 +34,10 @@ def _get_config(ctx):
 @click.option("--debug", default=False, is_flag=True, help="Enable debug logging")
 @click.option("-f", "--folder", metavar="PATH", help="Custom download folder")
 @click.option("--default-comment", metavar="COMMENT", help="Custom comment tag for audio files")
-@click.option("-c", "--config", metavar="FILE", help="Custom config file")
-@click.option("--db-file", metavar="FILE", help="Custom database file")
-@click.option("--log-file", metavar="FILE", help="Custom logfile")
-@click.option("--flush-cache", metavar="FILE", help="Flush the cache before running (only for extreme cases)")
+@click.option("-c", "--config", metavar="PATH", help="Custom config file")
+@click.option("--db-file", metavar="PATH", help="Custom database file")
+@click.option("--log-file", metavar="PATH", help="Custom logfile")
+@click.option("--flush-cache", metavar="PATH", help="Flush the cache before running (only for extreme cases)")
 @click.pass_context
 # fmt: on
 def cli(ctx, **kwargs):

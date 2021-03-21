@@ -72,6 +72,7 @@ class QobuzDL:
 
     def handle_item(self, media_type, item_id):
         arguments = {
+            # TODO: add option for album/playlist subfolders
             "parent_folder": self.config.downloads["folder"],
             "quality": self.config.downloads["quality"],
             "embed_cover": self.config.metadata["embed_cover"],

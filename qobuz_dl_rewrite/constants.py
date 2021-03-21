@@ -133,3 +133,15 @@ QOBUZ_URL_REGEX = (
     r"(?:\/[a-z]{2}-[a-z]{2})?\/(album|artist|track|playlist|label)(?:"
     r"\/[-\w\d]+)?\/([\w\d]+)"
 )
+
+
+TIDAL_Q_IDS = {
+    4: "LOW",  # AAC
+    5: "HIGH",  # AAC
+    6: "LOSSLESS",  # Lossless, but it also could be MQA
+    7: "HI_RES",  # not available for download
+}
+TIDAL_MAX_Q = 7
+
+DEEZER_Q_IDS = {4: 128, 5: 320, 6: 1411}
+DEEZER_MAX_Q = 6

@@ -10,7 +10,15 @@ import requests
 import tidalapi
 from dogpile.cache import make_region
 
-from .constants import AGENT, CACHE_DIR, QOBUZ_FEATURED_KEYS
+from .constants import (
+    AGENT,
+    CACHE_DIR,
+    DEEZER_MAX_Q,
+    DEEZER_Q_IDS,
+    QOBUZ_FEATURED_KEYS,
+    TIDAL_MAX_Q,
+    TIDAL_Q_IDS,
+)
 from .exceptions import (
     AuthenticationError,
     IneligibleError,
@@ -34,21 +42,10 @@ RELEASE_CACHE_TIME = datetime.timedelta(days=1).total_seconds()
 # Qobuz
 QOBUZ_BASE = "https://www.qobuz.com/api.json/0.2"
 
-# Tidal
-TIDAL_Q_IDS = {
-    4: "LOW",  # AAC
-    5: "HIGH",  # AAC
-    6: "LOSSLESS",  # Lossless, but it also could be MQA
-    7: "HI_RES",  # not available for download
-}
-TIDAL_MAX_Q = max(TIDAL_Q_IDS.keys())
-
 
 # Deezer
 DEEZER_BASE = "https://api.deezer.com"
 DEEZER_DL = "http://dz.loaderapp.info/deezer"
-DEEZER_Q_IDS = {4: 128, 5: 320, 6: 1411}
-DEEZER_MAX_Q = max(DEEZER_Q_IDS.keys())
 
 
 # ----------- Abstract Classes -----------------
