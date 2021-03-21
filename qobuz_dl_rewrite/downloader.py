@@ -5,7 +5,7 @@ import shutil
 from abc import ABC, abstractmethod
 from pprint import pprint, pformat
 from tempfile import gettempdir
-from typing import Any, Callable, Optional, Union
+from typing import Any, Callable, Optional, Union, Sequence, Tuple
 
 import click
 import requests
@@ -622,6 +622,7 @@ class Album(Tracklist):
                 "albumartist": resp.get("artist", {}).get("name"),
                 "year": str(resp.get("release_date_original"))[:4],
                 "version": resp.get("version"),
+                "release_type": resp.get("release_type", "n/a"),
                 "cover_urls": resp.get("image"),
                 "streamable": resp.get("streamable"),
                 "quality": quality_id(
@@ -1021,7 +1022,7 @@ class Artist(Tracklist):
     def download(
         self,
         parent_folder: str = "Downloads",
-        filters: Optional[Union[Callable, list]] = None,
+        filters: Optional[Tuple] = None,
         no_repeats: bool = False,
         quality: int = 6,
         embed_cover: bool = False,
@@ -1029,14 +1030,14 @@ class Artist(Tracklist):
         """Download all albums in the discography.
 
         :param filters: Filters to apply to discography, see options below.
-        :type filters: Optional[Union[Callable, list]]
+        These only work for Qobuz.
+        :type filters: Optional[Tuple]
         :param no_repeats: Remove repeats
         :type no_repeats: bool
         :param quality: in (4, 5, 6, 7, 27)
         :type quality: int
         """
-        # Sanitize first as os.path.join might cause conflicts
-        folder = sanitize_filepath(self.name)
+        folder = sanitize_filename(self.name)
         folder = os.path.join(parent_folder, folder)
 
         logger.debug("Artist folder: %s", folder)
@@ -1047,19 +1048,14 @@ class Artist(Tracklist):
         else:
             final = self
 
-        if filters is not None and self.client.source == "qobuz":
-            if isinstance(filters, (tuple, list)):
-                for f in filters:
-
-                    def inter(album):
-                        """Intermediate function to pass self into f"""
-                        return f(self, album)
-
-                    final = filter(inter, final)
-            else:
+        if isinstance(filters, tuple) and self.client.source == "qobuz":
+            filters = [getattr(self, filter_) for filter_ in filters]
+            logger.debug("Filters: %s", filters)
+            for filter_ in filters:
 
                 def inter(album):
-                    return filters(self, album)
+                    """Intermediate function to pass self into f"""
+                    return filter_(self, album)
 
                 final = filter(inter, final)
 
@@ -1201,6 +1197,21 @@ class Artist(Tracklist):
         :rtype: bool
         """
         return TYPE_REGEXES["remaster"].search(album.title) is not None
+
+    @staticmethod
+    def albums_only(artist, album):
+        """Passed as a parameter by the user.
+
+        >>> artist.download(filters=(albums_only))
+
+        This will download only remasterd albums.
+
+        :param artist: usually self
+        :param album: the album to check
+        :type album: Album
+        :rtype: bool
+        """
+        return album["release_type"] == "album"
 
     # --------- Magic Methods --------
 

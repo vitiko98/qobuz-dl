@@ -72,13 +72,27 @@ class QobuzDL:
         """
         assert self.source in url, f"{url} is not a {self.source} source"
         url_type, item_id = self.parse_url(url)
-        item = MEDIA_CLASS[url_type](client=self.client, id=item_id)
+        self.handle_item(url_type, item_id)
+
+    def handle_item(self, media_type, item_id):
+        arguments = {
+            "parent_folder": self.config.downloads["folder"],
+            "quality": self.config.downloads["quality"],
+            "embed_cover": self.config.metadata["embed_cover"],
+        }
+
+        item = MEDIA_CLASS[media_type](client=self.client, id=item_id)
+        if isinstance(item, Artist):
+            filters_ = tuple(self.config.filters.keys())
+            arguments["filters"] = filters_
+            logger.debug(
+                "Added filter argument for artist/label: %s", filters_
+            )
+
+        logger.debug("Arguments from config: %s", arguments)
+
         item.load_meta()
-        item.download(
-            parent_folder=self.config.downloads["folder"],
-            quality=self.config.downloads["quality"],
-            embed_cover=self.config.metadata["embed_cover"],
-        )
+        item.download(**arguments)
 
     def parse_url(self, url: str) -> Tuple[str, str]:
         """Returns the type of the url and the id.
