@@ -137,7 +137,6 @@ class Track:
         quality: int = 7,
         parent_folder: str = "Downloads",
         progress_bar: bool = True,
-        dry_run: bool = False,
     ):
         """
         Download the track.
@@ -148,8 +147,6 @@ class Track:
         :type folder: Optional[Union[str, os.PathLike]]
         :param progress_bar: turn on/off progress bar
         :type progress_bar: bool
-        :param dry_run:
-        :type dry_run: bool
         """
         self.quality, self.folder = (
             quality or self.quality,
@@ -159,7 +156,7 @@ class Track:
 
         os.makedirs(self.folder, exist_ok=True)
 
-        if os.path.isfile(self.format_final_path()) and not dry_run:
+        if os.path.isfile(self.format_final_path()):
             self.__is_downloaded = True
             self.__is_tagged = True
             click.secho(f"Track already downloaded: {self.final_path}", fg="green")
@@ -182,10 +179,6 @@ class Track:
 
             self.sampling_rate = dl_info.get("sampling_rate")
             self.bit_depth = dl_info.get("bit_depth")
-
-        if dry_run:
-            logger.debug("Dry-run enabled. Dict/str: %s", dl_info)
-            return False
 
         if os.path.isfile(temp_file):
             logger.debug("Temporary file found: %s", temp_file)
