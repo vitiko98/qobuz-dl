@@ -82,7 +82,7 @@ def tqdm_download(url: str, filepath: str):
         raise
 
 
-def clean_format(formatter: str, **kwargs):
+def clean_format(formatter: str, format_info):
     """Formats track or folder names sanitizing every formatter key.
 
     :param formatter:
@@ -95,8 +95,8 @@ def clean_format(formatter: str, **kwargs):
 
     clean_dict = dict()
     for key in fmt_keys:
-        if isinstance(kwargs.get(key), (str, int)):  # int for track numbers
-            clean_dict[key] = sanitize_filename(str(kwargs[key]))
+        if isinstance(format_info.get(key), (str, int)):  # int for track numbers
+            clean_dict[key] = sanitize_filename(str(format_info[key]))
         else:
             clean_dict[key] = "Unknown"
 

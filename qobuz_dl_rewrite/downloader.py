@@ -1,3 +1,4 @@
+from pprint import pprint
 import logging
 import os
 import re
@@ -54,8 +55,6 @@ TYPE_REGEXES = {
     "extra": re.compile(r"(?i)(anniversary|deluxe|live|collector|demo|expanded)"),
 }
 
-# TODO: add Label class, probably subclass Artist
-
 
 class Track:
     """Represents a downloadable track.
@@ -97,6 +96,7 @@ class Track:
         self.container = "FLAC"
         self.sampling_rate = 44100
         self.bit_depth = 16
+
         self.__is_downloaded = False
         self.__is_tagged = False
         for attr in ("quality", "folder", "meta"):
@@ -225,11 +225,11 @@ class Track:
     def format_final_path(self) -> str:
         """Return the final filepath of the downloaded file.
 
-        This uses the `get_formatter` method of TrackMetadata, which returns
+        This uses the `_get_formatter` method of TrackMetadata, which returns
         a dict with the keys allowed in formatter strings, and their values in
         the TrackMetadata object.
         """
-        formatter = self.meta.get_formatter()
+        formatter = self.meta._get_formatter()
         # filename = sanitize_filepath(self.file_format.format(**formatter))
         filename = clean_format(self.file_format, **formatter)
         self.final_path = (
@@ -609,16 +609,6 @@ class Album(Tracklist):
 
         self._load_tracks()
 
-    def get_formatter(self) -> dict:
-        dict_ = dict()
-        for key in ALBUM_KEYS:
-            if hasattr(self, key):
-                dict_[key] = getattr(self, key)
-            else:
-                dict_[key] = None
-
-        return dict_
-
     @classmethod
     def from_api(cls, resp, client):
         info = cls._parse_get_resp(resp, client)
@@ -729,18 +719,6 @@ class Album(Tracklist):
         """
         self._title = val
 
-    def _get_formatted_folder(self, parent_folder: str) -> str:
-        # Get technical info to name the folder first
-        self[0].download(dry_run=True)
-
-        self.bit_depth = self[0].bit_depth
-        self.sampling_rate = self[0].sampling_rate
-        self.container = self[0].container
-
-        formatted_folder = clean_format(self.folder_format, **self.get_formatter())
-
-        return os.path.join(parent_folder, formatted_folder)
-
     def download(
         self,
         quality: int = 7,
@@ -798,6 +776,30 @@ class Album(Tracklist):
         logger.debug("Final album folder: %s", folder)
 
         self.downloaded = True
+
+    def _get_formatter(self) -> dict:
+        dict_ = dict()
+        for key in ALBUM_KEYS:
+            if hasattr(self, key):
+                dict_[key] = getattr(self, key)
+            else:
+                dict_[key] = None
+
+        return dict_
+
+    def _get_formatted_folder(self, parent_folder: str) -> str:
+        if self.bit_depth is not None and self.sampling_rate is not None:
+            self.container = 'FLAC'
+        elif self.client.source == 'qobuz':
+            self.container = 'MP3'
+        elif self.client.source == 'tidal':
+            self.container = 'AAC'
+        else:
+            raise Exception(f"{self.bit_depth=}, {self.sampling_rate=}")
+
+        formatted_folder = clean_format(self.folder_format, self._get_formatter())
+
+        return os.path.join(parent_folder, formatted_folder)
 
     def __repr__(self) -> str:
         """Return a string representation of this Album object.
@@ -1081,7 +1083,10 @@ class Artist(Tracklist):
         for album in final:
             i += 1
             click.secho(f"Downloading album: {album}", fg="blue")
-            album.load_meta()
+            try:
+                album.load_meta()
+            except NonStreamable:
+                logger.info("Skipping album, not available to stream.")
             album.download(
                 parent_folder=folder, quality=quality, embed_cover=embed_cover
             )
@@ -1239,3 +1244,17 @@ class Artist(Tracklist):
         :rtype: str
         """
         return f"<Artist: {self.name}>"
+
+
+class Label(Artist):
+    def load_meta(self):
+        assert self.client.source == 'qobuz', 'Label source must be qobuz'
+
+        resp = self.client.get(self.id, 'label')
+        self.name = resp['name']
+        for album in resp['albums']['items']:
+            pprint(album)
+            self.append(Album.from_api(album, client=self.client))
+
+    def __repr__(self):
+        return f"<Label - {self.name}>"
