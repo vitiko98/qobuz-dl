@@ -1,13 +1,15 @@
 import hashlib
 import logging
+import datetime
 import time
+import os
 from abc import ABC, abstractmethod
 from typing import Generator, Sequence, Tuple, Union
 
 import requests
 import tidalapi
 
-from .constants import AGENT, QOBUZ_FEATURED_KEYS
+from .constants import AGENT, QOBUZ_FEATURED_KEYS, CACHE_DIR
 from .exceptions import (
     AuthenticationError,
     IneligibleError,
@@ -16,8 +18,18 @@ from .exceptions import (
     InvalidQuality,
 )
 from .spoofbuz import Spoofer
+from dogpile.cache import make_region
+
+os.makedirs(CACHE_DIR, exist_ok=True)
+region = make_region().configure(
+    "dogpile.cache.dbm",
+    arguments={"filename": os.path.join(CACHE_DIR, "clients.db")},
+)
 
 logger = logging.getLogger(__name__)
+
+TRACK_CACHE_TIME = datetime.timedelta(weeks=2).total_seconds()
+RELEASE_CACHE_TIME = datetime.timedelta(days=1).total_seconds()
 
 # Qobuz
 QOBUZ_BASE = "https://www.qobuz.com/api.json/0.2"
@@ -77,8 +89,8 @@ class ClientInterface(ABC):
         pass
 
     @abstractmethod
-    def get_file_url(self, track_id, quality=6):
-        """Get the direct download url for a file.
+    def get_file_url(self, track_id, quality=6) -> Union[dict]:
+        """Get the direct download url dict for a file.
 
         :param track_id: id of the track
         """
@@ -177,9 +189,11 @@ class QobuzClient(ClientInterface):
         """
         return self._api_search(query, media_type, limit)
 
+    @region.cache_on_arguments(expiration_time=RELEASE_CACHE_TIME)
     def get(self, item_id: Union[str, int], media_type: str = "album") -> dict:
         return self._api_get(media_type, item_id=item_id)
 
+    @region.cache_on_arguments(expiration_time=TRACK_CACHE_TIME)
     def get_file_url(self, item_id, quality=6) -> dict:
         return self._api_get_file_url(item_id, quality=quality)
 
@@ -294,7 +308,7 @@ class QobuzClient(ClientInterface):
         self.label = resp["user"]["credential"]["parameters"]["short_label"]
 
     def _api_get_file_url(
-        self, track_id: Union[str, int], quality: str = 6, sec: str = None
+        self, track_id: Union[str, int], quality: int = 6, sec: str = None
     ) -> dict:
         unix_ts = time.time()
 
@@ -317,11 +331,13 @@ class QobuzClient(ClientInterface):
         response, status_code = self._api_request("track/getFileUrl", params)
         if status_code == 400:
             raise InvalidAppSecretError("Invalid app secret from params %s" % params)
+
         return response
 
     def _api_request(self, epoint: str, params: dict) -> Tuple[dict, int]:
         logging.debug(f"Calling API with endpoint {epoint} params {params}")
         r = self.session.get(f"{QOBUZ_BASE}/{epoint}", params=params)
+        r.raise_for_status()  # Better than JSON decode error
         return r.json(), r.status_code
 
     def _test_secret(self, secret: str) -> bool:
@@ -363,6 +379,7 @@ class DeezerClient(ClientInterface):
     def login(self, **kwargs):
         logger.debug("Deezer does not require login call, returning")
 
+    @region.cache_on_arguments(expiration_time=RELEASE_CACHE_TIME)
     def get(self, meta_id: Union[str, int], media_type: str = "album"):
         """Get metadata.
 
@@ -411,6 +428,7 @@ class TidalClient(ClientInterface):
 
         self.logged_in = True
 
+    @region.cache_on_arguments(expiration_time=RELEASE_CACHE_TIME)
     def search(self, query: str, media_type: str = "album", limit: int = 50):
         """
         :param query:
@@ -424,6 +442,7 @@ class TidalClient(ClientInterface):
 
         return self._search(query, media_type, limit=limit)
 
+    @region.cache_on_arguments(expiration_time=RELEASE_CACHE_TIME)
     def get(self, meta_id: Union[str, int], media_type: str = "album"):
         """Get metadata.
 
@@ -434,6 +453,7 @@ class TidalClient(ClientInterface):
         """
         return self._get(meta_id, media_type)
 
+    @region.cache_on_arguments(expiration_time=TRACK_CACHE_TIME)
     def get_file_url(self, meta_id: Union[str, int], quality: int = 6):
         """
         :param meta_id:
@@ -475,4 +495,5 @@ class TidalClient(ClientInterface):
     def _get_file_url(self, track_id, quality=6):
         params = {"soundQuality": TIDAL_Q_IDS[quality]}
         resp = self.session.request("GET", f"tracks/{track_id}/streamUrl", params)
+        resp.raise_for_status()
         return resp.json()
