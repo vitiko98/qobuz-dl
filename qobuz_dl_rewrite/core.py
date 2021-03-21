@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 MEDIA_CLASS = {"album": Album, "playlist": Playlist, "artist": Artist, "track": Track}
 CLIENTS = {"qobuz": QobuzClient, "tidal": TidalClient, "deezer": DeezerClient}
-Media = Union[Album, Playlist, Artist]  # type hint
+Media = Union[Album, Playlist, Artist, Track]  # type hint
 
 # TODO: add support for database
 
@@ -36,7 +36,6 @@ class QobuzDL:
         self.config = config
         if self.config is None:
             self.config = Config(CONFIG_PATH)
-            self.config.load()
 
         self.client = CLIENTS[source]()
 
@@ -70,6 +69,9 @@ class QobuzDL:
         """
         assert self.source in url, f"{url} is not a {self.source} source"
         url_type, item_id = self.parse_url(url)
+        if item_id in self.db:
+            logger.info(f"{url} already downloaded, use --no-db to override.")
+            return
         self.handle_item(url_type, item_id)
 
     def handle_item(self, media_type, item_id):

@@ -20,7 +20,6 @@ def _get_config(ctx):
         os.makedirs(CONFIG_DIR)
 
     config = Config(ctx.obj.get("config"))
-    config.load()
     config.update_from_cli(**ctx.obj)
     return config
 

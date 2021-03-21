@@ -1,12 +1,10 @@
 import logging
 import os
 from pprint import pformat
-from typing import Optional
 
-import click
 from ruamel.yaml import YAML
 
-from .constants import CONFIG_PATH, FOLDER_FORMAT, TRACK_FORMAT
+from .constants import FOLDER_FORMAT, TRACK_FORMAT
 from .exceptions import InvalidSourceError
 
 yaml = YAML()
@@ -19,19 +17,18 @@ class Config:
     """Config class that handles command line args and config files.
 
     Usage:
-    >>> config = Config()
+    >>> config = Config('test_config.yaml')
 
-    Now config contains the default settings. Let's load a config file.
+    If test_config was already initialized with values, this will load them
+    into `config`. Otherwise, a new config file is created with the default
+    values.
 
-    >>> config.load(CONFIG_PATH)
+    >>> config.update_from_cli(**args)
 
-    Now, it has been updated. If we want to merge these with command line
-    args, we pass arg keys in.
-
-    >>> config.update(**args)
+    This will update the config values based on command line args.
     """
 
-    def __init__(self, config_path: Optional[str] = None):
+    def __init__(self, path: str):
 
         # DEFAULTS
         folder = "Downloads"
@@ -44,7 +41,7 @@ class Config:
             "email": None,
             "password": None,
             "app_id": "",  # Avoid NoneType error
-            "secrets": "",
+            "secrets": [],
         }
         self.tidal = {"enabled": True, "email": None, "password": None}
         self.deezer = {"enabled": True}
@@ -65,37 +62,32 @@ class Config:
         }
         self.path_format = {"folder": folder_format, "track": track_format}
 
-        self._path = config_path or CONFIG_PATH
-        self.__loaded = False
+        self._path = path
+
+        if not os.path.exists(self._path):
+            logger.debug(f"Creating yaml config file at {self._path}")
+            self.dump(self.info)
+        else:
+            # sometimes the file gets erased, this will reset it
+            with open(self._path) as f:
+                if f.read().strip() == '':
+                    logger.debug(f"Config file {self._path} corrupted, resetting.")
+                    self.dump(self.info)
+                else:
+                    self.load()
 
     def save(self):
-        if self.__loaded:
-            info = dict()
-            for k, v in self.__dict__.items():
-                logger.debug("Adding value %s to %s key to config", k, v)
-                if not k.startswith("_"):
-                    info[k] = v
+        self.dump(self.info)
 
-            with open(self._path, "w") as cfg:
-                logger.debug("Config saved: %s", self._path)
-                yaml.dump(info, cfg)
+    def reset(self):
+        os.remove(self._path)
+        # re initialize with default info
+        self.__init__(self._path)
 
     def load(self):
-        if not os.path.isfile(self._path):
-            logger.debug("File not found. Creating one: %s", self._path)
-            self.__loaded = True
-            self.save()
-
-            click.secho(
-                "A config file has been created. Please update it "
-                f"with your credentials: {self._path}",
-                fg="yellow",
-            )
-        else:
-            logger.debug("Config file found: %s", self._path)
-
         with open(self._path) as cfg:
-            self.__dict__.update(yaml.load(cfg))
+            for k, v in yaml.load(cfg).items():
+                setattr(self, k, v)
 
         logger.debug("Config loaded")
         self.__loaded = True
@@ -113,6 +105,11 @@ class Config:
 
                 if og_value != new_value:
                     logger.debug("Updated %s config key from args: %s", key, new_value)
+
+    def dump(self, info):
+        with open(self._path, "w") as cfg:
+            logger.debug("Config saved: %s", self._path)
+            yaml.dump(info, cfg)
 
     @property
     def tidal_creds(self):
@@ -140,6 +137,15 @@ class Config:
         else:
             raise InvalidSourceError(source)
 
+    @property
+    def info(self):
+        return {k: v for k, v in self.__dict__.items() if not k.startswith('_')}
+
+    @info.setter
+    def info(self, val):
+        for k, v in val.items():
+            setattr(self, k, v)
+
     def __getitem__(self, key):
         return getattr(self, key)
 
@@ -147,4 +153,4 @@ class Config:
         setattr(self, key, val)
 
     def __repr__(self):
-        return f"Config({pformat(self.__dict__)})"
+        return f"Config({pformat(self.info)})"
