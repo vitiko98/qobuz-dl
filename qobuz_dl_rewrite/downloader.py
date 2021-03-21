@@ -7,14 +7,15 @@ from pprint import pprint, pformat
 from tempfile import gettempdir
 from typing import Any, Callable, Optional, Union
 
+import click
 import requests
 from mutagen.flac import FLAC, Picture
 from mutagen.id3 import APIC, ID3, ID3NoHeaderError
-from pathvalidate import sanitize_filename
+from pathvalidate import sanitize_filename, sanitize_filepath
 
 from . import converter
 from .clients import ClientInterface
-from .constants import EXT, FLAC_MAX_BLOCKSIZE
+from .constants import EXT, FLAC_MAX_BLOCKSIZE, TRACK_FORMAT, FOLDER_FORMAT, ALBUM_KEYS
 from .exceptions import (
     InvalidQuality,
     InvalidSourceError,
@@ -22,7 +23,7 @@ from .exceptions import (
     TooLargeCoverArt,
 )
 from .metadata import TrackMetadata
-from .util import quality_id, safe_get, tidal_cover_url, tqdm_download
+from .util import quality_id, safe_get, tidal_cover_url, tqdm_download, clean_format
 
 logger = logging.getLogger(__name__)
 
@@ -79,9 +80,10 @@ class Track:
         self.__dict__.update(kwargs)
 
         # adjustments after blind attribute sets
-        self.track_file_format = (
-            kwargs.get("filepath_format") or "{tracknumber}. {title}"
-        )
+        self.file_format = kwargs.get("track_format", TRACK_FORMAT)
+        self.container = "FLAC"
+        self.sampling_rate = 44100
+        self.bit_depth = 16
         self.__is_downloaded = False
         self.__is_tagged = False
         for attr in ("quality", "folder", "meta"):
@@ -114,16 +116,18 @@ class Track:
             return resp["tracks"]["items"]
         elif source == "deezer":
             return resp["tracks"]
-        else:
-            raise NotImplementedError
+
+        raise NotImplementedError(source)
 
     def download(
         self,
         quality: int = 7,
-        folder: Optional[Union[str, os.PathLike]] = "Downloads",
+        parent_folder: str = "Downloads",
         progress_bar: bool = True,
+        dry_run: bool = False,
     ):
-        """Download the track
+        """
+        Download the track.
 
         :param quality: (5, 6, 7, 27)
         :type quality: int
@@ -131,42 +135,61 @@ class Track:
         :type folder: Optional[Union[str, os.PathLike]]
         :param progress_bar: turn on/off progress bar
         :type progress_bar: bool
+        :param dry_run:
+        :type dry_run: bool
         """
-        assert not self.__is_downloaded
-        self.quality, self.folder = quality or self.quality, folder or self.folder
+        self.quality, self.folder = (
+            quality or self.quality,
+            parent_folder or self.folder,
+        )
+        self.folder = sanitize_filepath(parent_folder)
 
-        if not os.path.isdir(self.folder):
-            os.makedirs(folder, exist_ok=True)
+        os.makedirs(self.folder, exist_ok=True)
 
-        if os.path.isfile(self.format_final_path()):
+        if os.path.isfile(self.format_final_path()) and not dry_run:
             self.__is_downloaded = True
-            logger.debug("File already exists: %s", self.final_path)
+            self.__is_tagged = True
+            click.secho(f"Track already downloaded: {self.final_path}", fg="green")
             return False
 
-        if hasattr(self, "cover_url"):
+        if hasattr(self, "cover_url") and self.embed_cover:
             self.download_cover()
 
         dl_info = self.client.get_file_url(self.id, quality)  # dict
-        self.temp_file = os.path.join(gettempdir(), "~qdl_track.tmp")
-        logger.debug("Temporary file path: %s", self.temp_file)
+
+        temp_file = os.path.join(gettempdir(), f"~{self.id}_{quality}.tmp")
+        logger.debug("Temporary file path: %s", temp_file)
 
         if self.client.source == "qobuz":
-            if not (dl_info.get("url") or dl_info.get("sampling_rate")) or dl_info.get(
+            if not (dl_info.get("sampling_rate") and dl_info.get("url")) or dl_info.get(
                 "sample"
             ):
-                logger.debug("Track is a sample: %s", dl_info)
+                logger.debug("Track is not downloadable: %s", dl_info)
                 return False
+
+            self.sampling_rate = dl_info.get("sampling_rate")
+            self.bit_depth = dl_info.get("bit_depth")
+
+        if dry_run:
+            logger.debug("Dry-run enabled. Dict/str: %s", dl_info)
+            return False
+
+        if os.path.isfile(temp_file):
+            logger.debug("Temporary file found: %s", temp_file)
+            self.__is_downloaded = True
+            self.__is_tagged = False
 
         if self.client.source in ("qobuz", "tidal"):
             logger.debug("Downloadable URL found: %s", dl_info.get("url"))
-            tqdm_download(dl_info["url"], self.temp_file)  # downloads file
-        elif self.client.source == "deezer":
+            tqdm_download(dl_info["url"], temp_file)  # downloads file
+        elif isinstance(dl_info, str):  # Deezer
             logger.debug("Downloadable URL found: %s", dl_info)
-            tqdm_download(dl_info, self.temp_file)  # downloads file
+            tqdm_download(dl_info, temp_file)  # downloads file
         else:
             raise InvalidSourceError(self.client.source)
 
-        shutil.move(self.temp_file, self.final_path)
+        shutil.move(temp_file, self.final_path)
+        logger.debug("Downloaded: %s -> %s", temp_file, self.final_path)
 
         self.__is_downloaded = True
         return True
@@ -191,16 +214,13 @@ class Track:
         a dict with the keys allowed in formatter strings, and their values in
         the TrackMetadata object.
         """
-        if not hasattr(self, "final_path"):
-            formatter = self.meta.get_formatter()
-            print(formatter)
-            filename = self.track_file_format.format(**formatter)
-            print(filename)
-            print(self.folder, filename, EXT[self.quality])
-            self.final_path = (
-                os.path.join(self.folder, sanitize_filename(filename))[:250].strip()
-                + EXT[self.quality]  # file extension dict
-            )
+        formatter = self.meta.get_formatter()
+        # filename = sanitize_filepath(self.file_format.format(**formatter))
+        filename = clean_format(self.file_format, **formatter)
+        self.final_path = (
+            os.path.join(self.folder, filename)[:250].strip()
+            + EXT[self.quality]  # file extension dict
+        )
 
         logger.debug("Formatted path: %s", self.final_path)
 
@@ -225,15 +245,17 @@ class Track:
     @classmethod
     def from_api(cls, item: dict, client: ClientInterface):
         meta = TrackMetadata(track=item, source=client.source)
-        logger.debug(pformat(item))
-        if client.source == "qobuz":
-            cover_url = item["album"]["image"]["small"]
-        elif client.source == "tidal":
-            cover_url = tidal_cover_url(item["album"]["cover"], 320)
-        elif client.source == 'deezer':
-            cover_url = item['album']['cover_medium']
-        else:
-            raise InvalidSourceError(client.source)
+        try:
+            if client.source == "qobuz":
+                cover_url = item["album"]["image"]["small"]
+            elif client.source == "tidal":
+                cover_url = tidal_cover_url(item["album"]["cover"], 320)
+            elif client.source == "deezer":
+                cover_url = item["album"]["cover_medium"]
+            else:
+                raise InvalidSourceError(client.source)
+        except KeyError:
+            cover_url = None
 
         return cls(
             client=client,
@@ -242,7 +264,12 @@ class Track:
             cover_url=cover_url,
         )
 
-    def tag(self, album_meta: dict = None, cover: Union[Picture, APIC] = None):
+    def tag(
+        self,
+        album_meta: dict = None,
+        cover: Union[Picture, APIC] = None,
+        embed_cover: bool = False,
+    ):
         """Tag the track using the stored metadata.
 
         The info stored in the TrackMetadata object (self.meta) can be updated
@@ -271,12 +298,12 @@ class Track:
             self.meta.add_album_meta(album_meta)  # extend meta with album info
 
         if self.quality in (6, 7, 27):
-            container = "flac"
-            logger.debug("Tagging file with %s container", container)
+            self.container = "FLAC"
+            logger.debug("Tagging file with %s container", self.container)
             audio = FLAC(self.final_path)
         elif self.quality == 5:
-            container = "mp3"
-            logger.debug("Tagging file with %s container", container)
+            self.container = "MP3"
+            logger.debug("Tagging file with %s container", self.container)
             try:
                 audio = ID3(self.final_path)
             except ID3NoHeaderError:
@@ -287,22 +314,20 @@ class Track:
         else:
             raise InvalidQuality(f'Invalid quality: "{self.quality}"')
 
-        # automatically generate key, value pairs for a given container
-        for k, v in self.meta.tags(container):
-            audio[k] = v
-
-        if cover is None:
+        if cover is None and embed_cover:
             assert hasattr(self, "cover")
             cover = self.cover
 
-        if container == "flac":
-            audio.add_picture(cover)
+        if isinstance(audio, FLAC):
+            if embed_cover:
+                audio.add_picture(cover)
             audio.save()
-        elif container == "mp3":
-            audio.add(cover)
+        elif isinstance(audio, ID3):
+            if embed_cover:
+                audio.add(cover)
             audio.save(self.final_path, "v2_version=3")
         else:
-            raise ValueError(f'Error saving file with container "{container}"')
+            raise ValueError(f"Unknown container type: {audio}")
 
         self.__is_tagged = True
 
@@ -336,10 +361,12 @@ class Track:
             "M4A": converter.AAC,
         }
 
+        self.container = codec.upper()
+
         engine = CONV_CLASS[codec.upper()](
             filename=self.final_path,
             sampling_rate=kwargs.get("sampling_rate"),
-            remove_source=kwargs.get("remove_source", False),
+            remove_source=kwargs.get("remove_source", True),
         )
         engine.convert()
 
@@ -436,7 +463,9 @@ class Tracklist(list, ABC):
         if (sr := kwargs.get("sampling_rate")) :
             if sr < 44100:
                 logger.warning(
-                    "Sampling rate {sampling_rate} is lower than 44.1kHz. This may cause distortion and ruin the track."
+                    "Sampling rate %d is lower than 44.1kHz."
+                    "This may cause distortion and ruin the track.",
+                    kwargs["sampling_rate"],
                 )
             else:
                 logger.debug(f"Downsampling to {sr/1000}kHz")
@@ -500,13 +529,17 @@ class Tracklist(list, ABC):
         pass
 
     @staticmethod
-    def essence(album: dict) -> str:
+    def essence(album: str) -> str:
         """Ignore text in parens/brackets, return all lowercase.
         Used to group two albums that may be named similarly, but not exactly
         the same.
         """
-        r = re.match(r"([^\(]+)(?:\s*[\(\[][^\)][\)\]])*", album)
-        return r.group(1).strip().lower()
+        # fixme: compile this first
+        match = re.match(r"([^\(]+)(?:\s*[\(\[][^\)][\)\]])*", album)
+        if match:
+            return match.group(1).strip().lower()
+
+        return album
 
 
 class Album(Tracklist):
@@ -530,6 +563,11 @@ class Album(Tracklist):
         """
         self.client = client
 
+        self.sampling_rate = None
+        self.bit_depth = None
+        self.container = None
+
+        self.folder_format = kwargs.get("album_format", FOLDER_FORMAT)
         for k, v in kwargs.items():
             setattr(self, k, v)
 
@@ -542,15 +580,26 @@ class Album(Tracklist):
     def load_meta(self):
         assert hasattr(self, "id"), "id must be set to load metadata"
         self.meta = self.client.get(self.id, media_type="album")
-        pprint(self.meta)
+        # pprint(self.meta)
+
         # update attributes based on response
         for k, v in self._parse_get_resp(self.meta, self.client).items():
             setattr(self, k, v)  # prefer to __dict__.update for properties
 
-        if not self.get("streamable", False):
+        if not self.get("streamable", False):  # Typing's sake
             raise NonStreamable(f"This album is not streamable ({self.id} ID)")
 
         self._load_tracks()
+
+    def get_formatter(self) -> dict:
+        dict_ = dict()
+        for key in ALBUM_KEYS:
+            if hasattr(self, key):
+                dict_[key] = getattr(self, key)
+            else:
+                dict_[key] = None
+
+        return dict_
 
     @classmethod
     def from_api(cls, resp, client):
@@ -566,11 +615,12 @@ class Album(Tracklist):
         :rtype: dict
         """
         if client.source == "qobuz":
-            info = {
+            return {
                 "id": resp.get("id"),
                 "title": resp.get("title"),
                 "_artist": resp.get("artist") or resp.get("performer"),
                 "albumartist": resp.get("artist", {}).get("name"),
+                "year": str(resp.get("release_date_original"))[:4],
                 "version": resp.get("version"),
                 "cover_urls": resp.get("image"),
                 "streamable": resp.get("streamable"),
@@ -582,11 +632,12 @@ class Album(Tracklist):
                 "tracktotal": resp.get("tracks_count"),
             }
         elif client.source == "tidal":
-            info = {
+            return {
                 "id": resp.get("id"),
                 "title": resp.get("title"),
                 "_artist": safe_get(resp, "artist", "name"),
                 "albumartist": safe_get(resp, "artist", "name"),
+                "year": str(resp.get("year"))[:4],
                 "version": resp.get("version"),
                 "cover_urls": {
                     size: tidal_cover_url(resp.get("cover"), x)
@@ -599,11 +650,12 @@ class Album(Tracklist):
                 "tracktotal": resp.get("numberOfTracks"),
             }
         elif client.source == "deezer":
-            info = {
+            return {
                 "id": resp.get("id"),
                 "title": resp.get("title"),
                 "_artist": safe_get(resp, "artist", "name"),
                 "albumartist": safe_get(resp, "artist", "name"),
+                "year": str(resp.get("year"))[:4],
                 # version not given by API
                 "cover_urls": {
                     sk: resp.get(rk)  # size key, resp key
@@ -618,10 +670,8 @@ class Album(Tracklist):
                 "sampling_rate": 44100,
                 "tracktotal": resp.get("track_total"),
             }
-        else:
-            raise NotImplementedError
 
-        return info
+        raise NotImplementedError(client.source)
 
     def _load_tracks(self):
         """Given an album metadata dict returned by the API, append all of its
@@ -646,7 +696,7 @@ class Album(Tracklist):
         :rtype: str
         """
         album_title = self._title
-        if self.get("version", False):  # Avoid TypeError
+        if isinstance(self.version, str):
             if self.version.lower() not in album_title.lower():
                 album_title = f"{album_title} ({self.version})"
 
@@ -660,23 +710,38 @@ class Album(Tracklist):
         """
         self._title = val
 
+    def _get_formatted_folder(self, parent_folder: str) -> str:
+        # Get technical info to name the folder first
+        self[0].download(dry_run=True)
+
+        self.bit_depth = self[0].bit_depth
+        self.sampling_rate = self[0].sampling_rate
+        self.container = self[0].container
+
+        formatted_folder = clean_format(self.folder_format, **self.get_formatter())
+
+        return os.path.join(parent_folder, formatted_folder)
+
     def download(
         self,
         quality: int = 7,
-        folder: Union[str, os.PathLike] = "Downloads",
+        parent_folder: Union[str, os.PathLike] = "Downloads",
         progress_bar: bool = True,
         tag_tracks: bool = True,
         cover_key: str = "large",
+        embed_cover: bool = False,
     ):
         """Download all of the tracks in the album.
 
         :param quality: (5, 6, 7, 27)
         :type quality: int
-        :param folder: the folder to download the album to
-        :type folder: Union[str, os.PathLike]
+        :param parent_folder: the folder to download the album to
+        :type parent_folder: Union[str, os.PathLike]
         :param progress_bar: turn on/off a tqdm progress bar
         :type progress_bar: bool
         """
+        folder = self._get_formatted_folder(parent_folder)
+
         os.makedirs(folder, exist_ok=True)
         logger.debug("Directory created: %s", folder)
 
@@ -688,7 +753,7 @@ class Album(Tracklist):
             logger.debug("Cover already downloaded: %s. Skipping", cover_path)
 
         else:
-            if self.cover_urls:  # Could be []
+            if self.cover_urls:
                 cover_url = self.cover_urls.get(cover_key)
 
                 img = requests.head(cover_url)
@@ -705,11 +770,13 @@ class Album(Tracklist):
             cover = self.get_cover_obj(cover_path, quality)
 
         for track in self:
-            logger.debug("Downloading track to %s with quality %s", folder, quality)
+            logger.debug("Downloading track to %s", folder)
+
             track.download(quality, folder, progress_bar)
             if tag_tracks and self.client.source != "deezer":
-                logger.debug("Tagging track")
-                track.tag(cover=cover)
+                track.tag(cover=cover, embed_cover=embed_cover)
+
+        logger.debug("Final album folder: %s", folder)
 
         self.downloaded = True
 
@@ -774,6 +841,7 @@ class Playlist(Tracklist):
         :param kwargs:
         """
         self.meta = self.client.get(self.id, "playlist")
+        self.name = self.meta.get("name")
         self._load_tracks(**kwargs)
 
     def _load_tracks(self, new_tracknumbers: bool = True):
@@ -785,7 +853,7 @@ class Playlist(Tracklist):
         if self.client.source == "qobuz":
             tracklist = self.meta["tracks"]["items"]
 
-            def gen_cover(track):
+            def gen_cover(track):  # ?
                 return track["album"]["image"]["small"]
 
             def meta_args(track):
@@ -795,7 +863,7 @@ class Playlist(Tracklist):
             tracklist = self.meta["items"]
 
             def gen_cover(track):
-                cover_url = tidal_cover_url(track['album']['cover'], 320)
+                cover_url = tidal_cover_url(track["album"]["cover"], 320)
                 return cover_url
 
             def meta_args(track):
@@ -817,9 +885,12 @@ class Playlist(Tracklist):
             raise NotImplementedError
 
         for i, track in enumerate(tracklist):
+            # TODO: This should be managed with .m3u files and alike. Arbitrary
+            # tracknumber tags might cause conflicts if the playlist files are
+            # inside of a library folder
             meta = TrackMetadata(**meta_args(track))
             if new_tracknumbers:
-                meta["tracknumber"] = str(i + 1)
+                meta["tracknumber"] = f"{i:02}"
 
             self.append(
                 Track(
@@ -832,19 +903,29 @@ class Playlist(Tracklist):
 
         logger.debug(f"Loaded {len(self)} tracks from playlist {self.name}")
 
-    def download(self, filters: Callable = None):
+    def download(
+        self,
+        parent_folder: str = "Downloads",
+        quality: int = 6,
+        filters: Callable = None,
+        embed_cover: bool = False,
+    ):
         """Download and tag all of the tracks.
 
-        :param filters: Not implemented yet
-        :type filters:
+        :param parent_folder:
+        :type parent_folder: str
+        :param quality:
+        :type quality: int
+        :param filters:
+        :type filters: Callable
         """
+        folder = sanitize_filename(self.name)
+        folder = os.path.join(parent_folder, folder)
+
         for track in self:
-            logger.debug(track.meta)
-            track.download()
+            track.download(parent_folder=folder, quality=quality)
             if self.client.source != "deezer":
-                # deezer comes pre-tagged
-                logger.debug("Skipping tagging for deezer track")
-                track.tag()
+                track.tag(embed_cover=embed_cover)
 
     @staticmethod
     def _parse_get_resp(item: dict, client: ClientInterface):
@@ -857,24 +938,22 @@ class Playlist(Tracklist):
         :type client: ClientInterface
         """
         if client.source == "qobuz":
-            info = {
+            return {
                 "name": item.get("name"),
                 "id": item.get("id"),
             }
         elif client.source == "tidal":
-            info = {
+            return {
                 "name": item["title"],
                 "id": item["uuid"],
             }
         elif client.source == "deezer":
-            info = {
+            return {
                 "name": item["title"],
                 "id": item["id"],
             }
-        else:
-            raise InvalidSourceError(client.source)
 
-        return info
+        raise InvalidSourceError(client.source)
 
     def __repr__(self) -> str:
         """Return a string representation of this Playlist object.
@@ -941,9 +1020,11 @@ class Artist(Tracklist):
 
     def download(
         self,
+        parent_folder: str = "Downloads",
         filters: Optional[Union[Callable, list]] = None,
         no_repeats: bool = False,
-        quality: int = 7,
+        quality: int = 6,
+        embed_cover: bool = False,
     ):
         """Download all albums in the discography.
 
@@ -954,6 +1035,12 @@ class Artist(Tracklist):
         :param quality: in (4, 5, 6, 7, 27)
         :type quality: int
         """
+        # Sanitize first as os.path.join might cause conflicts
+        folder = sanitize_filepath(self.name)
+        folder = os.path.join(parent_folder, folder)
+
+        logger.debug("Artist folder: %s", folder)
+
         logger.debug(f"Length of tracklist {len(self)}")
         if no_repeats:
             final = self._remove_repeats(bit_depth=max, sampling_rate=min)
@@ -961,7 +1048,7 @@ class Artist(Tracklist):
             final = self
 
         if filters is not None and self.client.source == "qobuz":
-            if type(filters) in (tuple, list):
+            if isinstance(filters, (tuple, list)):
                 for f in filters:
 
                     def inter(album):
@@ -979,9 +1066,11 @@ class Artist(Tracklist):
         i = 0
         for album in final:
             i += 1
-            logger.debug(f"Downloading album {album}")
+            click.secho(f"Downloading album: {album}", fg="blue")
             album.load_meta()
-            album.download(quality=quality)
+            album.download(
+                parent_folder=folder, quality=quality, embed_cover=embed_cover
+            )
 
         logger.debug(f"{i} albums downloaded")
 
@@ -1045,7 +1134,6 @@ class Artist(Tracklist):
         else:
             raise InvalidSourceError(client.source)
 
-        logging.debug(f"Loaded info {info}")
         return info
 
     # ----------- Filters --------------

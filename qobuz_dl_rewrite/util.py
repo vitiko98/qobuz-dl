@@ -1,11 +1,12 @@
 import logging
 import logging.handlers as handlers
 import os
-import sys
-from typing import Optional, Union
+from typing import Optional
+from string import Formatter
 
 import requests
 from tqdm import tqdm
+from pathvalidate import sanitize_filename
 
 from .constants import LOG_DIR, TIDAL_COVER_URL
 
@@ -42,13 +43,15 @@ def quality_id(bit_depth: Optional[int], sampling_rate: Optional[int]):
     """
     if not (bit_depth or sampling_rate):  # is lossy
         return 5
+
     if bit_depth == 16:
         return 6
-    elif bit_depth == 24:
+
+    if bit_depth == 24:
         if sampling_rate <= 96:
             return 7
-        else:
-            return 27
+
+        return 27
 
 
 def tqdm_download(url: str, filepath: str):
@@ -64,12 +67,40 @@ def tqdm_download(url: str, filepath: str):
     r = requests.get(url, allow_redirects=True, stream=True)
     total = int(r.headers.get("content-length", 0))
     logger.debug(f"File size = {total}")
-    with open(filepath, "wb") as file, tqdm(
-        total=total, unit="iB", unit_scale=True, unit_divisor=1024
-    ) as bar:
-        for data in r.iter_content(chunk_size=1024):
-            size = file.write(data)
-            bar.update(size)
+    try:
+        with open(filepath, "wb") as file, tqdm(
+            total=total, unit="iB", unit_scale=True, unit_divisor=1024
+        ) as bar:
+            for data in r.iter_content(chunk_size=1024):
+                size = file.write(data)
+                bar.update(size)
+    except Exception:
+        try:
+            os.remove(filepath)
+        except OSError:
+            pass
+        raise
+
+
+def clean_format(formatter: str, **kwargs):
+    """Formats track or folder names sanitizing every formatter key.
+
+    :param formatter:
+    :type formatter: str
+    :param kwargs:
+    """
+    fmt_keys = [i[1] for i in Formatter().parse(formatter) if i[1] is not None]
+
+    logger.debug("Formatter keys: %s", fmt_keys)
+
+    clean_dict = dict()
+    for key in fmt_keys:
+        if isinstance(kwargs.get(key), (str, int)):  # int for track numbers
+            clean_dict[key] = sanitize_filename(str(kwargs[key]))
+        else:
+            clean_dict[key] = "Unknown"
+
+    return formatter.format(**clean_dict)
 
 
 def tidal_cover_url(uuid, size):
@@ -114,3 +145,6 @@ def init_log(
 
     logger.addHandler(printable)
     logger.addHandler(rotable)
+
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
+    logging.getLogger("tidal_api").setLevel(logging.WARNING)

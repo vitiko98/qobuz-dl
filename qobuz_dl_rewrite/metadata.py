@@ -2,13 +2,12 @@ import json
 import logging
 import re
 import sys
-from pprint import pprint
 from typing import Generator, Optional, Tuple, Union
 
 from .constants import (
     COPYRIGHT,
     FLAC_KEY,
-    FORMATTER_KEYS,
+    TRACK_KEYS,
     MP3_KEY,
     MP4_KEY,
     PHON_COPYRIGHT,
@@ -70,17 +69,14 @@ class TrackMetadata:
 
         self.__source = source  # not included in tags
 
-        logger.debug(f"{track and album}")
         if track is None and album is None:
             logger.debug("No params passed, returning")
             return
 
         if track is not None:
-            logger.debug("Parsing track metadata")
             self.add_track_meta(track)
 
         if album is not None:
-            logger.debug("Parsing album metadata")
             self.add_album_meta(album)
 
     def add_album_meta(self, resp: dict):
@@ -132,7 +128,7 @@ class TrackMetadata:
             self._mod_title(track.get("version"), track.get("work"))
             self.composer = track.get("composer", {}).get("name")
 
-            self.tracknumber = str(track.get("track_number", 1))
+            self.tracknumber = f"{int(track.get('track_number', 1)):02}"
             self.discnumber = str(track.get("media_number", 1))
             try:
                 self.artist = track["performer"]["name"]
@@ -143,14 +139,14 @@ class TrackMetadata:
         elif self.__source == "tidal":
             self.title = track.get("title").strip()
             self._mod_title(track.get("version"), None)
-            self.tracknumber = str(track.get("trackNumber"))
+            self.tracknumber = f"{int(track.get('trackNumber', 1)):02}"
             self.discnumber = str(track.get("volumeNumber"))
             self.artist = track.get("artist", {}).get("name")
 
         elif self.__source == "deezer":
             self.title = track.get("title").strip()
             self._mod_title(track.get("version"), None)
-            self.tracknumber = track.get("track_position")
+            self.tracknumber = f"{int(track.get('track_position', 1)):02}"
             self.discnumber = track.get("disk_number")
             self.artist = track.get("artist", {}).get("name")
 
@@ -177,7 +173,8 @@ class TrackMetadata:
         """
         if self._artist is None and self.albumartist is not None:
             return self.albumartist
-        elif self._artist is not None:
+
+        if self._artist is not None:
             return self._artist
 
     @artist.setter
@@ -190,7 +187,7 @@ class TrackMetadata:
         self._artist = val
 
     @property
-    def genre(self) -> str:
+    def genre(self) -> Union[str, None]:
         """Formats the genre list returned by the Qobuz API.
         >>> g = ['Pop/Rock', 'Pop/Rock→Rock', 'Pop/Rock→Rock→Alternatif et Indé']
         >>> _format_genres(g)
@@ -198,7 +195,7 @@ class TrackMetadata:
 
         :rtype: str
         """
-        if not self.get('_genres'):
+        if not self.get("_genres"):
             return None
 
         if isinstance(self._genres, list):
@@ -208,8 +205,8 @@ class TrackMetadata:
             return ", ".join(no_repeats)
         elif isinstance(self._genres, str):
             return self._genres
-        else:
-            raise TypeError(f"Genre must be list or str, not {type(self._genres)}")
+
+        raise TypeError(f"Genre must be list or str, not {type(self._genres)}")
 
     @genre.setter
     def genre(self, val: Union[str, list]):
@@ -234,9 +231,9 @@ class TrackMetadata:
             cr = self._copyright.replace("(P)", PHON_COPYRIGHT)
             cr = cr.replace("(C)", COPYRIGHT)
             return cr
-        else:
-            logger.debug("Accessed copyright tag before setting, return None")
-            return None
+
+        logger.debug("Accessed copyright tag before setting, return None")
+        return None
 
     @copyright.setter
     def copyright(self, val: str):
@@ -249,18 +246,17 @@ class TrackMetadata:
         self._copyright = val
 
     @property
-    def year(self) -> str:
+    def year(self) -> Union[str, None]:
         """Returns the year published of the track.
 
         :rtype: str
         """
         if hasattr(self, "_year"):
             return self._year
-        elif hasattr(self, "date"):
+
+        if hasattr(self, "date"):
             if self.date is not None:
                 return self.date[:4]
-        else:
-            return None
 
     @year.setter
     def year(self, val):
@@ -276,7 +272,7 @@ class TrackMetadata:
         :rtype: dict
         """
         # the keys in the tuple are the possible keys for format strings
-        return {k: getattr(self, k) for k in FORMATTER_KEYS}
+        return {k: getattr(self, k) for k in TRACK_KEYS}
 
     def tags(self, container: str = "flac") -> Generator:
         """Return a generator of (key, value) pairs to use for tagging

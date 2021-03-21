@@ -11,7 +11,6 @@ CONFIG_PATH = os.path.join(CONFIG_DIR, "config.yaml")
 LOG_DIR = appdirs.user_config_dir(APPNAME)
 DB_PATH = os.path.join(LOG_DIR, "qobuz-dl.db")
 
-
 AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:83.0) Gecko/20100101 Firefox/83.0"
 
 TIDAL_COVER_URL = "https://resources.tidal.com/images/{uuid}/{width}x{height}.jpg"
@@ -121,7 +120,13 @@ MP3_KEY = dict(zip(__METADATA_TYPES, __MP3_KEYS))
 COPYRIGHT = "\u2117"
 PHON_COPYRIGHT = "\u00a9"
 FLAC_MAX_BLOCKSIZE = 16777215  # 16.7 MB
-FORMATTER_KEYS = ("title", "album", "albumartist", "artist", "year", "tracknumber")
+
+TRACK_KEYS = ("tracknumber", "artist", "albumartist", "composer", "title")
+ALBUM_KEYS = ("albumartist", "title", "year", "bit_depth", "sampling_rate", "container")
+FOLDER_FORMAT = (
+    "{albumartist} - {title} ({year}) [{container}] [{bit_depth}B-{sampling_rate}kHz]"
+)
+TRACK_FORMAT = "{tracknumber}. {artist} - {title}"
 
 QOBUZ_URL_REGEX = (
     r"(?:https:\/\/(?:w{3}|open|play)\.qobuz\.com)?"

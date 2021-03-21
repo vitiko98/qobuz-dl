@@ -1,8 +1,11 @@
 import logging
 import os
 import re
+
 # ------- Testing ----------
 from typing import Generator, Optional, Sequence, Tuple, Union
+
+import click
 
 from .clients import DeezerClient, QobuzClient, TidalClient
 from .config import Config
@@ -53,8 +56,8 @@ class QobuzDL:
             if not creds.get("app_id") and isinstance(self.client, QobuzClient):
                 self.client.login(**creds)
                 app_id, secrets = self.client.get_tokens()
-                self.config["Qobuz"]["app_id"] = app_id
-                self.config["Qobuz"]["secrets"] = secrets
+                self.config["qobuz"]["app_id"] = app_id
+                self.config["qobuz"]["secrets"] = secrets
                 self.config.save()
             else:
                 self.client.login(**creds)
@@ -67,13 +70,15 @@ class QobuzDL:
         :raises InvalidSourceError
         :raises ParsingError
         """
-        if self.source not in url:
-            raise InvalidSourceError(f"{url} is not a {self.source.title()} source")
-
+        assert self.source in url, f"{url} is not a {self.source} source"
         url_type, item_id = self.parse_url(url)
         item = MEDIA_CLASS[url_type](client=self.client, id=item_id)
         item.load_meta()
-        item.download(quality=6)
+        item.download(
+            parent_folder=self.config.downloads["folder"],
+            quality=self.config.downloads["quality"],
+            embed_cover=self.config.metadata["embed_cover"],
+        )
 
     def parse_url(self, url: str) -> Tuple[str, str]:
         """Returns the type of the url and the id.
@@ -99,14 +104,12 @@ class QobuzDL:
 
         raise ParsingError(f"Error parsing URL: `{url}`")
 
-    def from_txt(self, filepath: Union[str, os.PathLike]) -> Sequence[Tuple[str, str]]:
+    def from_txt(self, filepath: Union[str, os.PathLike]):
         """
-        Returns a sequence of tuples from a text file containing URLs. Lines
-        starting with `#` are ignored.
+        Handle a text file containing URLs. Lines starting with `#` are ignored.
 
         :param filepath:
         :type filepath: Union[str, os.PathLike]
-        :rtype: Sequence[tuple]
         :raises OSError
         :raises exceptions.ParsingError
         """
@@ -115,14 +118,10 @@ class QobuzDL:
                 line for line in txt.readlines() if not line.strip().startswith("#")
             )
 
-            logger.debug("Parsed lines from text file: %d", len(lines))
+            click.secho(f"URLs found in text file: {len(lines)}")
 
-            parsed = self.url_parse.findall(",".join(lines))
-            if parsed:
-                logger.debug("Parsed URLs from regex: %s", parsed)
-                return parsed
-
-        raise ParsingError("Error parsing URLs from file `{filepath}`")
+            for line in lines:
+                self.handle_url(line)
 
     def search(
         self, query: str, media_type: str = "album", limit: int = 200
