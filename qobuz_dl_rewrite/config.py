@@ -1,10 +1,12 @@
 import logging
 import os
 from pprint import pformat
+from typing import Optional
 
 import click
 from ruamel.yaml import YAML
 
+from .constants import CONFIG_PATH, FOLDER_FORMAT, TRACK_FORMAT
 from .exceptions import InvalidSourceError
 
 yaml = YAML()
@@ -16,8 +18,6 @@ logger = logging.getLogger(__name__)
 class Config:
     """Config class that handles command line args and config files.
 
-    ***NOT FINISHED***
-
     Usage:
     >>> config = Config()
 
@@ -26,47 +26,40 @@ class Config:
     >>> config.load(CONFIG_PATH)
 
     Now, it has been updated. If we want to merge these with command line
-    args, we pass an args object in.
+    args, we pass arg keys in.
 
-    >>> config.update(args)
-
-    To access values, use like a dict
-
-    >>> config["quality"]
-    27
-
-    Hopefully this will make it easier to add new command line options and features.
+    >>> config.update(**args)
     """
 
-    def __init__(self, config_path: str):
+    def __init__(self, config_path: Optional[str] = None):
 
         # DEFAULTS
         folder = "Downloads"
         quality = 6
-        folder_format = "{artist} - {album} ({year}) [{bit_depth}B-{sampling_rate}kHz]"
-        track_format = "{tracknumber}. {tracktitle}"
+        folder_format = FOLDER_FORMAT
+        track_format = TRACK_FORMAT
 
-        self.Qobuz = {
+        self.qobuz = {
             "enabled": True,
             "email": None,
             "password": None,
             "app_id": "",  # Avoid NoneType error
             "secrets": "",
         }
-        self.Tidal = {"enabled": True, "email": None, "password": None}
-        self.Deezer = {"enabled": True}
+        self.tidal = {"enabled": True, "email": None, "password": None}
+        self.deezer = {"enabled": True}
         self.downloads_database = None
         self.filters = {"smart_discography": False, "albums_only": False}
         self.downloads = {"folder": folder, "quality": quality}
         self.metadata = {
-            "embed_covers": False,
-            "large_covers": False,
+            "embed_cover": False,
+            "large_cover": False,
             "default_comment": None,
             "remove_extra_tags": False,
         }
         self.path_format = {"folder": folder_format, "track": track_format}
 
-        self.__path = config_path
+        self.__path = config_path or CONFIG_PATH
         self.__loaded = False
 
     def save(self):
@@ -92,26 +85,43 @@ class Config:
                 f"with your credentials: {self.__path}",
                 fg="yellow",
             )
+        else:
+            logger.debug("Config file found: %s", self.__path)
 
         with open(self.__path) as cfg:
             self.__dict__.update(yaml.load(cfg))
 
+        logger.debug("Config loaded")
         self.__loaded = True
+
+    def update_from_cli(self, **kwargs):
+        for category in (self.downloads, self.metadata, self.filters):
+            for key in category.keys():
+                if kwargs[key] is None:
+                    continue
+
+                # For debugging's sake
+                og_value = category[key]
+                new_value = kwargs[key] or og_value
+                category[key] = new_value
+
+                if og_value != new_value:
+                    logger.debug("Updated %s config key from args: %s", key, new_value)
 
     @property
     def tidal_creds(self):
         return {
-            "email": self.Tidal["email"],
-            "pwd": self.Tidal["password"],
+            "email": self.tidal["email"],
+            "pwd": self.tidal["password"],
         }
 
     @property
     def qobuz_creds(self):
         return {
-            "email": self.Qobuz["email"],
-            "pwd": self.Qobuz["password"],
-            "app_id": self.Qobuz["app_id"],
-            "secrets": self.Qobuz["secrets"].split(","),
+            "email": self.qobuz["email"],
+            "pwd": self.qobuz["password"],
+            "app_id": self.qobuz["app_id"],
+            "secrets": self.qobuz["secrets"].split(","),
         }
 
     def creds(self, source: str):
@@ -119,7 +129,7 @@ class Config:
             return self.qobuz_creds
         elif source == "tidal":
             return self.tidal_creds
-        elif source == 'deezer':
+        elif source == "deezer":
             return dict()
         else:
             raise InvalidSourceError(source)
