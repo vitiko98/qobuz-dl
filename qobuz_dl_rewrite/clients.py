@@ -337,8 +337,11 @@ class QobuzClient(ClientInterface):
     def _api_request(self, epoint: str, params: dict) -> Tuple[dict, int]:
         logging.debug(f"Calling API with endpoint {epoint} params {params}")
         r = self.session.get(f"{QOBUZ_BASE}/{epoint}", params=params)
-        r.raise_for_status()  # Better than JSON decode error
-        return r.json(), r.status_code
+        try:
+            return r.json(), r.status_code
+        except Exception:
+            logger.error("Problem getting JSON. Status code: %s", r.status_code)
+            raise
 
     def _test_secret(self, secret: str) -> bool:
         try:
