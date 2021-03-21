@@ -1200,11 +1200,9 @@ class Artist(Tracklist):
 
     @staticmethod
     def albums_only(artist, album):
-        """Passed as a parameter by the user.
+        """This will ignore non-album releases.
 
         >>> artist.download(filters=(albums_only))
-
-        This will download only remasterd albums.
 
         :param artist: usually self
         :param album: the album to check
