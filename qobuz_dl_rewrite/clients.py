@@ -124,7 +124,7 @@ class QobuzClient(ClientInterface):
             logger.debug("Already logged in")
             return
 
-        if not (kwargs.get("app_id") or kwargs.get("secrets")):
+        if (kwargs.get("app_id") or kwargs.get("secrets")) in (None, ['']):
             logger.info("Fetching tokens from Qobuz")
             spoofer = Spoofer()
             kwargs["app_id"] = spoofer.get_app_id()
@@ -312,7 +312,13 @@ class QobuzClient(ClientInterface):
         if int(quality) not in (5, 6, 7, 27):  # Needed?
             raise InvalidQuality(f"Invalid quality id {quality}. Choose 5, 6, 7 or 27")
 
-        secret = sec or self.sec
+        if sec is not None:
+            secret = sec
+        elif hasattr(self, 'sec'):
+            secret = self.sec
+        else:
+            raise InvalidAppSecretError('Cannot find app secret')
+
         r_sig = f"trackgetFileUrlformat_id{quality}intentstreamtrack_id{track_id}{unix_ts}{secret}"
         logger.debug("Raw request signature: %s", r_sig)
         r_sig_hashed = hashlib.md5(r_sig.encode("utf-8")).hexdigest()

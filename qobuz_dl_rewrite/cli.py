@@ -8,11 +8,17 @@ import click
 from qobuz_dl_rewrite.config import Config
 from qobuz_dl_rewrite.core import QobuzDL
 from qobuz_dl_rewrite.utils import init_log
+from qobuz_dl_rewrite.constants import CONFIG_DIR, CACHE_DIR
 
 logger = logging.getLogger(__name__)
 
 
 def _get_config(ctx):
+    if not os.path.isdir(CONFIG_DIR):
+        os.makedirs(CONFIG_DIR)
+    if not os.path.isdir(CACHE_DIR):
+        os.makedirs(CONFIG_DIR)
+
     config = Config(ctx.obj.get("config"))
     config.load()
     config.update_from_cli(**ctx.obj)
@@ -93,6 +99,10 @@ def download(ctx, items):
             )
 
 
-if __name__ == "__main__":
+def main():
     cli.add_command(download)
     cli(obj={})
+
+
+if __name__ == "__main__":
+    main()

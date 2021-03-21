@@ -327,6 +327,10 @@ class Track:
         else:
             raise InvalidQuality(f'Invalid quality: "{self.quality}"')
 
+        # automatically generate key, value pairs based on container
+        for k, v in self.meta.tags(self.container):
+            audio[k] = v
+
         if cover is None and embed_cover:
             assert hasattr(self, "cover")
             cover = self.cover

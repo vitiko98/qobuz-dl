@@ -51,4 +51,6 @@ class Spoofer:
             secrets[secret_pair] = base64.standard_b64decode(
                 "".join(secrets[secret_pair])[:-44]
             ).decode("utf-8")
-        return secrets.values()
+        vals = list(secrets.values())
+        vals.remove("")
+        return vals

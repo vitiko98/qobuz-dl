@@ -65,7 +65,7 @@ class Config:
         }
         self.path_format = {"folder": folder_format, "track": track_format}
 
-        self.__path = config_path or CONFIG_PATH
+        self._path = config_path or CONFIG_PATH
         self.__loaded = False
 
     def save(self):
@@ -76,25 +76,25 @@ class Config:
                 if not k.startswith("_"):
                     info[k] = v
 
-            with open(self.__path, "w") as cfg:
-                logger.debug("Config saved: %s", self.__path)
+            with open(self._path, "w") as cfg:
+                logger.debug("Config saved: %s", self._path)
                 yaml.dump(info, cfg)
 
     def load(self):
-        if not os.path.isfile(self.__path):
-            logger.debug("File not found. Creating one: %s", self.__path)
+        if not os.path.isfile(self._path):
+            logger.debug("File not found. Creating one: %s", self._path)
             self.__loaded = True
             self.save()
 
             click.secho(
                 "A config file has been created. Please update it "
-                f"with your credentials: {self.__path}",
+                f"with your credentials: {self._path}",
                 fg="yellow",
             )
         else:
-            logger.debug("Config file found: %s", self.__path)
+            logger.debug("Config file found: %s", self._path)
 
-        with open(self.__path) as cfg:
+        with open(self._path) as cfg:
             self.__dict__.update(yaml.load(cfg))
 
         logger.debug("Config loaded")
@@ -127,7 +127,7 @@ class Config:
             "email": self.qobuz["email"],
             "pwd": self.qobuz["password"],
             "app_id": self.qobuz["app_id"],
-            "secrets": self.qobuz["secrets"].split(","),
+            "secrets": self.qobuz["secrets"],
         }
 
     def creds(self, source: str):
