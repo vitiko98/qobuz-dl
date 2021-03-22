@@ -539,9 +539,11 @@ class QobuzDL:
         # use dicts to group duplicate albums together by title
         title_grouped = dict()
         for item in items:
-            if (t := essence(item["title"])) not in title_grouped:
-                title_grouped[t] = []
-            title_grouped[t].append(item)
+            title_ = essence(item["title"])
+            if title_ not in title_grouped: # ?
+#            if (t := essence(item["title"])) not in title_grouped:
+                title_grouped[title_] = []
+            title_grouped[title_].append(item)
 
         items = []
         for albums in title_grouped.values():
