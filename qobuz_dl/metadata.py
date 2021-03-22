@@ -15,15 +15,31 @@ COPYRIGHT, PHON_COPYRIGHT = "\u2117", "\u00a9"
 # and the file won't be tagged
 FLAC_MAX_BLOCKSIZE = 16777215
 
+ID3_LEGEND = {
+    "album": id3.TALB,
+    "albumartist": id3.TPE2,
+    "artist": id3.TPE1,
+    "comment": id3.COMM,
+    "composer": id3.TCOM,
+    "copyright": id3.TCOP,
+    "date": id3.TDAT,
+    "genre": id3.TCON,
+    "isrc": id3.TSRC,
+    "label": id3.TPUB,
+    "performer": id3.TOPE,
+    "title": id3.TIT2,
+    "year": id3.TYER,
+}
 
-def get_title(track_dict):
+
+def _get_title(track_dict):
     title = track_dict["title"]
     version = track_dict.get("version")
     if version:
         title = f"{title} ({version})"
     # for classical works
     if track_dict.get("work"):
-        title = "{}: {}".format(track_dict["work"], title)
+        title = f"{track_dict['work']}: {title}"
 
     return title
 
@@ -46,6 +62,50 @@ def _format_genres(genres: list) -> str:
     return ", ".join(no_repeats)
 
 
+def _embed_flac_img(root_dir, audio: FLAC):
+    emb_image = os.path.join(root_dir, "cover.jpg")
+    multi_emb_image = os.path.join(
+        os.path.abspath(os.path.join(root_dir, os.pardir)), "cover.jpg"
+    )
+    if os.path.isfile(emb_image):
+        cover_image = emb_image
+    else:
+        cover_image = multi_emb_image
+
+    try:
+        # rest of the metadata still gets embedded
+        # when the image size is too big
+        if os.path.getsize(cover_image) > FLAC_MAX_BLOCKSIZE:
+            raise Exception(
+                "downloaded cover size too large to embed. "
+                "turn off `og_cover` to avoid error"
+            )
+
+        image = Picture()
+        image.type = 3
+        image.mime = "image/jpeg"
+        image.desc = "cover"
+        with open(cover_image, "rb") as img:
+            image.data = img.read()
+        audio.add_picture(image)
+    except Exception as e:
+        logger.error(f"Error embedding image: {e}", exc_info=True)
+
+
+def _embed_id3_img(root_dir, audio: id3.ID3):
+    emb_image = os.path.join(root_dir, "cover.jpg")
+    multi_emb_image = os.path.join(
+        os.path.abspath(os.path.join(root_dir, os.pardir)), "cover.jpg"
+    )
+    if os.path.isfile(emb_image):
+        cover_image = emb_image
+    else:
+        cover_image = multi_emb_image
+
+    with open(cover_image, "rb") as cover:
+        audio.add(id3.APIC(3, "image/jpeg", 3, "", cover.read()))
+
+
 # Use KeyError catching instead of dict.get to avoid empty tags
 def tag_flac(filename, root_dir, final_name, d, album, istrack=True, em_image=False):
     """
@@ -61,7 +121,7 @@ def tag_flac(filename, root_dir, final_name, d, album, istrack=True, em_image=Fa
     """
     audio = FLAC(filename)
 
-    audio["TITLE"] = get_title(d)
+    audio["TITLE"] = _get_title(d)
 
     audio["TRACKNUMBER"] = str(d["track_number"])  # TRACK NUMBER
 
@@ -73,18 +133,13 @@ def tag_flac(filename, root_dir, final_name, d, album, istrack=True, em_image=Fa
     except KeyError:
         pass
 
-    try:
-        audio["ARTIST"] = d["performer"]["name"]  # TRACK ARTIST
-    except KeyError:
-        if istrack:
-            audio["ARTIST"] = d["album"]["artist"]["name"]  # TRACK ARTIST
-        else:
-            audio["ARTIST"] = album["artist"]["name"]
+    artist_ = d.get("performer", {}).get("name")  # TRACK ARTIST
+    if istrack:
+        audio["ARTIST"] = artist_ or d["album"]["artist"]["name"]  # TRACK ARTIST
+    else:
+        audio["ARTIST"] = artist_ or album["artist"]["name"]
 
-    try:
-        audio["LABEL"] = album["label"]["name"]
-    except KeyError:
-        pass
+    audio["LABEL"] = album.get("label", {}).get("name", "n/a")
 
     if istrack:
         audio["GENRE"] = _format_genres(d["album"]["genres_list"])
@@ -102,33 +157,7 @@ def tag_flac(filename, root_dir, final_name, d, album, istrack=True, em_image=Fa
         audio["COPYRIGHT"] = _format_copyright(album.get("copyright", "n/a"))
 
     if em_image:
-        emb_image = os.path.join(root_dir, "cover.jpg")
-        multi_emb_image = os.path.join(
-            os.path.abspath(os.path.join(root_dir, os.pardir)), "cover.jpg"
-        )
-        if os.path.isfile(emb_image):
-            cover_image = emb_image
-        else:
-            cover_image = multi_emb_image
-
-        try:
-            # rest of the metadata still gets embedded
-            # when the image size is too big
-            if os.path.getsize(cover_image) > FLAC_MAX_BLOCKSIZE:
-                raise Exception(
-                    "downloaded cover size too large to embed. "
-                    "turn off `og_cover` to avoid error"
-                )
-
-            image = Picture()
-            image.type = 3
-            image.mime = "image/jpeg"
-            image.desc = "cover"
-            with open(cover_image, "rb") as img:
-                image.data = img.read()
-            audio.add_picture(image)
-        except Exception as e:
-            logger.error(f"Error embedding image: {e}", exc_info=True)
+        _embed_flac_img(root_dir, audio)
 
     audio.save()
     os.rename(filename, final_name)
@@ -146,21 +175,6 @@ def tag_mp3(filename, root_dir, final_name, d, album, istrack=True, em_image=Fal
     :param bool em_image: Embed cover art into file
     """
 
-    id3_legend = {
-        "album": id3.TALB,
-        "albumartist": id3.TPE2,
-        "artist": id3.TPE1,
-        "comment": id3.COMM,
-        "composer": id3.TCOM,
-        "copyright": id3.TCOP,
-        "date": id3.TDAT,
-        "genre": id3.TCON,
-        "isrc": id3.TSRC,
-        "label": id3.TPUB,
-        "performer": id3.TOPE,
-        "title": id3.TIT2,
-        "year": id3.TYER,
-    }
     try:
         audio = id3.ID3(filename)
     except ID3NoHeaderError:
@@ -168,19 +182,17 @@ def tag_mp3(filename, root_dir, final_name, d, album, istrack=True, em_image=Fal
 
     # temporarily holds metadata
     tags = dict()
-    tags["title"] = get_title(d)
+    tags["title"] = _get_title(d)
     try:
         tags["label"] = album["label"]["name"]
     except KeyError:
         pass
 
-    try:
-        tags["artist"] = d["performer"]["name"]
-    except KeyError:
-        if istrack:
-            tags["artist"] = d["album"]["artist"]["name"]
-        else:
-            tags["artist"] = album["artist"]["name"]
+    artist_ = d.get("performer", {}).get("name")  # TRACK ARTIST
+    if istrack:
+        audio["artist"] = artist_ or d["album"]["artist"]["name"]  # TRACK ARTIST
+    else:
+        audio["artist"] = artist_ or album["artist"]["name"]
 
     if istrack:
         tags["genre"] = _format_genres(d["album"]["genres_list"])
@@ -204,21 +216,11 @@ def tag_mp3(filename, root_dir, final_name, d, album, istrack=True, em_image=Fal
 
     # write metadata in `tags` to file
     for k, v in tags.items():
-        id3tag = id3_legend[k]
+        id3tag = ID3_LEGEND[k]
         audio[id3tag.__name__] = id3tag(encoding=3, text=v)
 
     if em_image:
-        emb_image = os.path.join(root_dir, "cover.jpg")
-        multi_emb_image = os.path.join(
-            os.path.abspath(os.path.join(root_dir, os.pardir)), "cover.jpg"
-        )
-        if os.path.isfile(emb_image):
-            cover_image = emb_image
-        else:
-            cover_image = multi_emb_image
-
-        with open(cover_image, "rb") as cover:
-            audio.add(id3.APIC(3, "image/jpeg", 3, "", cover.read()))
+        _embed_id3_img(root_dir, audio)
 
     audio.save(filename, "v2_version=3")
     os.rename(filename, final_name)

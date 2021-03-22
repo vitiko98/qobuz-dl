@@ -26,7 +26,7 @@ class Client:
     def __init__(self, email, pwd, app_id, secrets):
         logger.info(f"{YELLOW}Logging...")
         self.secrets = secrets
-        self.id = app_id
+        self.id = str(app_id)
         self.session = requests.Session()
         self.session.headers.update(
             {
@@ -196,8 +196,9 @@ class Client:
 
     def cfg_setup(self):
         for secret in self.secrets:
-            if self.test_secret(secret):
-                self.sec = secret
-                break
+            if secret:
+                if self.test_secret(secret):
+                    self.sec = secret
+                    break
         if not hasattr(self, "sec"):
             raise InvalidAppSecretError("Invalid app secret.\n" + RESET)

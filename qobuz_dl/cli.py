@@ -9,6 +9,7 @@ import qobuz_dl.spoofbuz as spoofbuz
 from qobuz_dl.color import GREEN, RED, YELLOW
 from qobuz_dl.commands import qobuz_dl_args
 from qobuz_dl.core import QobuzDL
+from qobuz_dl.downloader import DEFAULT_FOLDER, DEFAULT_TRACK
 
 logging.basicConfig(
     level=logging.INFO,
@@ -25,7 +26,7 @@ CONFIG_FILE = os.path.join(CONFIG_PATH, "config.ini")
 QOBUZ_DB = os.path.join(CONFIG_PATH, "qobuz_dl.db")
 
 
-def reset_config(config_file):
+def _reset_config(config_file):
     logging.info(f"{YELLOW}Creating config file: {config_file}")
     config = configparser.ConfigParser()
     config["DEFAULT"]["email"] = input("Enter your email:\n- ")
@@ -55,9 +56,8 @@ def reset_config(config_file):
     spoofer = spoofbuz.Spoofer()
     config["DEFAULT"]["app_id"] = str(spoofer.getAppId())
     config["DEFAULT"]["secrets"] = ",".join(spoofer.getSecrets().values())
-    config["DEFAULT"]["folder_format"] = "{artist} - {album} ({year}) "
-    "[{bit_depth}B-{sampling_rate}kHz]"
-    config["DEFAULT"]["track_format"] = "{tracknumber}. {tracktitle}"
+    config["DEFAULT"]["folder_format"] = DEFAULT_FOLDER
+    config["DEFAULT"]["track_format"] = DEFAULT_TRACK
     config["DEFAULT"]["smart_discography"] = "false"
     with open(config_file, "w") as configfile:
         config.write(configfile)
@@ -68,7 +68,7 @@ def reset_config(config_file):
     )
 
 
-def remove_leftovers(directory):
+def _remove_leftovers(directory):
     directory = os.path.join(directory, "**", ".*.tmp")
     for i in glob.glob(directory, recursive=True):
         try:
@@ -77,13 +77,40 @@ def remove_leftovers(directory):
             pass
 
 
-def main():
+def _handle_commands(qobuz, arguments):
+    try:
+        if arguments.command == "dl":
+            qobuz.download_list_of_urls(arguments.SOURCE)
+        elif arguments.command == "lucky":
+            query = " ".join(arguments.QUERY)
+            qobuz.lucky_type = arguments.type
+            qobuz.lucky_limit = arguments.number
+            qobuz.lucky_mode(query)
+        else:
+            qobuz.interactive_limit = arguments.limit
+            qobuz.interactive()
+
+    except KeyboardInterrupt:
+        logging.info(
+            f"{RED}Interrupted by user\n{YELLOW}Already downloaded items will "
+            "be skipped if you try to download the same releases again."
+        )
+
+    finally:
+        _remove_leftovers(qobuz.directory)
+
+
+def _initial_checks():
     if not os.path.isdir(CONFIG_PATH) or not os.path.isfile(CONFIG_FILE):
         os.makedirs(CONFIG_PATH, exist_ok=True)
-        reset_config(CONFIG_FILE)
+        _reset_config(CONFIG_FILE)
 
     if len(sys.argv) < 2:
         sys.exit(qobuz_dl_args().print_help())
+
+
+def main():
+    _initial_checks()
 
     config = configparser.ConfigParser()
     config.read(CONFIG_FILE)
@@ -102,22 +129,6 @@ def main():
         no_cover = config.getboolean("DEFAULT", "no_cover")
         no_database = config.getboolean("DEFAULT", "no_database")
         app_id = config["DEFAULT"]["app_id"]
-
-        if (
-            "folder_format" not in config["DEFAULT"]
-            or "track_format" not in config["DEFAULT"]
-            or "smart_discography" not in config["DEFAULT"]
-        ):
-            logging.info(
-                f"{YELLOW}Config file does not include some settings, updating..."
-            )
-            config["DEFAULT"]["folder_format"] = "{artist} - {album} ({year}) "
-            "[{bit_depth}B-{sampling_rate}kHz]"
-            config["DEFAULT"]["track_format"] = "{tracknumber}. {tracktitle}"
-            config["DEFAULT"]["smart_discography"] = "false"
-            with open(CONFIG_FILE, "w") as cf:
-                config.write(cf)
-
         smart_discography = config.getboolean("DEFAULT", "smart_discography")
         folder_format = config["DEFAULT"]["folder_format"]
         track_format = config["DEFAULT"]["track_format"]
@@ -128,15 +139,16 @@ def main():
         arguments = qobuz_dl_args(
             default_quality, default_limit, default_folder
         ).parse_args()
-    except (KeyError, UnicodeDecodeError, configparser.Error):
+    except (KeyError, UnicodeDecodeError, configparser.Error) as error:
         arguments = qobuz_dl_args().parse_args()
         if not arguments.reset:
             sys.exit(
-                f"{RED}Your config file is corrupted! Run 'qobuz-dl -r' to fix this."
+                f"{RED}Your config file is corrupted: {error}! "
+                "Run 'qobuz-dl -r' to fix this."
             )
 
     if arguments.reset:
-        sys.exit(reset_config(CONFIG_FILE))
+        sys.exit(_reset_config(CONFIG_FILE))
 
     if arguments.purge:
         try:
@@ -161,26 +173,7 @@ def main():
     )
     qobuz.initialize_client(email, password, app_id, secrets)
 
-    try:
-        if arguments.command == "dl":
-            qobuz.download_list_of_urls(arguments.SOURCE)
-        elif arguments.command == "lucky":
-            query = " ".join(arguments.QUERY)
-            qobuz.lucky_type = arguments.type
-            qobuz.lucky_limit = arguments.number
-            qobuz.lucky_mode(query)
-        else:
-            qobuz.interactive_limit = arguments.limit
-            qobuz.interactive()
-
-    except KeyboardInterrupt:
-        logging.info(
-            f"{RED}Interrupted by user\n{YELLOW}Already downloaded items will "
-            "be skipped if you try to download the same releases again."
-        )
-
-    finally:
-        remove_leftovers(qobuz.directory)
+    _handle_commands(qobuz, arguments)
 
 
 if __name__ == "__main__":
