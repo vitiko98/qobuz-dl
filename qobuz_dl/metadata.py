@@ -190,9 +190,9 @@ def tag_mp3(filename, root_dir, final_name, d, album, istrack=True, em_image=Fal
 
     artist_ = d.get("performer", {}).get("name")  # TRACK ARTIST
     if istrack:
-        audio["artist"] = artist_ or d["album"]["artist"]["name"]  # TRACK ARTIST
+        tags["artist"] = artist_ or d["album"]["artist"]["name"]  # TRACK ARTIST
     else:
-        audio["artist"] = artist_ or album["artist"]["name"]
+        tags["artist"] = artist_ or album["artist"]["name"]
 
     if istrack:
         tags["genre"] = _format_genres(d["album"]["genres_list"])
