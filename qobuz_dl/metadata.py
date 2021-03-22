@@ -92,14 +92,14 @@ def tag_flac(filename, root_dir, final_name, d, album, istrack=True, em_image=Fa
         audio["TRACKTOTAL"] = str(d["album"]["tracks_count"])
         audio["ALBUM"] = d["album"]["title"]
         audio["DATE"] = d["album"]["release_date_original"]
-        audio["COPYRIGHT"] = _format_copyright(d["copyright"])
+        audio["COPYRIGHT"] = _format_copyright(d.get("copyright", "n/a"))
     else:
         audio["GENRE"] = _format_genres(album["genres_list"])
         audio["ALBUMARTIST"] = album["artist"]["name"]
         audio["TRACKTOTAL"] = str(album["tracks_count"])
         audio["ALBUM"] = album["title"]
         audio["DATE"] = album["release_date_original"]
-        audio["COPYRIGHT"] = _format_copyright(album["copyright"])
+        audio["COPYRIGHT"] = _format_copyright(album.get("copyright", "n/a"))
 
     if em_image:
         emb_image = os.path.join(root_dir, "cover.jpg")
