@@ -1,21 +1,25 @@
+import hashlib
+import inspect
 import logging
 import os
 import re
-from typing import Generator, Optional, Sequence, Tuple, Union
+from getpass import getpass
+from typing import Generator, Optional, Tuple, Union
 
 import click
 
 from .clients import DeezerClient, QobuzClient, TidalClient
 from .config import Config
-from .constants import CONFIG_PATH, DB_PATH, QOBUZ_URL_REGEX
+from .constants import CONFIG_PATH, DB_PATH, URL_REGEX
 from .db import QobuzDB
-from .downloader import Album, Artist, Playlist, Track
-from .exceptions import InvalidSourceError, ParsingError
+from .downloader import Album, Artist, Playlist, Track, Label
+from .exceptions import AuthenticationError, ParsingError
+from .utils import capitalize
 
 logger = logging.getLogger(__name__)
 
 
-MEDIA_CLASS = {"album": Album, "playlist": Playlist, "artist": Artist, "track": Track}
+MEDIA_CLASS = {"album": Album, "playlist": Playlist, "artist": Artist, "track": Track, "label": Label}
 CLIENTS = {"qobuz": QobuzClient, "tidal": TidalClient, "deezer": DeezerClient}
 Media = Union[Album, Playlist, Artist, Track]  # type hint
 
@@ -26,20 +30,20 @@ class QobuzDL:
     def __init__(
         self,
         config: Optional[Config] = None,
-        source: str = "qobuz",
         database: Optional[str] = None,
     ):
         logger.debug(locals())
 
-        self.source = source
-        self.url_parse = re.compile(QOBUZ_URL_REGEX)
+        self.url_parse = re.compile(URL_REGEX)
         self.config = config
         if self.config is None:
             self.config = Config(CONFIG_PATH)
 
-        self.client = CLIENTS[source]()
-
-        logger.debug("Using client: %s", self.client)
+        self.clients = {
+            "qobuz": QobuzClient(),
+            "tidal": TidalClient(),
+            "deezer": DeezerClient(),
+        }
 
         if database is None:
             self.db = QobuzDB(DB_PATH)
@@ -47,17 +51,36 @@ class QobuzDL:
             assert isinstance(database, QobuzDB)
             self.db = database
 
-    def load_creds(self):
-        if isinstance(self.client, (QobuzClient, TidalClient)):
-            creds = self.config.creds(self.source)
-            if not creds.get("app_id") and isinstance(self.client, QobuzClient):
-                self.client.login(**creds)
-                app_id, secrets = self.client.get_tokens()
-                self.config["qobuz"]["app_id"] = app_id
-                self.config["qobuz"]["secrets"] = secrets
-                self.config.save()
-            else:
-                self.client.login(**creds)
+    def prompt_creds(self, source: str):
+        """Prompt the user for credentials.
+
+        :param source:
+        :type source: str
+        """
+        click.secho(f"Enter {capitalize(source)} email:", fg="green")
+        self.config[source]["email"] = input()
+        click.secho(
+            f"Enter {capitalize(source)} password (will not show on screen):",
+            fg="green",
+        )
+        self.config[source]["password"] = getpass(
+            prompt=""
+        )  # does hashing work for tidal?
+
+        self.config.save()
+        click.secho(f'Credentials saved to config file at "{self.config._path}"')
+
+    def assert_creds(self, source: str):
+        assert source in ("qobuz", "tidal", "deezer"), f"Invalid source {source}"
+        if source == "deezer":
+            # no login for deezer
+            return
+
+        if (
+            self.config[source]["email"] is None
+            or self.config[source]["password"] is None
+        ):
+            self.prompt_creds(source)
 
     def handle_url(self, url: str):
         """Download an url
@@ -67,23 +90,36 @@ class QobuzDL:
         :raises InvalidSourceError
         :raises ParsingError
         """
-        assert self.source in url, f"{url} is not a {self.source} source"
-        url_type, item_id = self.parse_url(url)
+        source, url_type, item_id = self.parse_url(url)
         if item_id in self.db:
             logger.info(f"{url} already downloaded, use --no-db to override.")
             return
-        self.handle_item(url_type, item_id)
+        self.handle_item(source, url_type, item_id)
 
-    def handle_item(self, media_type, item_id):
+    def handle_item(self, source: str, media_type: str, item_id: str):
+        self.assert_creds(source)
+
         arguments = {
+            "database": self.db,
             "parent_folder": self.config.downloads["folder"],
             "quality": self.config.downloads["quality"],
             "embed_cover": self.config.metadata["embed_cover"],
         }
 
-        item = MEDIA_CLASS[media_type](client=self.client, id=item_id)
+        client = self.clients[source]
+        if not client.logged_in:
+            while True:
+                try:
+                    client.login(**self.config.creds(source))
+                    break
+                except AuthenticationError:
+                    click.secho("Invalid credentials, try again.")
+                    self.prompt_creds(source)
+
+        item = MEDIA_CLASS[media_type](client=client, id=item_id)
         if isinstance(item, Artist):
             keys = self.config.filters.keys()
+            # TODO: move this to config.py
             filters_ = tuple(key for key in keys if self.config.filters[key])
             arguments["filters"] = filters_
             logger.debug("Added filter argument for artist/label: %s", filters_)
@@ -112,7 +148,7 @@ class QobuzDL:
         if parsed is not None:
             parsed = parsed.groups()
 
-            if len(parsed) == 2:
+            if len(parsed) == 3:
                 return tuple(parsed)  # Convert from Seq for the sake of typing
 
         raise ParsingError(f"Error parsing URL: `{url}`")

@@ -124,7 +124,7 @@ class QobuzClient(ClientInterface):
             logger.debug("Already logged in")
             return
 
-        if (kwargs.get("app_id") or kwargs.get("secrets")) in (None, [""]):
+        if (kwargs.get("app_id") or kwargs.get("secrets")) in (None, [], ""):
             logger.info("Fetching tokens from Qobuz")
             spoofer = Spoofer()
             kwargs["app_id"] = spoofer.get_app_id()

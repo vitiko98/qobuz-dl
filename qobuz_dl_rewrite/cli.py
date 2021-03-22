@@ -84,7 +84,6 @@ def download(ctx, items):
     """
     config = _get_config(ctx)
     core = QobuzDL(config)
-    core.load_creds()
     for item in items:
         try:
             if os.path.isfile(item):

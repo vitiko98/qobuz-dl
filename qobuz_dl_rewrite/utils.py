@@ -148,3 +148,7 @@ def init_log(
 
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     logging.getLogger("tidal_api").setLevel(logging.WARNING)
+
+
+def capitalize(s: str) -> str:
+    return s[0].upper() + s[1:]

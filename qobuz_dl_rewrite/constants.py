@@ -128,10 +128,9 @@ FOLDER_FORMAT = (
 )
 TRACK_FORMAT = "{tracknumber}. {artist} - {title}"
 
-QOBUZ_URL_REGEX = (
-    r"(?:https:\/\/(?:w{3}|open|play)\.qobuz\.com)?"
-    r"(?:\/[a-z]{2}-[a-z]{2})?\/(album|artist|track|playlist|label)(?:"
-    r"\/[-\w\d]+)?\/([\w\d]+)"
+URL_REGEX = (
+    r"https:\/\/(?:www|open|play)?\.?(\w+)\.com(?:(?:\/(track|playlist|album|"
+    r"artist|label))|(?:\/[-\w]+?))+\/(\w+)"
 )
 
 

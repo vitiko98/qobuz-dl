@@ -1,8 +1,8 @@
-import sys
 import logging
 import os
 import re
 import shutil
+import sys
 from abc import ABC, abstractmethod
 from pprint import pprint
 from tempfile import gettempdir
@@ -23,6 +23,7 @@ from .constants import (
     FOLDER_FORMAT,
     TRACK_FORMAT,
 )
+from .db import QobuzDB
 from .exceptions import (
     InvalidQuality,
     InvalidSourceError,
@@ -138,6 +139,7 @@ class Track:
         quality: int = 7,
         parent_folder: str = "Downloads",
         progress_bar: bool = True,
+        database: QobuzDB = None,
     ):
         """
         Download the track.
@@ -157,13 +159,14 @@ class Track:
 
         os.makedirs(self.folder, exist_ok=True)
 
-        if os.path.isfile(self.format_final_path()):
+        assert database is not None  # remove this later
+        if os.path.isfile(self.format_final_path()) or self.id in database:
             self.__is_downloaded = True
             self.__is_tagged = True
             click.secho(f"Track already downloaded: {self.final_path}", fg="green")
             return False
 
-        if hasattr(self, "cover_url") and self.embed_cover:
+        if hasattr(self, "cover_url"):
             self.download_cover()
 
         dl_info = self.client.get_file_url(self.id, quality)  # dict
@@ -196,6 +199,7 @@ class Track:
             raise InvalidSourceError(self.client.source)
 
         shutil.move(temp_file, self.final_path)
+        database.add(self.id)
         logger.debug("Downloaded: %s -> %s", temp_file, self.final_path)
 
         self.__is_downloaded = True
@@ -206,7 +210,7 @@ class Track:
 
         assert hasattr(self, "cover_url"), "must pass cover_url parameter"
 
-        self.cover_path = os.path.join(self.folder, f"cover{hash(self.meta.title)}.jpg")
+        self.cover_path = os.path.join(self.folder, f"cover{hash(self.cover_url)}.jpg")
         logger.debug(f"Downloading cover from {self.cover_url}")
         if not os.path.exists(self.cover_path):
             tqdm_download(self.cover_url, self.cover_path)
@@ -721,6 +725,7 @@ class Album(Tracklist):
         tag_tracks: bool = True,
         cover_key: str = "large",
         embed_cover: bool = False,
+        database: QobuzDB = None,
     ):
         """Download all of the tracks in the album.
 
@@ -764,7 +769,7 @@ class Album(Tracklist):
         for track in self:
             logger.debug("Downloading track to %s", folder)
 
-            track.download(quality, folder, progress_bar)
+            track.download(quality, folder, progress_bar, database=database)
             if tag_tracks and self.client.source != "deezer":
                 track.tag(cover=cover, embed_cover=embed_cover)
 
@@ -780,10 +785,10 @@ class Album(Tracklist):
             else:
                 dict_[key] = None
 
-        dict_['sampling_rate'] /= 1000
+        dict_["sampling_rate"] /= 1000
         # 48.0kHz -> 48kHz, 44.1kHz -> 44.1kHz
-        if dict_['sampling_rate'] % 1 == 0.0:
-            dict_['sampling_rate'] = int(dict_['sampling_rate'])
+        if dict_["sampling_rate"] % 1 == 0.0:
+            dict_["sampling_rate"] = int(dict_["sampling_rate"])
 
         return dict_
 
@@ -930,6 +935,7 @@ class Playlist(Tracklist):
         quality: int = 6,
         filters: Callable = None,
         embed_cover: bool = False,
+        database: QobuzDB = None,
     ):
         """Download and tag all of the tracks.
 
@@ -944,7 +950,7 @@ class Playlist(Tracklist):
         folder = os.path.join(parent_folder, folder)
 
         for track in self:
-            track.download(parent_folder=folder, quality=quality)
+            track.download(parent_folder=folder, quality=quality, database=database)
             if self.client.source != "deezer":
                 track.tag(embed_cover=embed_cover)
 
@@ -1046,6 +1052,7 @@ class Artist(Tracklist):
         no_repeats: bool = False,
         quality: int = 6,
         embed_cover: bool = False,
+        database: QobuzDB = None,
     ):
         """Download all albums in the discography.
 
@@ -1088,7 +1095,10 @@ class Artist(Tracklist):
             except NonStreamable:
                 logger.info("Skipping album, not available to stream.")
             album.download(
-                parent_folder=folder, quality=quality, embed_cover=embed_cover
+                parent_folder=folder,
+                quality=quality,
+                embed_cover=embed_cover,
+                database=database,
             )
 
         logger.debug(f"{i} albums downloaded")

@@ -4,7 +4,7 @@ from pprint import pformat
 
 from ruamel.yaml import YAML
 
-from .constants import FOLDER_FORMAT, TRACK_FORMAT
+from .constants import CONFIG_PATH, FOLDER_FORMAT, TRACK_FORMAT
 from .exceptions import InvalidSourceError
 
 yaml = YAML()
@@ -62,7 +62,10 @@ class Config:
         }
         self.path_format = {"folder": folder_format, "track": track_format}
 
-        self._path = path
+        if path is None:
+            self._path = CONFIG_PATH
+        else:
+            self._path = path
 
         if not os.path.exists(self._path):
             logger.debug(f"Creating yaml config file at {self._path}")
@@ -70,7 +73,7 @@ class Config:
         else:
             # sometimes the file gets erased, this will reset it
             with open(self._path) as f:
-                if f.read().strip() == '':
+                if f.read().strip() == "":
                     logger.debug(f"Config file {self._path} corrupted, resetting.")
                     self.dump(self.info)
                 else:
@@ -139,7 +142,7 @@ class Config:
 
     @property
     def info(self):
-        return {k: v for k, v in self.__dict__.items() if not k.startswith('_')}
+        return {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
 
     @info.setter
     def info(self, val):

@@ -16,6 +16,8 @@ class QobuzDB:
         :type db_path: Union[str, os.PathLike]
         """
         self.path = db_path
+        if not os.path.exists(self.path):
+            self.create()
 
     def create(self):
         """Create a database at `self.path`"""
