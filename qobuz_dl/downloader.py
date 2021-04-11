@@ -97,8 +97,11 @@ class Download:
         folder_format, track_format = _clean_format_str(
             self.folder_format, self.track_format, file_format
         )
-        sanitized_title = sanitize_filename(folder_format.format(**album_attr))
-        dirn = os.path.join(self.path, sanitized_title)
+        subpaths = [
+            sanitize_filename(x.format(**album_attr))
+            for x in folder_format.split(os.sep)
+        ]
+        dirn = os.path.join(self.path, *subpaths)
         os.makedirs(dirn, exist_ok=True)
 
         if self.no_cover:
@@ -155,9 +158,11 @@ class Download:
             track_attr = self._get_track_attr(
                 meta, track_title, bit_depth, sampling_rate
             )
-            sanitized_title = sanitize_filename(folder_format.format(**track_attr))
-
-            dirn = os.path.join(self.path, sanitized_title)
+            subpaths = [
+                sanitize_filename(x.format(**track_attr))
+                for x in folder_format.split(os.sep)
+            ]
+            dirn = os.path.join(self.path, *subpaths)
             os.makedirs(dirn, exist_ok=True)
             if self.no_cover:
                 logger.info(f"{OFF}Skipping cover")
@@ -214,8 +219,12 @@ class Download:
 
         # track_format is a format string
         # e.g. '{tracknumber}. {artist} - {tracktitle}'
-        formatted_path = sanitize_filename(self.track_format.format(**filename_attr))
-        final_file = os.path.join(root_dir, formatted_path)[:250] + extension
+        subpaths = [
+            sanitize_filename(x.format(**filename_attr))
+            for x in self.track_format.split(os.sep)
+        ]
+
+        final_file = os.path.join(root_dir, *subpaths)[:250] + extension
 
         if os.path.isfile(final_file):
             logger.info(f"{OFF}{track_title} was already downloaded")
