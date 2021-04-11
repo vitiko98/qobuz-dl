@@ -158,9 +158,7 @@ class QobuzDL:
             logger.info(f"{YELLOW}{len(items)} downloads in queue")
             for item in items:
                 self.download_from_id(
-                    item["id"],
-                    True if type_dict["iterable_key"] == "albums" else False,
-                    new_path,
+                    item["id"], True if type_dict["iterable_key"] == "albums" else False
                 )
             if url_type == "playlist" and not self.no_m3u_for_playlists:
                 make_m3u(new_path)
