@@ -35,6 +35,7 @@ class Client:
             }
         )
         self.base = "https://www.qobuz.com/api.json/0.2/"
+        self.sec = None
         self.auth(email, pwd)
         self.cfg_setup()
 
@@ -109,9 +110,11 @@ class Client:
                 raise InvalidAppIdError("Invalid app id.\n" + RESET)
             else:
                 logger.info(f"{GREEN}Logged: OK")
-        elif epoint in ["track/getFileUrl", "userLibrary/getAlbumsList"]:
+        elif epoint in ["track/getFileUrl", "favorite/getUserFavorites"]:
             if r.status_code == 400:
-                raise InvalidAppSecretError("Invalid app secret.\n" + RESET)
+                raise InvalidAppSecretError(
+                    f"Invalid app secret: {r.json()}.\n" + RESET
+                )
         r.raise_for_status()
         return r.json()
 
@@ -190,16 +193,17 @@ class Client:
 
     def test_secret(self, sec):
         try:
-            r = self.api_call("favorite/getUserFavorites", sec=sec)
+            self.api_call("favorite/getUserFavorites", sec=sec)
             return True
-        except InvalidAppSecretError:
+        except InvalidAppSecretError as error:
+            logger.info("Invalid SECRET: %s", error)
             return False
 
     def cfg_setup(self):
         for secret in self.secrets:
-            if secret:
-                if self.test_secret(secret):
-                    self.sec = secret
-                    break
-        if not hasattr(self, "sec"):
+            if secret and self.test_secret(secret):
+                self.sec = secret
+                break
+
+        if self.sec is None:
             raise InvalidAppSecretError("Invalid app secret.\n" + RESET)
