@@ -71,13 +71,14 @@ class Client:
                 "offset": kwargs["offset"],
                 "extra": "albums",
             }
-        elif epoint == "userLibrary/getAlbumsList":
+        elif epoint == "favorite/getUserFavorites":
             unix = time.time()
             r_sig = "userLibrarygetAlbumsList" + str(unix) + kwargs["sec"]
             r_sig_hashed = hashlib.md5(r_sig.encode("utf-8")).hexdigest()
             params = {
                 "app_id": self.id,
                 "user_auth_token": self.uat,
+                "type": "albums",
                 "request_ts": unix,
                 "request_sig": r_sig_hashed,
             }
@@ -189,7 +190,7 @@ class Client:
 
     def test_secret(self, sec):
         try:
-            r = self.api_call("userLibrary/getAlbumsList", sec=sec)
+            r = self.api_call("favorite/getUserFavorites", sec=sec)
             return True
         except InvalidAppSecretError:
             return False
