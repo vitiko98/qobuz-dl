@@ -74,7 +74,8 @@ class Client:
             }
         elif epoint == "favorite/getUserFavorites":
             unix = time.time()
-            r_sig = "userLibrarygetAlbumsList" + str(unix) + kwargs["sec"]
+            # r_sig = "userLibrarygetAlbumsList" + str(unix) + kwargs["sec"]
+            r_sig = "favoritegetUserFavorites" + str(unix) + kwargs["sec"]
             r_sig_hashed = hashlib.md5(r_sig.encode("utf-8")).hexdigest()
             params = {
                 "app_id": self.id,
@@ -90,7 +91,7 @@ class Client:
             if int(fmt_id) not in (5, 6, 7, 27):
                 raise InvalidQuality("Invalid quality id: choose between 5, 6, 7 or 27")
             r_sig = "trackgetFileUrlformat_id{}intentstreamtrack_id{}{}{}".format(
-                fmt_id, track_id, unix, self.sec
+                fmt_id, track_id, unix, kwargs.get("sec", self.sec)
             )
             r_sig_hashed = hashlib.md5(r_sig.encode("utf-8")).hexdigest()
             params = {
@@ -110,11 +111,12 @@ class Client:
                 raise InvalidAppIdError("Invalid app id.\n" + RESET)
             else:
                 logger.info(f"{GREEN}Logged: OK")
-        elif epoint in ["track/getFileUrl", "favorite/getUserFavorites"]:
-            if r.status_code == 400:
-                raise InvalidAppSecretError(
-                    f"Invalid app secret: {r.json()}.\n" + RESET
-                )
+        elif (
+            epoint in ["track/getFileUrl", "favorite/getUserFavorites"]
+            and r.status_code == 400
+        ):
+            raise InvalidAppSecretError(f"Invalid app secret: {r.json()}.\n" + RESET)
+
         r.raise_for_status()
         return r.json()
 
@@ -193,17 +195,20 @@ class Client:
 
     def test_secret(self, sec):
         try:
-            self.api_call("favorite/getUserFavorites", sec=sec)
+            self.api_call("track/getFileUrl", id=5966783, fmt_id=5, sec=sec)
             return True
-        except InvalidAppSecretError as error:
-            logger.info("Invalid SECRET: %s", error)
+        except InvalidAppSecretError:
             return False
 
     def cfg_setup(self):
         for secret in self.secrets:
-            if secret and self.test_secret(secret):
+            # Falsy secrets
+            if not secret:
+                continue
+
+            if self.test_secret(secret):
                 self.sec = secret
                 break
 
         if self.sec is None:
-            raise InvalidAppSecretError("Invalid app secret.\n" + RESET)
+            raise InvalidAppSecretError("Can't find any valid app secret.\n" + RESET)
