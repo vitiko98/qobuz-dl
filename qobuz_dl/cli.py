@@ -5,7 +5,7 @@ import glob
 import os
 import sys
 
-import qobuz_dl.spoofbuz as spoofbuz
+from qobuz_dl.bundle import Bundle
 from qobuz_dl.color import GREEN, RED, YELLOW
 from qobuz_dl.commands import qobuz_dl_args
 from qobuz_dl.core import QobuzDL
@@ -53,9 +53,9 @@ def _reset_config(config_file):
     config["DEFAULT"]["no_cover"] = "false"
     config["DEFAULT"]["no_database"] = "false"
     logging.info(f"{YELLOW}Getting tokens. Please wait...")
-    spoofer = spoofbuz.Spoofer()
-    config["DEFAULT"]["app_id"] = str(spoofer.getAppId())
-    config["DEFAULT"]["secrets"] = ",".join(spoofer.getSecrets().values())
+    bundle = Bundle()
+    config["DEFAULT"]["app_id"] = str(bundle.get_app_id())
+    config["DEFAULT"]["secrets"] = ",".join(bundle.get_secrets().values())
     config["DEFAULT"]["folder_format"] = DEFAULT_FOLDER
     config["DEFAULT"]["track_format"] = DEFAULT_TRACK
     config["DEFAULT"]["smart_discography"] = "false"

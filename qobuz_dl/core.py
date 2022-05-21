@@ -6,7 +6,7 @@ import requests
 from bs4 import BeautifulSoup as bso
 from pathvalidate import sanitize_filename
 
-import qobuz_dl.spoofbuz as spoofbuz
+from qobuz_dl.bundle import Bundle
 from qobuz_dl import downloader, qopy
 from qobuz_dl.color import CYAN, OFF, RED, YELLOW, DF, RESET
 from qobuz_dl.exceptions import NonStreamable
@@ -74,10 +74,10 @@ class QobuzDL:
         logger.info(f"{YELLOW}Set max quality: {QUALITIES[int(self.quality)]}\n")
 
     def get_tokens(self):
-        spoofer = spoofbuz.Spoofer()
-        self.app_id = spoofer.getAppId()
+        bundle = Bundle()
+        self.app_id = bundle.get_app_id()
         self.secrets = [
-            secret for secret in spoofer.getSecrets().values() if secret
+            secret for secret in bundle.get_secrets().values() if secret
         ]  # avoid empty fields
 
     def download_from_id(self, item_id, album=True, alt_path=None):
