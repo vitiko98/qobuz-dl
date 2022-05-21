@@ -8,8 +8,14 @@ def read_file(fname):
         return f.read()
 
 
-requirements = read_file("requirements.txt").strip().split()
-
+requirements = [
+    "pathvalidate",
+    "requests",
+    "tqdm",
+    "pick",
+    "beautifulsoup4",
+    "colorama",
+]
 
 setup(
     name=pkg_name,
