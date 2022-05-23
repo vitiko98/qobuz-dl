@@ -11,6 +11,7 @@ def read_file(fname):
 requirements = [
     "pathvalidate",
     "requests",
+    "mutagen",
     "tqdm",
     "pick",
     "beautifulsoup4",
@@ -19,7 +20,7 @@ requirements = [
 
 setup(
     name=pkg_name,
-    version="0.9.9.6",
+    version="0.9.9.7",
     author="Vitiko",
     author_email="vhnz98@gmail.com",
     description="The complete Lossless and Hi-Res music downloader for Qobuz",
