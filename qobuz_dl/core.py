@@ -274,7 +274,7 @@ class QobuzDL:
 
     def interactive(self, download=True):
         try:
-            from pick import pick
+            from pick import pick, Option
         except (ImportError, ModuleNotFoundError):
             if os.name == "nt":
                 sys.exit(
@@ -284,10 +284,10 @@ class QobuzDL:
             raise
 
         qualities = [
-            {"q_string": "320", "q": 5},
-            {"q_string": "Lossless", "q": 6},
-            {"q_string": "Hi-res =< 96kHz", "q": 7},
-            {"q_string": "Hi-Res > 96 kHz", "q": 27},
+            Option("320", 5),
+            Option("Lossless", 6),
+            Option("Hi-res =< 96kHz", 7),
+            Option("Hi-Res > 96 kHz", 27),
         ]
 
         def get_title_text(option):
@@ -320,15 +320,17 @@ class QobuzDL:
                     "(one or more)\nPress Ctrl + c to quit\n"
                     "Don't select anything to try another search"
                 )
+
+                pick_options = [Option(option['text'], option['url']) for option in options]
+
                 selected_items = pick(
-                    options,
+                    pick_options,
                     title,
                     multiselect=True,
                     min_selection_count=0,
-                    options_map_func=get_title_text,
                 )
                 if len(selected_items) > 0:
-                    [final_url_list.append(i[0]["url"]) for i in selected_items]
+                    [final_url_list.append(i[0].value) for i in selected_items]
                     y_n = pick(
                         ["Yes", "No"],
                         "Items were added to queue to be downloaded. "
@@ -349,8 +351,7 @@ class QobuzDL:
                     qualities,
                     desc,
                     default_index=1,
-                    options_map_func=get_quality_text,
-                )[0]["q"]
+                )[0].value
 
                 if download:
                     self.download_list_of_urls(final_url_list)
