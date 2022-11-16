@@ -13,14 +13,14 @@ requirements = [
     "requests",
     "mutagen",
     "tqdm",
-    "pick",
+    "pick==1.6.0",
     "beautifulsoup4",
     "colorama",
 ]
 
 setup(
     name=pkg_name,
-    version="0.9.9.7",
+    version="0.9.9.8",
     author="Vitiko",
     author_email="vhnz98@gmail.com",
     description="The complete Lossless and Hi-Res music downloader for Qobuz",
