@@ -308,7 +308,7 @@ class Download:
 def tqdm_download(url, fname, desc):
     r = requests.get(url, allow_redirects=True, stream=True)
     total = int(r.headers.get("content-length", 0))
-    size = 0
+    download_size = 0
     with open(fname, "wb") as file, tqdm(
         total=total,
         unit="iB",
@@ -320,10 +320,11 @@ def tqdm_download(url, fname, desc):
         for data in r.iter_content(chunk_size=1024):
             size = file.write(data)
             bar.update(size)
+            download_size += size
 
-    if total != size:
+    if total != download_size:
         # https://stackoverflow.com/questions/69919912/requests-iter-content-thinks-file-is-complete-but-its-not
-        raise ConnectionError("File download was interrupted.")
+        raise ConnectionError("File download was interrupted for " + fname)
 
 
 def _get_description(item: dict, track_title, multiple=None):
