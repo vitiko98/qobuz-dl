@@ -45,8 +45,9 @@ def _get_title(track_dict):
 
 
 def _format_copyright(s: str) -> str:
-    s = s.replace("(P)", PHON_COPYRIGHT)
-    s = s.replace("(C)", COPYRIGHT)
+    if s:
+        s = s.replace("(P)", PHON_COPYRIGHT)
+        s = s.replace("(C)", COPYRIGHT)
     return s
 
 
