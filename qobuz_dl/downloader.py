@@ -177,7 +177,7 @@ class Download:
                 meta,
                 True,
                 is_mp3,
-                self.embed_art,
+                False,
             )
         else:
             logger.info(f"{OFF}Demo. Skipping")
