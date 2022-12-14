@@ -138,7 +138,8 @@ class Download:
         if "sample" not in parse and parse["sampling_rate"]:
             meta = self.client.get_track_meta(self.item_id)
             track_title = _get_title(meta)
-            logger.info(f"\n{YELLOW}Downloading: {track_title}")
+            artist = _safe_get(meta, "performer", "name")
+            logger.info(f"\n{YELLOW}Downloading: {artist} - {track_title}")
             format_info = self._get_format(meta, is_track_id=True, track_url_dict=parse)
             file_format, quality_met, bit_depth, sampling_rate = format_info
 
@@ -176,7 +177,7 @@ class Download:
                 meta,
                 True,
                 is_mp3,
-                self.embed_art,
+                False,
             )
         else:
             logger.info(f"{OFF}Demo. Skipping")
@@ -221,8 +222,7 @@ class Download:
             logger.info(f"{OFF}{track_title} was already downloaded")
             return
 
-        desc = _get_description(track_url_dict, track_title, multiple)
-        tqdm_download(url, filename, desc)
+        tqdm_download(url, filename, filename)
         tag_function = metadata.tag_mp3 if is_mp3 else metadata.tag_flac
         try:
             tag_function(
@@ -305,20 +305,26 @@ class Download:
             return ("Unknown", quality_met, None, None)
 
 
-def tqdm_download(url, fname, track_name):
+def tqdm_download(url, fname, desc):
     r = requests.get(url, allow_redirects=True, stream=True)
     total = int(r.headers.get("content-length", 0))
+    download_size = 0
     with open(fname, "wb") as file, tqdm(
         total=total,
         unit="iB",
         unit_scale=True,
         unit_divisor=1024,
-        desc=track_name,
+        desc=desc,
         bar_format=CYAN + "{n_fmt}/{total_fmt} /// {desc}",
     ) as bar:
         for data in r.iter_content(chunk_size=1024):
             size = file.write(data)
             bar.update(size)
+            download_size += size
+
+    if total != download_size:
+        # https://stackoverflow.com/questions/69919912/requests-iter-content-thinks-file-is-complete-but-its-not
+        raise ConnectionError("File download was interrupted for " + fname)
 
 
 def _get_description(item: dict, track_title, multiple=None):

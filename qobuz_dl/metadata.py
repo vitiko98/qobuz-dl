@@ -45,8 +45,9 @@ def _get_title(track_dict):
 
 
 def _format_copyright(s: str) -> str:
-    s = s.replace("(P)", PHON_COPYRIGHT)
-    s = s.replace("(C)", COPYRIGHT)
+    if s:
+        s = s.replace("(P)", PHON_COPYRIGHT)
+        s = s.replace("(C)", COPYRIGHT)
     return s
 
 
@@ -107,7 +108,9 @@ def _embed_id3_img(root_dir, audio: id3.ID3):
 
 
 # Use KeyError catching instead of dict.get to avoid empty tags
-def tag_flac(filename, root_dir, final_name, d, album, istrack=True, em_image=False):
+def tag_flac(
+    filename, root_dir, final_name, d: dict, album, istrack=True, em_image=False
+):
     """
     Tag a FLAC file
 
@@ -147,14 +150,14 @@ def tag_flac(filename, root_dir, final_name, d, album, istrack=True, em_image=Fa
         audio["TRACKTOTAL"] = str(d["album"]["tracks_count"])
         audio["ALBUM"] = d["album"]["title"]
         audio["DATE"] = d["album"]["release_date_original"]
-        audio["COPYRIGHT"] = _format_copyright(d.get("copyright", "n/a"))
+        audio["COPYRIGHT"] = _format_copyright(d.get("copyright") or "n/a")
     else:
         audio["GENRE"] = _format_genres(album["genres_list"])
         audio["ALBUMARTIST"] = album["artist"]["name"]
         audio["TRACKTOTAL"] = str(album["tracks_count"])
         audio["ALBUM"] = album["title"]
         audio["DATE"] = album["release_date_original"]
-        audio["COPYRIGHT"] = _format_copyright(album.get("copyright", "n/a"))
+        audio["COPYRIGHT"] = _format_copyright(album.get("copyright") or "n/a")
 
     if em_image:
         _embed_flac_img(root_dir, audio)
