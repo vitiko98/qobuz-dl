@@ -75,12 +75,14 @@ class Client:
         elif epoint == "favorite/getUserFavorites":
             unix = time.time()
             # r_sig = "userLibrarygetAlbumsList" + str(unix) + kwargs["sec"]
-            r_sig = "favoritegetUserFavorites" + str(unix) + kwargs["sec"]
+            r_sig = "favoritegetUserFavorites" + str(unix)
             r_sig_hashed = hashlib.md5(r_sig.encode("utf-8")).hexdigest()
             params = {
                 "app_id": self.id,
                 "user_auth_token": self.uat,
-                "type": "albums",
+                "limit": kwargs["limit"],
+                "offset": kwargs["offset"],
+                "type": kwargs["me_type"],
                 "request_ts": unix,
                 "request_sig": r_sig_hashed,
             }
@@ -89,7 +91,8 @@ class Client:
             track_id = kwargs["id"]
             fmt_id = kwargs["fmt_id"]
             if int(fmt_id) not in (5, 6, 7, 27):
-                raise InvalidQuality("Invalid quality id: choose between 5, 6, 7 or 27")
+                raise InvalidQuality(
+                    "Invalid quality id: choose between 5, 6, 7 or 27")
             r_sig = "trackgetFileUrlformat_id{}intentstreamtrack_id{}{}{}".format(
                 fmt_id, track_id, unix, kwargs.get("sec", self.sec)
             )
@@ -112,10 +115,11 @@ class Client:
             else:
                 logger.info(f"{GREEN}Logged: OK")
         elif (
-            epoint in ["track/getFileUrl", "favorite/getUserFavorites"]
-            and r.status_code == 400
+            epoint in ["track/getFileUrl", "favorite/getUserFavorites"] and
+            r.status_code == 400
         ):
-            raise InvalidAppSecretError(f"Invalid app secret: {r.json()}.\n" + RESET)
+            raise InvalidAppSecretError(
+                f"Invalid app secret: {r.json()}.\n" + RESET)
 
         r.raise_for_status()
         return r.json()
@@ -123,7 +127,8 @@ class Client:
     def auth(self, email, pwd):
         usr_info = self.api_call("user/login", email=email, pwd=pwd)
         if not usr_info["user"]["credential"]["parameters"]:
-            raise IneligibleError("Free accounts are not eligible to download tracks.")
+            raise IneligibleError(
+                "Free accounts are not eligible to download tracks.")
         self.uat = usr_info["user_auth_token"]
         self.session.headers.update({"X-User-Auth-Token": self.uat})
         self.label = usr_info["user"]["credential"]["parameters"]["short_label"]
@@ -211,4 +216,5 @@ class Client:
                 break
 
         if self.sec is None:
-            raise InvalidAppSecretError("Can't find any valid app secret.\n" + RESET)
+            raise InvalidAppSecretError(
+                "Can't find any valid app secret.\n" + RESET)

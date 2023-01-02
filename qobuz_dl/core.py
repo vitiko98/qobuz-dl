@@ -1,8 +1,9 @@
 import logging
 import os
 import sys
-
+import json
 import requests
+from math import ceil
 from bs4 import BeautifulSoup as bso
 from pathvalidate import sanitize_filename
 
@@ -41,6 +42,7 @@ class QobuzDL:
         embed_art=False,
         lucky_limit=1,
         lucky_type="album",
+        me_type="album",
         interactive_limit=20,
         ignore_singles_eps=False,
         no_m3u_for_playlists=False,
@@ -58,6 +60,7 @@ class QobuzDL:
         self.embed_art = embed_art
         self.lucky_limit = lucky_limit
         self.lucky_type = lucky_type
+        self.me_type = me_type
         self.interactive_limit = interactive_limit
         self.ignore_singles_eps = ignore_singles_eps
         self.no_m3u_for_playlists = no_m3u_for_playlists
@@ -71,7 +74,8 @@ class QobuzDL:
 
     def initialize_client(self, email, pwd, app_id, secrets):
         self.client = qopy.Client(email, pwd, app_id, secrets)
-        logger.info(f"{YELLOW}Set max quality: {QUALITIES[int(self.quality)]}\n")
+        logger.info(
+            f"{YELLOW}Set max quality: {QUALITIES[int(self.quality)]}\n")
 
     def get_tokens(self):
         bundle = Bundle()
@@ -206,12 +210,54 @@ class QobuzDL:
             f"{YELLOW}qobuz-dl will attempt to download the first "
             f"{self.lucky_limit} results."
         )
-        results = self.search_by_type(query, self.lucky_type, self.lucky_limit, True)
+        results = self.search_by_type(
+            query, self.lucky_type, self.lucky_limit, True)
 
         if download:
             self.download_list_of_urls(results)
 
         return results
+
+    def me_mode(self):
+        logger.info(f"{YELLOW}Downloading all favorites {self.me_type} ...")
+        possible_types = ["albums", "tracks"]
+        limit = 500
+        if self.me_type not in possible_types:
+            logger.error(
+                f"{RED}Error : choose type between albums or tracks (default: album)")
+            return
+        offset = 0
+        user_favorites = self.client.api_call(
+            "favorite/getUserFavorites", me_type=self.me_type, offset=offset, limit=limit)
+
+        if self.me_type == "albums":
+            urls = []
+            total = user_favorites["albums"]["total"]
+            logger.info(f"{YELLOW}{total} albums liked !")
+            while total > 0:
+                user_favorites = self.client.api_call(
+                    "favorite/getUserFavorites", me_type=self.me_type, offset=offset, limit=limit)
+                for album in user_favorites["albums"]["items"]:
+                    urls.append(album["url"])
+                self.download_list_of_urls(urls)
+                total -= limit
+                offset += 1
+
+        if self.me_type == "tracks":
+            ids = []
+            total = user_favorites["tracks"]["total"]
+            logger.info(f"{YELLOW}{total} tracks liked !")
+            while total > 0:
+                user_favorites = self.client.api_call(
+                    "favorite/getUserFavorites", me_type=self.me_type, offset=offset, limit=limit)
+                for track in user_favorites["tracks"]["items"]:
+                    ids.append(track["id"])
+                for i in ids:
+                    tracks_directory = os.path.join(
+                        self.directory, "Favorite Tracks")
+                    self.download_from_id(i, False, tracks_directory)
+                total -= limit
+                offset += 1
 
     def search_by_type(self, query, item_type, limit=10, lucky=False):
         if len(query) < 3:
@@ -266,7 +312,8 @@ class QobuzDL:
                     )
 
                 url = "{}{}/{}".format(WEB_URL, item_type, i.get("id", ""))
-                item_list.append({"text": text, "url": url} if not lucky else url)
+                item_list.append({"text": text, "url": url}
+                                 if not lucky else url)
             return item_list
         except (KeyError, IndexError):
             logger.info(f"{RED}Invalid type: {item_type}")
@@ -301,7 +348,8 @@ class QobuzDL:
             selected_type = pick(item_types, "I'll search for:\n[press Intro]")[0][
                 :-1
             ].lower()
-            logger.info(f"{YELLOW}Ok, we'll search for " f"{selected_type}s{RESET}")
+            logger.info(
+                f"{YELLOW}Ok, we'll search for " f"{selected_type}s{RESET}")
             final_url_list = []
             while True:
                 query = input(

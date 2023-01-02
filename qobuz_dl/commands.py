@@ -55,6 +55,21 @@ def dl_args(subparsers):
     return download
 
 
+def me_args(subparsers):
+    me = subparsers.add_parser(
+        "me",
+        description="Download by liked albums or tracks.",
+        help="input mode",
+    )
+    me.add_argument(
+        "-t",
+        "--type",
+        default="album",
+        help=("type of items to search (albums, tracks) (default: album)"),
+    )
+    return me
+
+
 def add_common_arg(custom_parser, default_folder, default_quality):
     custom_parser.add_argument(
         "-d",
@@ -159,9 +174,10 @@ def qobuz_dl_args(
     interactive = fun_args(subparsers, default_limit)
     download = dl_args(subparsers)
     lucky = lucky_args(subparsers)
+    me = me_args(subparsers)
     [
         add_common_arg(i, default_folder, default_quality)
-        for i in (interactive, download, lucky)
+        for i in (interactive, download, lucky, me)
     ]
 
     return parser
