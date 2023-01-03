@@ -1,9 +1,7 @@
 import logging
 import os
 import sys
-import json
 import requests
-from math import ceil
 from bs4 import BeautifulSoup as bso
 from pathvalidate import sanitize_filename
 
