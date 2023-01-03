@@ -64,8 +64,8 @@ def me_args(subparsers):
     me.add_argument(
         "-t",
         "--type",
-        default="album",
-        help=("type of items to search (albums, tracks) (default: album)"),
+        default="albums",
+        help=("type of liked items to search (albums, tracks) (default: albums)"),
     )
     return me
 
