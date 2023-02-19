@@ -3,7 +3,7 @@ import os
 from typing import Tuple
 
 import requests
-from pathvalidate import sanitize_filename
+from pathvalidate import sanitize_filename, sanitize_filepath
 from tqdm import tqdm
 
 import qobuz_dl.metadata as metadata
@@ -97,7 +97,7 @@ class Download:
         folder_format, track_format = _clean_format_str(
             self.folder_format, self.track_format, file_format
         )
-        sanitized_title = sanitize_filename(folder_format.format(**album_attr))
+        sanitized_title = sanitize_filepath(folder_format.format(**album_attr))
         dirn = os.path.join(self.path, sanitized_title)
         os.makedirs(dirn, exist_ok=True)
 
@@ -156,7 +156,7 @@ class Download:
             track_attr = self._get_track_attr(
                 meta, track_title, bit_depth, sampling_rate
             )
-            sanitized_title = sanitize_filename(folder_format.format(**track_attr))
+            sanitized_title = sanitize_filepath(folder_format.format(**track_attr))
 
             dirn = os.path.join(self.path, sanitized_title)
             os.makedirs(dirn, exist_ok=True)
