@@ -40,7 +40,7 @@ class QobuzDL:
         embed_art=False,
         lucky_limit=1,
         lucky_type="album",
-        me_type="album",
+        me_type="albums",
         interactive_limit=20,
         ignore_singles_eps=False,
         no_m3u_for_playlists=False,
