@@ -14,7 +14,7 @@ _SEED_TIMEZONE_REGEX = re.compile(
 )
 _INFO_EXTRAS_REGEX = r'name:"\w+/(?P<timezone>{timezones})",info:"(?P<info>[\w=]+)",extras:"(?P<extras>[\w=]+)"'
 _APP_ID_REGEX = re.compile(
-    r'{app_id:"(?P<app_id>\d{9})",app_secret:"\w{32}",base_port:"80",base_url:"https://www\.qobuz\.com",base_method:"/api\.json/0\.2/"},n'
+    r'production:{api:{appId:"(?P<app_id>\d{9})",appSecret:"\w{32}"'
 )
 
 _BUNDLE_URL_REGEX = re.compile(
