@@ -150,6 +150,12 @@ def main():
     if arguments.reset:
         sys.exit(_reset_config(CONFIG_FILE))
 
+    if arguments.show_config:
+        print(f"Configuation: {CONFIG_FILE}\nDatabase: {QOBUZ_DB}\n---")
+        with open(CONFIG_FILE, "r") as f:
+            print(f.read())
+        sys.exit()
+
     if arguments.purge:
         try:
             os.remove(QOBUZ_DB)
