@@ -150,7 +150,7 @@ def qobuz_dl_args(
         help="purge/delete downloaded-IDs database",
     )
     parser.add_argument(
-        "-c",
+        "-sc",
         "--show-config",
         action="store_true",
         help="show configuration",
