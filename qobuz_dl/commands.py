@@ -149,6 +149,12 @@ def qobuz_dl_args(
         action="store_true",
         help="purge/delete downloaded-IDs database",
     )
+    parser.add_argument(
+        "-sc",
+        "--show-config",
+        action="store_true",
+        help="show configuration",
+    )
 
     subparsers = parser.add_subparsers(
         title="commands",
