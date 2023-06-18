@@ -1,6 +1,7 @@
 import re
 import os
 import logging
+from difflib import SequenceMatcher
 
 from mutagen.flac import FLAC, Picture
 import mutagen.id3 as id3
@@ -32,8 +33,8 @@ ID3_LEGEND = {
 }
 
 FEATURED_ARTIST_TITLES = [
-    "FeaturedArtist",
     "MainArtist",
+    "FeaturedArtist",
 ]
 
 def _get_title(track_dict):
@@ -47,22 +48,19 @@ def _get_title(track_dict):
 
     return title
 
+def _get_featured_artists(artists, track_dict):
+    if not track_dict["performers"]:
+        return
+    performers = [p.split(",",1) for p in track_dict["performers"].split(" - ") if "," in p]
 
-def _get_featured_artists(track_dict):
-    featured_artists = []
-    primary_artist = True
-    for i in track_dict["performers"].split(" - "):
-        # ignore primary artist
-        if primary_artist and "MainArtist" in i:
-            primary_artist = False
-            continue
-
-        for jobtitle in FEATURED_ARTIST_TITLES:
-            if jobtitle in i:
-                featured_artists.append(i.split(",")[0])
-                break
-    return featured_artists
-
+    # list artists in order of their contributions
+    for jobtitle in FEATURED_ARTIST_TITLES:
+        for p,j in performers:
+            if jobtitle in j:
+                # performer is already listed as an artist
+                if any([SequenceMatcher(None, p.lower(), a.lower()).ratio() > 0.6 for a in artists]):
+                    continue
+                artists.append(p)
 
 def _format_copyright(s: str) -> str:
     if s:
@@ -162,7 +160,7 @@ def tag_flac(
     else:
         artists = [artist_ or album["artist"]["name"]]
 
-    artists.extend(_get_featured_artists(d))
+    _get_featured_artists(artists, d)
     audio["ARTIST"] = artists
 
     audio["LABEL"] = album.get("label", {}).get("name", "n/a")
@@ -220,7 +218,7 @@ def tag_mp3(filename, root_dir, final_name, d, album, istrack=True, em_image=Fal
     else:
         artists = [artist_ or album["artist"]["name"]]
     
-    artists.extend(_get_featured_artists(d))
+    _get_featured_artists(artists, d)
     tags["artist"] = artists
 
     if istrack:
