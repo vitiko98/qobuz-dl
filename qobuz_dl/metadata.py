@@ -138,9 +138,14 @@ def tag_flac(
 
     artist_ = d.get("performer", {}).get("name")  # TRACK ARTIST
     if istrack:
-        audio["ARTIST"] = artist_ or d["album"]["artist"]["name"]  # TRACK ARTIST
+        artists = [artist_ or d["album"]["artist"]["name"]]  # TRACK ARTIST
     else:
-        audio["ARTIST"] = artist_ or album["artist"]["name"]
+        artists = [artist_ or album["artist"]["name"]]
+
+    for i in d["performers"].split(" - "):  # FEATURED ARTISTS
+        if "FeaturedArtist" in i:
+            artists.append(i.replace(", FeaturedArtist", ""))
+    audio["ARTIST"] = artists
 
     audio["LABEL"] = album.get("label", {}).get("name", "n/a")
 
@@ -193,9 +198,14 @@ def tag_mp3(filename, root_dir, final_name, d, album, istrack=True, em_image=Fal
 
     artist_ = d.get("performer", {}).get("name")  # TRACK ARTIST
     if istrack:
-        tags["artist"] = artist_ or d["album"]["artist"]["name"]  # TRACK ARTIST
+        artists = [artist_ or d["album"]["artist"]["name"]]  # TRACK ARTIST
     else:
-        tags["artist"] = artist_ or album["artist"]["name"]
+        artists = [artist_ or album["artist"]["name"]]
+    
+    for i in d["performers"].split(" - "):  # FEATURED ARTISTS
+        if "FeaturedArtist" in i:
+            artists.append(i.replace(", FeaturedArtist", ""))
+    tags["artist"] = artists
 
     if istrack:
         tags["genre"] = _format_genres(d["album"]["genres_list"])
