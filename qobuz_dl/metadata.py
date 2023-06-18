@@ -163,7 +163,7 @@ def tag_flac(
         _embed_flac_img(root_dir, audio)
 
     audio.save()
-    os.rename(filename, final_name)
+    os.replace(filename, final_name)
 
 
 def tag_mp3(filename, root_dir, final_name, d, album, istrack=True, em_image=False):
@@ -226,4 +226,4 @@ def tag_mp3(filename, root_dir, final_name, d, album, istrack=True, em_image=Fal
         _embed_id3_img(root_dir, audio)
 
     audio.save(filename, "v2_version=3")
-    os.rename(filename, final_name)
+    os.replace(filename, final_name)
