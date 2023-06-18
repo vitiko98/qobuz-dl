@@ -43,6 +43,7 @@ class Download:
         no_cover: bool = False,
         folder_format=None,
         track_format=None,
+        overwrite=False,
     ):
         self.client = client
         self.item_id = item_id
@@ -55,6 +56,7 @@ class Download:
         self.no_cover = no_cover
         self.folder_format = folder_format or DEFAULT_FOLDER
         self.track_format = track_format or DEFAULT_TRACK
+        self.overwrite = overwrite
 
     def download_id_by_type(self, track=True):
         if not track:
@@ -219,8 +221,11 @@ class Download:
         final_file = os.path.join(root_dir, formatted_path)[:250] + extension
 
         if os.path.isfile(final_file):
-            logger.info(f"{OFF}{track_title} was already downloaded")
-            return
+            if self.overwrite:
+                logger.info(f"{OFF}Overwriting existing file: {track_title}")
+            else:
+                logger.info(f"{OFF}{track_title} was already downloaded")
+                return
 
         tqdm_download(url, filename, filename)
         tag_function = metadata.tag_mp3 if is_mp3 else metadata.tag_flac
