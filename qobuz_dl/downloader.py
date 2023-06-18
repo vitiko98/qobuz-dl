@@ -220,9 +220,12 @@ class Download:
         formatted_path = sanitize_filename(self.track_format.format(**filename_attr))
         final_file = os.path.join(root_dir, formatted_path)[:250] + extension
 
-        if not self.overwrite and os.path.isfile(final_file):
-            logger.info(f"{OFF}{track_title} was already downloaded")
-            return
+        if os.path.isfile(final_file):
+            if self.overwrite:
+                logger.info(f"{OFF}Overwriting existing file: {track_title}")
+            else:
+                logger.info(f"{OFF}{track_title} was already downloaded")
+                return
 
         tqdm_download(url, filename, filename)
         tag_function = metadata.tag_mp3 if is_mp3 else metadata.tag_flac
