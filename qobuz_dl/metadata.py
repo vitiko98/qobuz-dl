@@ -31,6 +31,10 @@ ID3_LEGEND = {
     "year": id3.TYER,
 }
 
+FEATURED_ARTIST_TITLES = [
+    "FeaturedArtist",
+    "MainArtist",
+]
 
 def _get_title(track_dict):
     title = track_dict["title"]
@@ -42,6 +46,22 @@ def _get_title(track_dict):
         title = f"{track_dict['work']}: {title}"
 
     return title
+
+
+def _get_featured_artists(track_dict):
+    featured_artists = []
+    primary_artist = True
+    for i in track_dict["performers"].split(" - "):
+        # ignore primary artist
+        if primary_artist and "MainArtist" in i:
+            primary_artist = False
+            continue
+
+        for jobtitle in FEATURED_ARTIST_TITLES:
+            if jobtitle in i:
+                featured_artists.append(i.split(",")[0])
+                break
+    return featured_artists
 
 
 def _format_copyright(s: str) -> str:
@@ -142,9 +162,7 @@ def tag_flac(
     else:
         artists = [artist_ or album["artist"]["name"]]
 
-    for i in d["performers"].split(" - "):  # FEATURED ARTISTS
-        if "FeaturedArtist" in i:
-            artists.append(i.replace(", FeaturedArtist", ""))
+    artists.extend(_get_featured_artists(d))
     audio["ARTIST"] = artists
 
     audio["LABEL"] = album.get("label", {}).get("name", "n/a")
@@ -202,9 +220,7 @@ def tag_mp3(filename, root_dir, final_name, d, album, istrack=True, em_image=Fal
     else:
         artists = [artist_ or album["artist"]["name"]]
     
-    for i in d["performers"].split(" - "):  # FEATURED ARTISTS
-        if "FeaturedArtist" in i:
-            artists.append(i.replace(", FeaturedArtist", ""))
+    artists.extend(_get_featured_artists(d))
     tags["artist"] = artists
 
     if istrack:
