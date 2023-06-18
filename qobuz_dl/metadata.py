@@ -31,6 +31,10 @@ ID3_LEGEND = {
     "year": id3.TYER,
 }
 
+FEATURED_ARTIST_TITLES = [
+    "FeaturedArtist",
+    "MainArtist",
+]
 
 def _get_title(track_dict):
     title = track_dict["title"]
@@ -42,6 +46,22 @@ def _get_title(track_dict):
         title = f"{track_dict['work']}: {title}"
 
     return title
+
+
+def _get_featured_artists(track_dict):
+    featured_artists = []
+    primary_artist = True
+    for i in track_dict["performers"].split(" - "):
+        # ignore primary artist
+        if primary_artist and "MainArtist" in i:
+            primary_artist = False
+            continue
+
+        for jobtitle in FEATURED_ARTIST_TITLES:
+            if jobtitle in i:
+                featured_artists.append(i.split(",")[0])
+                break
+    return featured_artists
 
 
 def _format_copyright(s: str) -> str:
@@ -138,9 +158,12 @@ def tag_flac(
 
     artist_ = d.get("performer", {}).get("name")  # TRACK ARTIST
     if istrack:
-        audio["ARTIST"] = artist_ or d["album"]["artist"]["name"]  # TRACK ARTIST
+        artists = [artist_ or d["album"]["artist"]["name"]]  # TRACK ARTIST
     else:
-        audio["ARTIST"] = artist_ or album["artist"]["name"]
+        artists = [artist_ or album["artist"]["name"]]
+
+    artists.extend(_get_featured_artists(d))
+    audio["ARTIST"] = artists
 
     audio["LABEL"] = album.get("label", {}).get("name", "n/a")
 
@@ -193,9 +216,12 @@ def tag_mp3(filename, root_dir, final_name, d, album, istrack=True, em_image=Fal
 
     artist_ = d.get("performer", {}).get("name")  # TRACK ARTIST
     if istrack:
-        tags["artist"] = artist_ or d["album"]["artist"]["name"]  # TRACK ARTIST
+        artists = [artist_ or d["album"]["artist"]["name"]]  # TRACK ARTIST
     else:
-        tags["artist"] = artist_ or album["artist"]["name"]
+        artists = [artist_ or album["artist"]["name"]]
+    
+    artists.extend(_get_featured_artists(d))
+    tags["artist"] = artists
 
     if istrack:
         tags["genre"] = _format_genres(d["album"]["genres_list"])
