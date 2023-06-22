@@ -41,6 +41,7 @@ class Download:
         downgrade_quality: bool = False,
         cover_og_quality: bool = False,
         no_cover: bool = False,
+        cleanup_cover: bool = True,
         folder_format=None,
         track_format=None,
         overwrite=False,
@@ -54,6 +55,7 @@ class Download:
         self.downgrade_quality = downgrade_quality
         self.cover_og_quality = cover_og_quality
         self.no_cover = no_cover
+        self.cleanup_cover = cleanup_cover
         self.folder_format = folder_format or DEFAULT_FOLDER
         self.track_format = track_format or DEFAULT_TRACK
         self.overwrite = overwrite
@@ -132,6 +134,12 @@ class Download:
             else:
                 logger.info(f"{OFF}Demo. Skipping")
             count = count + 1
+
+        if self.cleanup_cover:
+            img_path =os.path.join(dirn, "cover.jpg") 
+            if os.path.isfile(img_path):
+                os.remove(img_path)
+
         logger.info(f"{GREEN}Completed")
 
     def download_track(self):
