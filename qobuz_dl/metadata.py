@@ -33,8 +33,11 @@ ID3_LEGEND = {
 }
 
 FEATURED_ARTIST_TITLES = [
-    "MainArtist",
-    "FeaturedArtist",
+    "mainartist",
+    "featuredartist",
+    "featuring",
+    "performedby",
+    "performer",
 ]
 
 def _get_title(track_dict):
@@ -56,9 +59,11 @@ def _get_featured_artists(artists, track_dict):
     # list artists in order of their contributions
     for jobtitle in FEATURED_ARTIST_TITLES:
         for p,j in performers:
-            if jobtitle in j:
+            if " feat" in p.lower():
+                continue
+            if jobtitle in j.lower().replace(" ", ""):
                 # performer is already listed as an artist
-                if any([SequenceMatcher(None, p.lower(), a.lower()).ratio() > 0.6 for a in artists]):
+                if any([p in a or SequenceMatcher(None, p.lower(), a.lower()).ratio() > 0.6 for a in artists]):
                     continue
                 artists.append(p)
 
