@@ -47,7 +47,9 @@ class QobuzDL:
         quality_fallback=True,
         cover_og_quality=False,
         no_cover=False,
+        cleanup_cover=True,
         downloads_db=None,
+        overwrite=False,
         folder_format="{artist} - {album} ({year}) [{bit_depth}B-"
         "{sampling_rate}kHz]",
         track_format="{tracknumber}. {tracktitle}",
@@ -64,7 +66,9 @@ class QobuzDL:
         self.quality_fallback = quality_fallback
         self.cover_og_quality = cover_og_quality
         self.no_cover = no_cover
+        self.cleanup_cover = cleanup_cover,
         self.downloads_db = create_db(downloads_db) if downloads_db else None
+        self.overwrite = overwrite
         self.folder_format = folder_format
         self.track_format = track_format
         self.smart_discography = smart_discography
@@ -99,8 +103,10 @@ class QobuzDL:
                 self.quality_fallback,
                 self.cover_og_quality,
                 self.no_cover,
+                self.cleanup_cover,
                 self.folder_format,
                 self.track_format,
+                self.overwrite,
             )
             dloader.download_id_by_type(not album)
             handle_download_id(self.downloads_db, item_id, add_id=True)

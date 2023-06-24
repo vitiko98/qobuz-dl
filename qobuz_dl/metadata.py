@@ -67,6 +67,22 @@ def _get_featured_artists(artists, track_dict):
                     continue
                 artists.append(p)
 
+def _get_featured_artists(track_dict):
+    featured_artists = []
+    primary_artist = True
+    for i in track_dict["performers"].split(" - "):
+        # ignore primary artist
+        if primary_artist and "MainArtist" in i:
+            primary_artist = False
+            continue
+
+        for jobtitle in FEATURED_ARTIST_TITLES:
+            if jobtitle in i:
+                featured_artists.append(i.split(",")[0])
+                break
+    return featured_artists
+
+
 def _format_copyright(s: str) -> str:
     if s:
         s = s.replace("(P)", PHON_COPYRIGHT)
@@ -189,7 +205,7 @@ def tag_flac(
         _embed_flac_img(root_dir, audio)
 
     audio.save()
-    os.rename(filename, final_name)
+    os.replace(filename, final_name)
 
 
 def tag_mp3(filename, root_dir, final_name, d, album, istrack=True, em_image=False):
@@ -255,4 +271,4 @@ def tag_mp3(filename, root_dir, final_name, d, album, istrack=True, em_image=Fal
         _embed_id3_img(root_dir, audio)
 
     audio.save(filename, "v2_version=3")
-    os.rename(filename, final_name)
+    os.replace(filename, final_name)

@@ -41,8 +41,10 @@ class Download:
         downgrade_quality: bool = False,
         cover_og_quality: bool = False,
         no_cover: bool = False,
+        cleanup_cover: bool = True,
         folder_format=None,
         track_format=None,
+        overwrite=False,
     ):
         self.client = client
         self.item_id = item_id
@@ -53,8 +55,10 @@ class Download:
         self.downgrade_quality = downgrade_quality
         self.cover_og_quality = cover_og_quality
         self.no_cover = no_cover
+        self.cleanup_cover = cleanup_cover
         self.folder_format = folder_format or DEFAULT_FOLDER
         self.track_format = track_format or DEFAULT_TRACK
+        self.overwrite = overwrite
 
     def download_id_by_type(self, track=True):
         if not track:
@@ -130,6 +134,12 @@ class Download:
             else:
                 logger.info(f"{OFF}Demo. Skipping")
             count = count + 1
+
+        if self.cleanup_cover:
+            img_path =os.path.join(dirn, "cover.jpg") 
+            if os.path.isfile(img_path):
+                os.remove(img_path)
+
         logger.info(f"{GREEN}Completed")
 
     def download_track(self):
@@ -219,8 +229,11 @@ class Download:
         final_file = os.path.join(root_dir, formatted_path)[:250] + extension
 
         if os.path.isfile(final_file):
-            logger.info(f"{OFF}{track_title} was already downloaded")
-            return
+            if self.overwrite:
+                logger.info(f"{OFF}Overwriting existing file: {track_title}")
+            else:
+                logger.info(f"{OFF}{track_title} was already downloaded")
+                return
 
         tqdm_download(url, filename, filename)
         tag_function = metadata.tag_mp3 if is_mp3 else metadata.tag_flac
