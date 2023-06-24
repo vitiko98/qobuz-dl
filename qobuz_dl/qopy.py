@@ -3,6 +3,7 @@
 # original author.
 
 import hashlib
+import json
 import logging
 import time
 
@@ -120,7 +121,8 @@ class Client:
             raise InvalidAppSecretError(f"Invalid app secret: {r.json()}.\n" + RESET)
 
         r.raise_for_status()
-        return r.json()
+        return json.loads(r.text.encode("utf-8", errors="ignore"))
+#        return r.json()
 
     def auth(self, email, pwd):
         usr_info = self.api_call("user/login", email=email, pwd=pwd)
