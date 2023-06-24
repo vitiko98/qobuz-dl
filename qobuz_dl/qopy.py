@@ -36,7 +36,6 @@ class Client:
 
             }
         )
-        logger.info(f"{YELLOW}{self.session.headers}")
         self.base = "https://www.qobuz.com/api.json/0.2/"
         self.sec = None
         self.auth(email, pwd)
