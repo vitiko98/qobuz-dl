@@ -215,7 +215,7 @@ class QobuzDL:
 
     def search_by_type(self, query, item_type, limit=10, lucky=False):
         if len(query) < 3:
-            logger.info("{RED}Your search query is too short or invalid")
+            logger.info(f"{RED}Your search query is too short or invalid")
             return
 
         possibles = {
