@@ -6,7 +6,7 @@ import os
 import sys
 
 from qobuz_dl.bundle import Bundle
-from qobuz_dl.color import GREEN, RED, YELLOW
+from qobuz_dl.color import GREEN, RED, YELLOW, OFF, RESET
 from qobuz_dl.commands import qobuz_dl_args
 from qobuz_dl.core import QobuzDL
 from qobuz_dl.downloader import DEFAULT_FOLDER, DEFAULT_TRACK
@@ -29,9 +29,25 @@ QOBUZ_DB = os.path.join(CONFIG_PATH, "qobuz_dl.db")
 def _reset_config(config_file):
     logging.info(f"{YELLOW}Creating config file: {config_file}")
     config = configparser.ConfigParser()
-    config["DEFAULT"]["email"] = input("Enter your email:\n- ")
-    password = input("Enter your password\n- ")
-    config["DEFAULT"]["password"] = hashlib.md5(password.encode("utf-8")).hexdigest()
+
+    auth_method = input(f"Select authentication method:\n1. Email + password {OFF}(default){RESET}\n2. user_id + user_auth_token\n(Enter 1 or 2) {OFF}(1){RESET}: ")
+
+    if auth_method == "1" or auth_method == "": 
+        config["DEFAULT"]["use_token"] = "false"
+        config["DEFAULT"]["email"] = input("Enter your email:\n- ")
+        password = input("Enter your password\n- ")
+        config["DEFAULT"]["password"] = hashlib.md5(password.encode("utf-8")).hexdigest()
+        config["DEFAULT"]["user_id"] = ""
+        config["DEFAULT"]["user_auth_token"] = ""
+    elif auth_method == "2":
+        config["DEFAULT"]["use_token"] = "true"
+        config["DEFAULT"]["user_id"] = input("Enter your user_id:\n- ")
+        config["DEFAULT"]["user_auth_token"] = input("Enter your user_auth_token:\n- ")
+        config["DEFAULT"]["email"] = ""
+        config["DEFAULT"]["password"] = ""
+    else:
+        sys.exit("Input mismatch, terminating...")
+
     config["DEFAULT"]["default_folder"] = (
         input("Folder for downloads (leave empty for default 'Qobuz Downloads')\n- ")
         or "Qobuz Downloads"
@@ -116,6 +132,9 @@ def main():
     config.read(CONFIG_FILE)
 
     try:
+        use_token = config["DEFAULT"]["use_token"]
+        user_id = config["DEFAULT"]["user_id"]
+        user_auth_token = config["DEFAULT"]["user_auth_token"]
         email = config["DEFAULT"]["email"]
         password = config["DEFAULT"]["password"]
         default_folder = config["DEFAULT"]["default_folder"]
@@ -177,7 +196,7 @@ def main():
         track_format=arguments.track_format or track_format,
         smart_discography=arguments.smart_discography or smart_discography,
     )
-    qobuz.initialize_client(email, password, app_id, secrets)
+    qobuz.initialize_client(email, password, app_id, secrets, use_token, user_id, user_auth_token)
 
     _handle_commands(qobuz, arguments)
 
