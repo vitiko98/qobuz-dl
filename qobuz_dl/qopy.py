@@ -5,6 +5,7 @@
 import hashlib
 import logging
 import time
+from datetime import date
 
 import requests
 
@@ -135,7 +136,8 @@ class Client:
         self.uat = usr_info["user_auth_token"]
         self.session.headers.update({"X-User-Auth-Token": self.uat})
         self.label = usr_info["user"]["credential"]["parameters"]["short_label"]
-        logger.info(f"{GREEN}Membership: {self.label}")
+        self.expiry_date = date.fromisoformat(usr_info["user"]["subscription"]["end_date"])
+        logger.info(f"{GREEN}Membership: {self.label}. Expires {date.strftime(self.expiry_date, '%d %b %Y')}.")
 
     def multi_meta(self, epoint, key, id, type):
         total = 1
