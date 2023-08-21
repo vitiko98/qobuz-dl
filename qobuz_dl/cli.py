@@ -196,7 +196,12 @@ def main():
         track_format=arguments.track_format or track_format,
         smart_discography=arguments.smart_discography or smart_discography,
     )
-    qobuz.initialize_client(email, password, app_id, secrets, use_token, user_id, user_auth_token)
+
+    if use_token == "true":
+        qobuz.initialize_client_with_token(app_id, secrets, user_id, user_auth_token)
+    else:
+        qobuz.initialize_client(email, password, app_id, secrets)
+
 
     _handle_commands(qobuz, arguments)
 
