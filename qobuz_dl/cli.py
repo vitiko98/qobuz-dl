@@ -132,7 +132,7 @@ def main():
     config.read(CONFIG_FILE)
 
     try:
-        use_token = config["DEFAULT"]["use_token"]
+        use_token = config.getboolean("DEFAULT", "use_token")
         user_id = config["DEFAULT"]["user_id"]
         user_auth_token = config["DEFAULT"]["user_auth_token"]
         email = config["DEFAULT"]["email"]
@@ -197,7 +197,7 @@ def main():
         smart_discography=arguments.smart_discography or smart_discography,
     )
 
-    if use_token == "true":
+    if use_token == True:
         qobuz.initialize_client_with_token(app_id, secrets, user_id, user_auth_token)
     else:
         qobuz.initialize_client(email, password, app_id, secrets)

@@ -70,11 +70,11 @@ class QobuzDL:
         self.smart_discography = smart_discography
 
     def initialize_client(self, email, pwd, app_id, secrets):
-        self.client = qopy.Client(email, pwd, app_id, secrets, use_token="false", user_id="", user_auth_token="")
+        self.client = qopy.Client(email, pwd, app_id, secrets, use_token=False, user_id="", user_auth_token="")
         logger.info(f"{YELLOW}Set max quality: {QUALITIES[int(self.quality)]}\n")
 
     def initialize_client_with_token(self, app_id, secrets, user_id, user_auth_token):
-        self.client = qopy.Client(email="", pwd="", app_id=app_id, secrets=secrets, use_token="true", user_id=user_id, user_auth_token=user_auth_token)
+        self.client = qopy.Client(email="", pwd="", app_id=app_id, secrets=secrets, use_token=True, user_id=user_id, user_auth_token=user_auth_token)
         logger.info(f"{YELLOW}Set max quality: {QUALITIES[int(self.quality)]}\n")
 
     def get_tokens(self):

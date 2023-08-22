@@ -44,7 +44,7 @@ class Client:
 
     def api_call(self, epoint, **kwargs):
         if epoint == "user/login":
-            if kwargs["use_token"] == "true":
+            if kwargs["use_token"] == True:
                 params = {
                     "user_id": kwargs["user_id"],
                     "user_auth_token": kwargs["user_auth_token"]
