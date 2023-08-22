@@ -1,4 +1,5 @@
 # qobuz-dl
+
 Search, explore and download Lossless and Hi-Res music from [Qobuz](https://www.qobuz.com/).
 [![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=VZWSWVGZGJRMU&source=url)
 
@@ -8,6 +9,7 @@ Search, explore and download Lossless and Hi-Res music from [Qobuz](https://www.
 * Explore and download music directly from your terminal with **interactive** or **lucky** mode
 * Download albums, tracks, artists, playlists and labels with **download** mode
 * Download music from last.fm playlists (Spotify, Apple Music and Youtube playlists are also supported through this method)
+* Download all liked albums or tracks
 * Queue support on **interactive** mode
 * Effective duplicate handling with own portable database
 * Support for albums with multiple discs
@@ -119,6 +121,22 @@ qobuz-dl lucky jay z story of oj --type track --no-cover
 
 Run `qobuz-dl lucky --help` for more info.
 
+### Me mode
+
+Download all liked albums
+
+```
+qobuz-dl me
+```
+
+Download all liked tracks
+
+```
+qobuz-dl me -t tracks
+```
+
+Run `qobuz-dl me --help` for more info.
+
 ### Other
 Reset your config file
 ```
@@ -149,7 +167,7 @@ commands:
     lucky         lucky mode
 ```
 
-## Module usage 
+## Module usage
 Using `qobuz-dl` as a module is really easy. Basically, the only thing you need is `QobuzDL` from `core`.
 
 ```python
@@ -172,6 +190,7 @@ Attributes, methods and parameters have been named as self-explanatory as possib
 
 ## A note about Qo-DL
 `qobuz-dl` is inspired in the discontinued Qo-DL-Reborn. This tool uses two modules from Qo-DL: `qopy` and `spoofer`, both written by Sorrow446 and DashLt.
+
 ## Disclaimer
-* This tool was written for educational purposes. I will not be responsible if you use this program in bad faith. By using it, you are accepting the [Qobuz API Terms of Use](https://static.qobuz.com/apps/api/QobuzAPI-TermsofUse.pdf).
-* `qobuz-dl` is not affiliated with Qobuz
+- This tool was written for educational purposes. I will not be responsible if you use this program in bad faith. By using it, you are accepting the [Qobuz API Terms of Use](https://static.qobuz.com/apps/api/QobuzAPI-TermsofUse.pdf).
+- `qobuz-dl` is not affiliated with Qobuz
