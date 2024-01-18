@@ -38,6 +38,7 @@ def make_m3u(pl_directory):
     track_list = ["#EXTM3U"]
     rel_folder = os.path.basename(os.path.normpath(pl_directory))
     pl_name = rel_folder + ".m3u"
+    
     for local, dirs, files in os.walk(pl_directory):
         dirs.sort()
         audio_rel_files = [
@@ -50,6 +51,7 @@ def make_m3u(pl_directory):
             for file_ in files
             if os.path.splitext(file_)[-1] in EXTENSIONS
         ]
+        
         if not audio_files or len(audio_files) != len(audio_rel_files):
             continue
 
@@ -69,7 +71,8 @@ def make_m3u(pl_directory):
             track_list.append(index)
 
     if len(track_list) > 1:
-        with open(os.path.join(pl_directory, pl_name), "w") as pl:
+        m3u_path = os.path.join(pl_directory, pl_name)
+        with open(m3u_path, "w", encoding="utf-8") as pl:
             pl.write("\n\n".join(track_list))
 
 
