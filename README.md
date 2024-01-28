@@ -89,7 +89,7 @@ Type your search query
 ```
 Logging...
 Logged: OK
-Membership: Studio
+Membership: Studio. Expires 10 Sep 2026.
 
 
 Enter your search: [Ctrl + c to quit]
