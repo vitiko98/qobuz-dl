@@ -32,7 +32,7 @@ def _reset_config(config_file):
 
     auth_method = input(f"Select authentication method:\n1. Email + password {OFF}(default){RESET}\n2. user_id + user_auth_token\n(Enter 1 or 2) {OFF}(1){RESET}: ")
 
-    if auth_method == "1" or auth_method == "": 
+    if auth_method == "1" or auth_method == "":
         config["DEFAULT"]["use_token"] = "false"
         config["DEFAULT"]["email"] = input("Enter your email:\n- ")
         password = input("Enter your password\n- ")
