@@ -410,10 +410,7 @@ class QobuzDL:
         _call = calls[type]
 
         response = _call(offset,limit)
-        try: 
-            total = response[type]["total"]
-        except KeyError:
-            print("unexpected response for type " + type + ":")
+        total = response[type]["total"]
 
         while len(response[type]["items"]) < total:
             offset += limit
