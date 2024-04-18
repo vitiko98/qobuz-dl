@@ -1,2 +1,4 @@
 Qobuz Downloads
 __pycache__
+.venv
+.vscode
