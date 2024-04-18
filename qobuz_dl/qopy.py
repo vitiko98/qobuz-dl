@@ -77,14 +77,16 @@ class Client:
         elif epoint == "favorite/getUserFavorites":
             unix = time.time()
             # r_sig = "userLibrarygetAlbumsList" + str(unix) + kwargs["sec"]
-            r_sig = "favoritegetUserFavorites" + str(unix) + kwargs["sec"]
+            r_sig = "favoritegetUserFavorites" + str(unix) + kwargs.get("sec", self.sec)
             r_sig_hashed = hashlib.md5(r_sig.encode("utf-8")).hexdigest()
             params = {
                 "app_id": self.id,
                 "user_auth_token": self.uat,
-                "type": "albums",
+                "type": kwargs.get("type", "albums"),
                 "request_ts": unix,
                 "request_sig": r_sig_hashed,
+                "offset": kwargs.get("offset", 0),
+                "limit": kwargs.get("limit", 500)
             }
         elif epoint == "track/getFileUrl":
             unix = time.time()
