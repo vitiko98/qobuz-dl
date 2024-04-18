@@ -86,6 +86,8 @@ def _handle_commands(qobuz, arguments):
             qobuz.lucky_type = arguments.type
             qobuz.lucky_limit = arguments.number
             qobuz.lucky_mode(query)
+        elif arguments.command == "favs":
+            qobuz.download_favorites(arguments.directory + "/" + arguments.file)    
         else:
             qobuz.interactive_limit = arguments.limit
             qobuz.interactive()

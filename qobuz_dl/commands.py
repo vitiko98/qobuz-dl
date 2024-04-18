@@ -54,6 +54,19 @@ def dl_args(subparsers):
     )
     return download
 
+def favorites_args(subparsers):
+    favs = subparsers.add_parser(
+        "favs",
+        description="Download favorites (albums, tracks and artists) as JSON"
+    )
+    favs.add_argument(
+        "-f",
+        "--file",
+        metavar="PATH",
+        default="favorites.json",
+        help='file name for favorites (default: "favorites.json")',
+    )
+    return favs
 
 def add_common_arg(custom_parser, default_folder, default_quality):
     custom_parser.add_argument(
@@ -165,9 +178,10 @@ def qobuz_dl_args(
     interactive = fun_args(subparsers, default_limit)
     download = dl_args(subparsers)
     lucky = lucky_args(subparsers)
+    favorites = favorites_args(subparsers)
     [
         add_common_arg(i, default_folder, default_quality)
-        for i in (interactive, download, lucky)
+        for i in (interactive, download, lucky, favorites)
     ]
 
     return parser

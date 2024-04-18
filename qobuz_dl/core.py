@@ -1,6 +1,7 @@
 import logging
 import os
 import sys
+import json
 
 import requests
 from bs4 import BeautifulSoup as bso
@@ -397,3 +398,42 @@ class QobuzDL:
 
         if not self.no_m3u_for_playlists:
             make_m3u(pl_directory)
+
+    def get_favorites_by_type(self, type):
+        offset = 0
+        limit = 500
+        calls = {
+            "albums": self.client.get_favorite_albums,
+            "tracks": self.client.get_favorite_tracks,
+            "artists": self.client.get_favorite_artists
+        }
+        _call = calls[type]
+
+        response = _call(offset,limit)
+        try: 
+            total = response[type]["total"]
+        except KeyError:
+            print("unexpected response for type " + type + ":")
+
+        while len(response[type]["items"]) < total:
+            offset += limit
+            tmp = _call(offset,limit)
+            response[type]["items"] = response[type]["items"] + tmp[type]["items"]
+
+        return response
+    
+    def get_all_favorites(self):
+        response = self.get_favorites_by_type("albums")
+        resp_tracks = self.get_favorites_by_type("tracks")
+        resp_artists = self.get_favorites_by_type("artists")
+        response["tracks"] = resp_tracks.get("tracks")
+        response["artists"] = resp_artists.get("artists")
+        return response
+    
+    def download_favorites(self, outfile):
+        response = self.get_all_favorites()
+
+        with open(outfile, 'w') as out:
+            json.dump(response, out)
+
+        logger.info(f"{YELLOW}Favorites written to {outfile}{RESET}")
