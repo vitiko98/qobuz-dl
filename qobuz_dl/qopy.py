@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 class Client:
-    def __init__(self, email, pwd, app_id, secrets):
+    def __init__(self, email, pwd, app_id, secrets,token=None):
         logger.info(f"{YELLOW}Logging...")
         self.secrets = secrets
         self.id = str(app_id)
@@ -38,16 +38,23 @@ class Client:
         )
         self.base = "https://www.qobuz.com/api.json/0.2/"
         self.sec = None
-        self.auth(email, pwd)
+        if token:
+            self.auth_via_token(token)
+        else:
+            self.auth(email, pwd)
         self.cfg_setup()
 
     def api_call(self, epoint, **kwargs):
         if epoint == "user/login":
-            params = {
-                "email": kwargs["email"],
-                "password": kwargs["pwd"],
-                "app_id": self.id,
-            }
+            if kwargs.get("token") is not None:
+                self.session.headers.update({"X-User-Auth-Token": kwargs["token"]})
+                params = None
+            else:
+                params = {
+                    "email": kwargs["email"],
+                    "password": kwargs["pwd"],
+                    "app_id": self.id,
+                }
         elif epoint == "track/get":
             params = {"track_id": kwargs["id"]}
         elif epoint == "album/get":
@@ -121,9 +128,15 @@ class Client:
 
         r.raise_for_status()
         return r.json()
-
-    def auth(self, email, pwd):
-        usr_info = self.api_call("user/login", email=email, pwd=pwd)
+    
+    def auth_via_token(self, token):
+        self.auth(None, None, token=token)
+        
+    def auth(self, email, pwd, token=None):
+        if token:
+            usr_info = self.api_call("user/login",token=token)
+        else:
+            usr_info = self.api_call("user/login", email=email, pwd=pwd)
         if not usr_info["user"]["credential"]["parameters"]:
             raise IneligibleError("Free accounts are not eligible to download tracks.")
         self.uat = usr_info["user_auth_token"]
