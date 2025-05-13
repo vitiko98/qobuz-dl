@@ -203,18 +203,14 @@ class QobuzDL:
                 f"{YELLOW}qobuz-dl will download {len(urls)} URLs from file: {txt_file}"
             )
 
-            # Download each URL with a progress bar
+            # Add tqdm here for the second progress bar
             for url in tqdm(urls, desc="Processing URLs", unit="url"):
-                try:
-                    if "last.fm" in url:
-                        self.download_lastfm_pl(url)
-                    elif os.path.isfile(url):
-                        self.download_from_txt_file(url)
-                    else:
-                        self.handle_url(url)
-                except Exception as e:
-                    logger.error(f"{RED}Error processing {url}: {e}")
-                    continue
+                if "last.fm" in url:
+                    self.download_lastfm_pl(url)
+                elif os.path.isfile(url):
+                    self.download_from_txt_file(url)
+                else:
+                    self.handle_url(url)
 
         except Exception as e:
             logger.error(f"{RED}Invalid text file: {e}")
