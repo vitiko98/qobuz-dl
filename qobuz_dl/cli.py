@@ -29,9 +29,16 @@ QOBUZ_DB = os.path.join(CONFIG_PATH, "qobuz_dl.db")
 def _reset_config(config_file):
     logging.info(f"{YELLOW}Creating config file: {config_file}")
     config = configparser.ConfigParser()
-    config["DEFAULT"]["email"] = input("Enter your email:\n- ")
-    password = input("Enter your password\n- ")
-    config["DEFAULT"]["password"] = hashlib.md5(password.encode("utf-8")).hexdigest()
+    
+    config["DEFAULT"]["email"] = ""
+    config["DEFAULT"]["password"] = ""
+    config["DEFAULT"]["token"] = ""
+    if input("Do you want to use a token? (y/n)\n- ").lower() == "y":
+        config["DEFAULT"]["token"] = input("Enter your token:\n- ")
+    else:
+        config["DEFAULT"]["email"] = input("Enter your email:\n- ")
+        password = input("Enter your password\n- ")
+        config["DEFAULT"]["password"] = hashlib.md5(password.encode("utf-8")).hexdigest()
     config["DEFAULT"]["default_folder"] = (
         input("Folder for downloads (leave empty for default 'Qobuz Downloads')\n- ")
         or "Qobuz Downloads"
@@ -118,6 +125,7 @@ def main():
     try:
         email = config["DEFAULT"]["email"]
         password = config["DEFAULT"]["password"]
+        token = config["DEFAULT"]["token"]
         default_folder = config["DEFAULT"]["default_folder"]
         default_limit = config["DEFAULT"]["default_limit"]
         default_quality = config["DEFAULT"]["default_quality"]
@@ -177,7 +185,11 @@ def main():
         track_format=arguments.track_format or track_format,
         smart_discography=arguments.smart_discography or smart_discography,
     )
-    qobuz.initialize_client(email, password, app_id, secrets)
+    
+    if token:
+        qobuz.initialize_client_via_token(token,app_id, secrets)
+    else:
+        qobuz.initialize_client(email, password, app_id, secrets)
 
     _handle_commands(qobuz, arguments)
 
