@@ -5,6 +5,7 @@ import sys
 import requests
 from bs4 import BeautifulSoup as bso
 from pathvalidate import sanitize_filename
+from tqdm import tqdm
 
 from qobuz_dl.bundle import Bundle
 from qobuz_dl import downloader, qopy
@@ -180,21 +181,40 @@ class QobuzDL:
                 self.handle_url(url)
 
     def download_from_txt_file(self, txt_file):
-        with open(txt_file, "r") as txt:
-            try:
-                urls = [
-                    line.replace("\n", "")
-                    for line in txt.readlines()
-                    if not line.strip().startswith("#")
-                ]
-            except Exception as e:
-                logger.error(f"{RED}Invalid text file: {e}")
+        try:
+            # Read the file and parse URLs with a progress bar
+            with open(txt_file, "r") as txt:
+                lines = txt.readlines()
+            
+            urls = []
+            print(f"Parsing file: {txt_file}")
+            for line in tqdm(lines, desc="Parsing URLs", unit="line"):
+                if not line.strip().startswith("#"):
+                    url = line.strip()
+                    if url:  # Only add non-empty lines
+                        urls.append(url)
+
+            if not urls:
+                logger.info(f"{OFF}No valid URLs found in file: {txt_file}")
                 return
+
+            # Log the number of URLs found
             logger.info(
-                f"{YELLOW}qobuz-dl will download {len(urls)}"
-                f" urls from file: {txt_file}"
+                f"{YELLOW}qobuz-dl will download {len(urls)} URLs from file: {txt_file}"
             )
-            self.download_list_of_urls(urls)
+
+            # Add tqdm here for the second progress bar
+            for url in tqdm(urls, desc="Processing URLs", unit="url"):
+                if "last.fm" in url:
+                    self.download_lastfm_pl(url)
+                elif os.path.isfile(url):
+                    self.download_from_txt_file(url)
+                else:
+                    self.handle_url(url)
+
+        except Exception as e:
+            logger.error(f"{RED}Invalid text file: {e}")
+            return
 
     def lucky_mode(self, query, download=True):
         if len(query) < 3:
